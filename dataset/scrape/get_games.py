@@ -19,7 +19,7 @@ try:
         if resp.status_code == 401:
             continue
         resp = resp.json()["response"]
-        if len(resp) == 0:
+        if len(resp) == 0 or resp["game_count"] == 0:
             continue
         resp_games = resp["games"]
         for resp_game in resp_games:
@@ -30,10 +30,8 @@ try:
                 "user_id": user_id,
                 "game_id": game_id,
                 "playtime_2weeks": resp_game.get("playtime_2weeks"),
-                "playtime_forever": resp_game["playtime_forever"]
+                "playtime_forever": resp_game["playtime_forever"],
             })
-        if len(resp_games) > 0:
-            break
 except AssertionError:
     print("Rate Limited")
     pass

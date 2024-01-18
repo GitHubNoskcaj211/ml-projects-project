@@ -5,13 +5,14 @@ from common import *
 
 URL = f"http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={KEY}&steamid={{user_id}}&relationship=friend"
 ROOT = "76561198166465514"  # Akash's steam id
+NUM_USERS = 5000
 
 
 friend_pairs = []
 visited = set()
 try:
     user_ids = deque([ROOT])
-    while len(user_ids) > 0 and len(visited) < 100:
+    while len(user_ids) > 0 and len(visited) < NUM_USERS:
         user_id = user_ids.pop()
         if user_id in visited:
             continue
