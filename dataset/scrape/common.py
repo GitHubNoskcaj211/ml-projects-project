@@ -8,12 +8,14 @@ DATA_ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../da
 KEY = os.getenv("STEAM_WEB_API_KEY")
 FRIENDS_FILENAME = os.path.join(DATA_ROOT_DIR, "friends.csv")
 USERS_FILENAME = os.path.join(DATA_ROOT_DIR, "users.csv")
+GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "games.csv")
+USER_GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "user_games.csv")
 
 
 def write_to_file(filename, arr):
     if len(arr) == 0:
         return
-    with open(filename, "w", newline="") as f:
+    with open(filename, "w", newline="", encoding="utf-8") as f:
         print("Writing to", os.path.basename(filename))
         writer = csv.DictWriter(f, fieldnames=arr[0].keys())
         writer.writeheader()
