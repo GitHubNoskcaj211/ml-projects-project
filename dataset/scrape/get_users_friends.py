@@ -5,8 +5,6 @@ from common import *
 
 URL = f"http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={KEY}&steamid={{user_id}}&relationship=friend"
 ROOT = "76561198166465514"  # Akash's steam id
-FRIENDS_FILENAME = os.path.join(DATA_ROOT_DIR, "friends.csv")
-USERS_FILENAME = os.path.join(DATA_ROOT_DIR, "users.csv")
 
 
 friend_pairs = []
@@ -26,19 +24,17 @@ try:
         for friend in friends:
             friend_id = friend["steamid"]
             user_ids.append(friend_id)
-            friend_pairs.append((user_id, friend_id))
+            friend_pairs.append({
+                "user1": user_id,
+                "user2": friend_id,
+            })
 except AssertionError:
     print("Rate Limited")
-    # Rate limited
     pass
 
 
-users = sorted(list(visited))
-with open(USERS_FILENAME, "w") as f:
-    for user in users:
-        f.write(user + "\n")
+users = list(map(lambda x: {"id": x}, sorted(visited)))
+write_to_file(USERS_FILENAME, users)
 
-friend_pairs = list(filter(lambda x: x[0] < x[1], friend_pairs))
-with open(FRIENDS_FILENAME, "w") as f:
-    for friend_pair in friend_pairs:
-        f.write(",".join(friend_pair) + "\n")
+friend_pairs = list(filter(lambda x: x["user1"] < x["user2"], friend_pairs))
+write_to_file(FRIENDS_FILENAME, friend_pairs)
