@@ -13,12 +13,14 @@ friend_pairs = []
 visited = set()
 try:
     user_ids = deque([ROOT])
-    while len(user_ids) > 0 and len(visited) < 5:
+    while len(user_ids) > 0 and len(visited) < 100:
         user_id = user_ids.pop()
         if user_id in visited:
             continue
         visited.add(user_id)
         resp = requests.get(URL.format(user_id=user_id))
+        if resp.status_code == 401:
+            continue
         assert resp.status_code == 200
         friends = resp.json()["friendslist"]["friends"]
         for friend in friends:
@@ -26,6 +28,7 @@ try:
             user_ids.append(friend_id)
             friend_pairs.append((user_id, friend_id))
 except AssertionError:
+    print("Rate Limited")
     # Rate limited
     pass
 
