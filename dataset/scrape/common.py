@@ -9,7 +9,7 @@ KEY = os.getenv("STEAM_WEB_API_KEY")
 FRIENDS_FILENAME = os.path.join(DATA_ROOT_DIR, "friends.csv")
 USERS_FILENAME = os.path.join(DATA_ROOT_DIR, "users.csv")
 GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "games.csv")
-USER_GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "user_games.csv")
+USER_GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "users_games.csv")
 
 
 def write_to_file(filename, arr):
