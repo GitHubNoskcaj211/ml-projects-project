@@ -9,6 +9,7 @@ import os
 class NodeType(Enum):
     GAME = 0
     USER = 1
+    UNDEFINED_USER = 2
 
 DATA_FILES_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data_files/')
 USERS_FILENAME = 'users.csv'
@@ -17,9 +18,9 @@ USERS_GAMES_FILENAME = 'users_games.csv'
 FRIENDS_FILENAME = 'friends.csv'
 
 def get_edges_between_types(network, node_type1, node_type2):
-    user_nodes = set(n for n, d in network.nodes(data=True) if d['bipartite'] == node_type1)
-    game_nodes = set(n for n, d in network.nodes(data=True) if d['bipartite'] == node_type2)
-    return list(nx.edge_boundary(network, user_nodes, game_nodes))
+    nodes_type_1 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type1)
+    nodes_type_2 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type2)
+    return list(nx.edge_boundary(network, nodes_type_1, nodes_type_2))
 
 class BaseDataLoader(ABC):
     def __init__(self):
@@ -90,27 +91,116 @@ class BaseDataLoader(ABC):
         self.test_network = copy.deepcopy(network)
         self.test_network.remove_edges_from(user_game_edges_set - set(test_edges))
 
-# TODO rework this to provide options for what encoding
-# TODO rework this for what embedding
-# Baseline - as simple as network can be. Include all user nodes and game nodes (with their id). Include user - game edges with playtime_forever attribute.
-class BaselineDataLoader(BaseDataLoader):
-    def __init__(self):
+class EmbeddingType(Enum):
+    IDENTITY = 0
+    CATEGORICAL = 1
+    ONE_HOT = 2
+    SUM = 3
+
+def add_node_embeddings(network, embedding_name, node_to_value_dict):
+    nx.set_node_attributes(network, node_to_value_dict, embedding_name)
+
+def add_edge_embeddings(network, embedding_name, edge_to_value_dict):
+    nx.set_edge_attributes(network, edge_to_value_dict, embedding_name)
+
+
+class FriendEdgeEncoding(Enum):
+    NONE = 0 # No friend edges
+    BETWEEN_USERS = 1 # Will only create edges between fully defined users
+    ALL_FRIENDSHIPS = 2 # Will create undefined user nodes if a node in a friendship doesn't have full data
+
+# Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
+class DataLoader(BaseDataLoader):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = []):
         super().__init__()
+        self.friendship_edge_encoding = friendship_edge_encoding
+        self.user_embeddings = user_embeddings
+        self.game_embeddings = game_embeddings
+        self.user_game_edge_embeddings = user_game_edge_embeddings
+        self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
     
+    def handle_identity_embedding_command(self, network, embedding_command):
+        embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], embedding_command['args'][0])))
+
+    def handle_sum_embedding_command(self, network, embedding_command):
+        embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], [sum(x) for x in zip(*embedding_command['args'])])))
+
+    def dispatch_embedding_command(self, network, embedding_command):
+        match embedding_command['embedding_type']:
+            case EmbeddingType.IDENTITY:
+                self.handle_identity_embedding_command(network, embedding_command)
+            case EmbeddingType.CATEGORICAL:
+                pass
+            case EmbeddingType.ONE_HOT:
+                pass
+            case EmbeddingType.SUM:
+                self.handle_sum_embedding_command(network, embedding_command)
+            case _:
+                raise NotImplementedError(f'Have embedding type that cannot be handled: {embedding_command["embedding_type"]}')
+
+    def run_user_embedding_commands(self, network, user_embeddings):
+        for user_embedding in user_embeddings:
+            match user_embedding:
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {user_embedding}')
+            self.dispatch_embedding_command(network, command)
+    
+    def run_game_embedding_commands(self, network, game_embeddings):
+        for game_embedding in game_embeddings:
+            match game_embedding:
+                case 'name':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'game_name', 'key': self.games_df['id'], 'args': [self.games_df['name']]}
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {game_embedding}')
+            self.dispatch_embedding_command(network, command)
+
+    def run_user_game_edge_embedding_commands(self, network, user_game_edge_embeddings):
+        for user_game_edge_embedding in user_game_edge_embeddings:
+            match user_game_edge_embedding:
+                case 'example_sum_user_id_game_id_playtime_forever':
+                    command = {'embedding_type': EmbeddingType.SUM, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'example_sum_user_id_game_id_playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['user_id'], self.users_games_df['game_id'], self.users_games_df['playtime_forever']]}
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {user_game_edge_embedding}')
+            self.dispatch_embedding_command(network, command)
+
+    def run_friend_friend_edge_embedding_commands(self, network, friend_friend_edge_embeddings):
+        for friend_friend_edge_embedding in friend_friend_edge_embeddings:
+            match friend_friend_edge_embedding:
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {friend_friend_edge_embedding}')
+            self.dispatch_embedding_command(network, command)
+
+    def add_embeddings(self, network):
+        self.run_user_embedding_commands(network, self.user_embeddings)
+        self.run_game_embedding_commands(network, self.game_embeddings)
+        self.run_user_game_edge_embedding_commands(network, self.user_game_edge_embeddings)
+        self.run_friend_friend_edge_embedding_commands(network, self.friend_friend_edge_embeddings)
+
     def get_full_network(self):
         network = nx.Graph()
-        # node_counter = 0
-        # for index, user in self.users_df.iterrows():
-        #     network.add_node(node_counter, user_id=user['id'], bipartite=NodeType.USER)
-        #     node_counter += 1
-        # for index, game in self.games_df.iterrows():
-        #     network.add_node(node_counter, game_id=game['id'], bipartite=NodeType.GAME)
-        #     node_counter += 1
+        network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)
+        network.add_nodes_from(self.games_df.id, node_type=NodeType.GAME)
 
-        network.add_nodes_from(self.users_df.id, bipartite=NodeType.USER)
-        network.add_nodes_from(self.games_df.id, bipartite=NodeType.GAME)
-        # nx.set_node_attributes(network, dict(zip(self.games_df['id'], self.games_df['name'])), 'name')
         for user_game in self.users_games_df.itertuples(index=False):
-            network.add_edge(user_game.user_id, user_game.game_id, playtime=user_game.playtime_forever)
+            network.add_edge(user_game.user_id, user_game.game_id)
+
+        match self.friendship_edge_encoding:
+            case FriendEdgeEncoding.NONE:
+                pass
+            case FriendEdgeEncoding.BETWEEN_USERS:
+                for friends in self.friends_df.itertuples(index=False):
+                    if friends.user1 in network.nodes() and friends.user2 in network.nodes():
+                        network.add_edge(friends.user1, friends.user2)
+            case FriendEdgeEncoding.ALL_FRIENDSHIPS:
+                for friends in self.friends_df.itertuples(index=False):
+                    if friends.user1 not in network.nodes():
+                        network.add_node(friends.user1, node_type=NodeType.UNDEFINED_USER)
+                    if friends.user2 not in network.nodes():
+                        network.add_node(friends.user2, node_type=NodeType.UNDEFINED_USER)
+                    network.add_edge(friends.user1, friends.user2)
+            case _:
+                raise NotImplementedError(f'Did not implement the friendship edge encoding.')
             
+        self.add_embeddings(network)
+
         return network

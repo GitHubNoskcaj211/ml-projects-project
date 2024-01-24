@@ -21,7 +21,7 @@ class CommonNeighbors(BaseGameRecommendationModel):
         self.length_3_paths = (self.matrix @ self.matrix @ self.matrix).todense()
         self.index_to_node = list(self.data_loader.train_network.nodes())
         self.node_to_index = {node: ii for ii, node in enumerate(self.data_loader.train_network.nodes())}
-        self.game_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['bipartite'] == NodeType.GAME]
+        self.game_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
 
     def score_and_predict_n_games_for_user(self, user, N=None):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
