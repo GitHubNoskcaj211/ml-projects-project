@@ -8,7 +8,7 @@ import random
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
 from data_loader import NodeType
 
-class Random(BaseGameRecommendationModel):
+class RandomModel(BaseGameRecommendationModel):
     def __init__(self, seed = 0):
         self.seed = 0
 

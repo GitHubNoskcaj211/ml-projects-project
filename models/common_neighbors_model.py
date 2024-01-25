@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
 from data_loader import NodeType
 
-class CommonNeighbors(BaseGameRecommendationModel):
+class CommonNeighborsModel(BaseGameRecommendationModel):
     def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):
         self.path_length_2_weight = path_length_2_weight
         self.path_length_3_weight = path_length_3_weight
