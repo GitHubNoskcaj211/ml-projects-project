@@ -1,5 +1,7 @@
 from collections import deque
+import pandas as pd
 import requests
+from tqdm import tqdm
 
 from common import *
 
@@ -12,30 +14,34 @@ friend_pairs = []
 visited = set()
 try:
     user_ids = deque([ROOT])
-    while len(user_ids) > 0 and len(visited) < NUM_USERS:
-        user_id = user_ids.pop()
-        if user_id in visited:
-            continue
-        visited.add(user_id)
-        resp = requests.get(URL.format(user_id=user_id))
-        if resp.status_code == 401:
-            continue
-        assert resp.status_code == 200
-        friends = resp.json()["friendslist"]["friends"]
-        for friend in friends:
-            friend_id = friend["steamid"]
-            user_ids.append(friend_id)
-            friend_pairs.append({
-                "user1": user_id,
-                "user2": friend_id,
-            })
+    with tqdm(total=NUM_USERS) as pbar:
+        while len(user_ids) > 0 and len(visited) < NUM_USERS:
+            user_id = user_ids.pop()
+            if user_id in visited:
+                continue
+            visited.add(user_id)
+            resp = requests.get(URL.format(user_id=user_id))
+            if resp.status_code == 401:
+                continue
+            assert resp.status_code == 200
+            friends = resp.json()["friendslist"]["friends"]
+            for friend in friends:
+                friend_id = friend["steamid"]
+                user_ids.append(friend_id)
+                friend_pairs.append({
+                    "user1": user_id,
+                    "user2": friend_id,
+                })
+            pbar.update(1)
 except AssertionError:
     print("Rate Limited")
     pass
 
 
-users = list(map(lambda x: {"id": x}, sorted(visited)))
-write_to_file(USERS_FILENAME, users)
+users = pd.DataFrame(data=visited, columns=["id"])
+users.sort_values(by="id", inplace=True)
+users.to_csv(USERS_FILENAME, index=False)
 
-friend_pairs = list(filter(lambda x: x["user1"] < x["user2"], friend_pairs))
-write_to_file(FRIENDS_FILENAME, friend_pairs)
+friend_pairs = pd.DataFrame(friend_pairs)
+friend_pairs = friend_pairs[friend_pairs["user1"] < friend_pairs["user2"]]
+friend_pairs.to_csv(FRIENDS_FILENAME, index=False)
