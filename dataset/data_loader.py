@@ -17,10 +17,10 @@ GAMES_FILENAME = 'games.csv'
 USERS_GAMES_FILENAME = 'users_games.csv'
 FRIENDS_FILENAME = 'friends.csv'
 
-def get_edges_between_types(network, node_type1, node_type2):
+def get_edges_between_types(network, node_type1, node_type2, data=False):
     nodes_type_1 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type1)
     nodes_type_2 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type2)
-    return list(nx.edge_boundary(network, nodes_type_1, nodes_type_2))
+    return list(nx.edge_boundary(network, nodes_type_1, nodes_type_2, data=data))
 
 class BaseDataLoader(ABC):
     def __init__(self):
@@ -103,7 +103,6 @@ def add_node_embeddings(network, embedding_name, node_to_value_dict):
 def add_edge_embeddings(network, embedding_name, edge_to_value_dict):
     nx.set_edge_attributes(network, edge_to_value_dict, embedding_name)
 
-
 class FriendEdgeEncoding(Enum):
     NONE = 0 # No friend edges
     BETWEEN_USERS = 1 # Will only create edges between fully defined users
@@ -111,13 +110,14 @@ class FriendEdgeEncoding(Enum):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader(BaseDataLoader):
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = []):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = (lambda edge_data: 1), user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = []):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.user_embeddings = user_embeddings
         self.game_embeddings = game_embeddings
         self.user_game_edge_embeddings = user_game_edge_embeddings
         self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
+        self.edge_scoring_function = edge_scoring_function
     
     def handle_identity_embedding_command(self, network, embedding_command):
         embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], embedding_command['args'][0])))
@@ -170,6 +170,12 @@ class DataLoader(BaseDataLoader):
                     raise NotImplementedError(f'Cannot recognize embedding: {friend_friend_edge_embedding}')
             self.dispatch_embedding_command(network, command)
 
+    def score_edges(self, network):
+        for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
+            edge_data = network.edges[edge]
+            score = self.edge_scoring_function(edge_data)
+            network.edges[edge]['score'] = score
+
     def add_embeddings(self, network):
         self.run_user_embedding_commands(network, self.user_embeddings)
         self.run_game_embedding_commands(network, self.game_embeddings)
@@ -202,5 +208,7 @@ class DataLoader(BaseDataLoader):
                 raise NotImplementedError(f'Did not implement the friendship edge encoding.')
             
         self.add_embeddings(network)
+
+        self.score_edges(network)
 
         return network

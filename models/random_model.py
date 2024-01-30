@@ -22,8 +22,8 @@ class RandomModel(BaseGameRecommendationModel):
     def score_and_predict_n_games_for_user(self, user, N=None):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
         score_fn = lambda user, game: random.random()
-        scores = [(game, score_fn(user, game), None) for game in self.game_nodes if game not in root_node_neighbors]
-        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        scores = [(game, {'score': score_fn(user, game)}) for game in self.game_nodes if game not in root_node_neighbors]
+        scores = sorted(scores, key=lambda x: x[1]['score'], reverse=True)
         if N is not None:
             scores = scores[:N]
         return scores

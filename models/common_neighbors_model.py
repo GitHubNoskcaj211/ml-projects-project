@@ -26,8 +26,8 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
     def score_and_predict_n_games_for_user(self, user, N=None):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
         score_fn = lambda user, game: self.path_length_2_weight * self.length_2_paths[self.node_to_index[user]][self.node_to_index[game]] + self.path_length_3_weight * self.length_3_paths[self.node_to_index[user]][self.node_to_index[game]]
-        scores = [(game, score_fn(user, game), None) for game in self.game_nodes if game not in root_node_neighbors]
-        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        scores = [(game, {'score': score_fn(user, game)}) for game in self.game_nodes if game not in root_node_neighbors]
+        scores = sorted(scores, key=lambda x: x[1]['score'], reverse=True)
         if N is not None:
             scores = scores[:N]
         return scores
