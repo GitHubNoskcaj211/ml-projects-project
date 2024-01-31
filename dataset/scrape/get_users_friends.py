@@ -12,17 +12,19 @@ NUM_USERS = 5000
 
 friend_pairs = []
 visited = set()
+private = set()
 try:
     user_ids = deque([ROOT])
     with tqdm(total=NUM_USERS) as pbar:
         while len(user_ids) > 0 and len(visited) < NUM_USERS:
             user_id = user_ids.pop()
-            if user_id in visited:
+            if user_id in visited or user_id in private:
                 continue
-            visited.add(user_id)
             resp = requests.get(URL.format(user_id=user_id))
             if resp.status_code == 401:
+                private.add(user_id)
                 continue
+            visited.add(user_id)
             assert resp.status_code == 200
             friends = resp.json()["friendslist"]["friends"]
             for friend in friends:
