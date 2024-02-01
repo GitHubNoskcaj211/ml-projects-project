@@ -23,7 +23,7 @@ try:
             continue
         resp_games = resp["games"]
         for resp_game in resp_games:
-            game_id = str(resp_game["appid"])
+            game_id = resp_game["appid"]
             game_name = resp_game["name"].strip()
             games.add((game_id, game_name))
             user_games.append({
@@ -36,16 +36,13 @@ except AssertionError:
     print("Rate Limited")
     pass
 
-user_games = pd.DataFrame(user_games)
-user_games.to_csv(USER_GAMES_FILENAME, index=False)
-
 
 games_data = []
-skipped = 0
+missing_games = set()
 for app_id, name in tqdm(games):
     resp = requests.get(GAME_URL.format(app_id=app_id))
     if resp.status_code == 500:
-        skipped += 1
+        missing_games.add(app_id)
         continue
     assert resp.status_code == 200
     resp = resp.json()
@@ -60,7 +57,10 @@ for app_id, name in tqdm(games):
         "numFollowers": resp.get("followers"),
     })
 
-print("Skipped", skipped)
+user_games = pd.DataFrame(user_games)
+user_games = user_games[~user_games["game_id"].isin(missing_games)]
+user_games.to_csv(USER_GAMES_FILENAME, index=False)
+
 games_data = pd.DataFrame(data=games_data)
 games_data.sort_values(by="id", inplace=True)
 games_data.to_csv(GAMES_FILENAME, index=False)
