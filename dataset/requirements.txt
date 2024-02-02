@@ -1,0 +1,6 @@
+pandas
+python-dotenv
+networkx
+requests
+scikit-learn
+tqdm
