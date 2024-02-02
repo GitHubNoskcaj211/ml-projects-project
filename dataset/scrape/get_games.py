@@ -54,6 +54,7 @@ for app_id, name in tqdm(games):
         "price": resp["price"],
         "genres": resp["genres"],
         "tags": resp["tags"],
+        "description": resp["description"],
         "numFollowers": resp.get("followers"),
     })
 
