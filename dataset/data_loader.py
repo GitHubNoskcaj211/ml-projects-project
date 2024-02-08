@@ -5,6 +5,7 @@ from enum import Enum
 import networkx as nx
 import pandas as pd
 import os
+import numpy as np
 
 class NodeType(Enum):
     GAME = 0
@@ -16,6 +17,15 @@ USERS_FILENAME = 'users.csv'
 GAMES_FILENAME = 'games.csv'
 USERS_GAMES_FILENAME = 'users_games.csv'
 FRIENDS_FILENAME = 'friends.csv'
+
+def filter_numeric_data(data):
+    def is_floatable(value):
+        try:
+            float(value)
+            return True
+        except Exception:
+            return False
+    return {key: float(value) for key, value in data.items() if is_floatable(value)}
 
 def get_edges_between_types(network, node_type1, node_type2, data=False):
     nodes_type_1 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type1)
@@ -159,6 +169,8 @@ class DataLoader(BaseDataLoader):
             match user_game_edge_embedding:
                 case 'example_sum_user_id_game_id_playtime_forever':
                     command = {'embedding_type': EmbeddingType.SUM, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'example_sum_user_id_game_id_playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['user_id'], self.users_games_df['game_id'], self.users_games_df['playtime_forever']]}
+                case 'playtime_forever':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['playtime_forever']]}
                 case _:
                     raise NotImplementedError(f'Cannot recognize embedding: {user_game_edge_embedding}')
             self.dispatch_embedding_command(network, command)
@@ -188,7 +200,12 @@ class DataLoader(BaseDataLoader):
         network.add_nodes_from(self.games_df.id, node_type=NodeType.GAME)
 
         for user_game in self.users_games_df.itertuples(index=False):
-            network.add_edge(user_game.user_id, user_game.game_id)
+            if user_game.game_id in network: # TODO remove
+                network.add_edge(user_game.user_id, user_game.game_id)
+
+        # TODO remove
+        isolated_nodes = list(nx.isolates(network))
+        network.remove_nodes_from(isolated_nodes)
 
         match self.friendship_edge_encoding:
             case FriendEdgeEncoding.NONE:
