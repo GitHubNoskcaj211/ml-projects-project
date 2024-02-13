@@ -11,6 +11,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../ut
 from data_loader import NodeType
 from utils import linear_transformation
 
+SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
+
 def absolute_error(predicted, expected):
     return abs(predicted - expected)
 
@@ -160,3 +162,16 @@ class Evaluator:
         min_predicted_score = np.min(self.edge_results['predicted_score'])
         transformed_scores = self.edge_results['predicted_score'].apply(lambda predicted_score: linear_transformation(predicted_score, min_predicted_score, max_predicted_score, 0.99, 0.01))
         self.metrics['user_based_auc_roc'] = skmetrics.roc_auc_score(self.edge_results['expected_edge'].astype(int).tolist(), 1 / (self.edge_results['user_predicted_rank'] + transformed_scores))
+
+    def save_metrics(self, folder_name, overwrite=False):
+        full_folder = SAVED_EVALUATION_PATH + folder_name + '/'
+        assert not os.path.exists(full_folder) or overwrite, f'Tried to save to a folder that already exists {folder_name} without allowing for overwrite.'
+        if not os.path.exists(full_folder):
+            os.makedirs(full_folder)
+        with open(f'{full_folder}metrics.txt', 'w') as metrics_file:
+            for key, value in self.metrics.items():
+                if isinstance(value, float):
+                    metrics_file.write(f'{key}: {value}\n')
+                elif isinstance(value, plt.Figure):
+                    value.savefig(f'{full_folder}{key}.png')
+                    plt.close(value)

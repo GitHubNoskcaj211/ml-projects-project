@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
 from data_loader import NodeType
 
-SAVED_MODELS_PATH = 'saved_models/'
+SAVED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models/')
 
 class BaseGameRecommendationModel(ABC):
     @abstractmethod

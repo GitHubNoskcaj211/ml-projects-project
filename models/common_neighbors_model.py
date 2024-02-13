@@ -33,8 +33,8 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
         return scores
 
     def save(self, file_name, overwrite=False):
-        assert not os.path.isfile(SAVED_MODELS_PATH + file_name) or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
-        with open(SAVED_MODELS_PATH + file_name, 'wb') as file:
+        assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
+        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'wb') as file:
             pickle.dump({
                 'path_length_2_weight': self.path_length_2_weight,
                 'path_length_3_weight': self.path_length_3_weight,
@@ -45,7 +45,7 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
             }, file)
 
     def load(self, file_name):
-        with open(SAVED_MODELS_PATH + file_name, 'rb') as file:
+        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
             self.path_length_2_weight = loaded_obj['path_length_2_weight']
             self.path_length_3_weight = loaded_obj['path_length_3_weight']

@@ -1,0 +1,11 @@
+top_10_hit_percentage_at_75_user_percentile: 0.0
+top_10_hit_percentage_at_50_user_percentile: 0.0
+top_10_hit_percentage_at_25_user_percentile: 0.0
+top_10_hit_percentage: 0.0004440497335701599
+top_25_hit_percentage: 0.002960331557134399
+positional_error_at_25_user_percentile: 0.0
+positional_error_at_50_user_percentile: 1.1428571428571428
+positional_error_at_75_user_percentile: 2.5714285714285716
+mean_positional_error: 2.2060508994659953
+auc_roc: 0.5001429363702519
+user_based_auc_roc: 0.5120723121797326
