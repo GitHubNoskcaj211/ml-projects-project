@@ -7,8 +7,10 @@ import pickle
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
+sys.path.append("../dataset")
+sys.path.append("../utils")
 from data_loader import NodeType, get_edges_between_types, filter_numeric_data
+from utils import linear_transformation
 
 # Base Collaborative Filtering
 # Based on https://towardsdatascience.com/prototyping-a-recommender-system-step-by-step-part-2-alternating-least-square-als-matrix-4a76c58714a1
@@ -40,19 +42,19 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
             random.shuffle(random_edge_index_order)
             abs_errors.append(0)
             for edge_ii in random_edge_index_order:
-                edge, data = edges[edge_ii]
-                user_ii = self.user_to_index[edge[0]]
-                game_ii = self.game_to_index[edge[1]]
+                user, game, data = edges[edge_ii]
+                user_ii = self.user_to_index[user]
+                game_ii = self.game_to_index[game]
                 predicted = np.sum(self.user_embeddings[user_ii, :] * self.game_embeddings[game_ii, :])
                 error = predicted - data['score']
                 abs_errors[-1] += abs(error)
                 old_user_embeddings = self.user_embeddings[user_ii, :]
                 self.user_embeddings[user_ii, :] = self.user_embeddings[user_ii, :] - self.learning_rate * (error * self.game_embeddings[game_ii, :] + self.regularization * self.user_embeddings[user_ii, :])
                 self.game_embeddings[game_ii, :] = self.game_embeddings[game_ii, :] - self.learning_rate * (error * old_user_embeddings + self.regularization * self.game_embeddings[game_ii, :])
-        
+            abs_errors[-1] /= len(random_edge_index_order)
         if debug:
             plt.plot(range(self.num_epochs), abs_errors)
-            plt.title('Absolute Errors vs Epochs')
+            plt.title('Mean Abs Error vs Epoch')
 
     def score_and_predict_n_games_for_user(self, user, N=None):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))

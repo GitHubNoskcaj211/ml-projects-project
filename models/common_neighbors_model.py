@@ -39,8 +39,6 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
                 'path_length_2_weight': self.path_length_2_weight,
                 'path_length_3_weight': self.path_length_3_weight,
                 'matrix': self.matrix,
-                'length_2_paths': self.length_2_paths,
-                'length_3_paths': self.length_3_paths,
                 'index_to_node': self.index_to_node,
                 'node_to_index': self.node_to_index,
                 'game_nodes': self.game_nodes,
@@ -52,8 +50,9 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
             self.path_length_2_weight = loaded_obj['path_length_2_weight']
             self.path_length_3_weight = loaded_obj['path_length_3_weight']
             self.matrix = loaded_obj['matrix']
-            self.length_2_paths = loaded_obj['length_2_paths']
-            self.length_3_paths = loaded_obj['length_3_paths']
             self.index_to_node = loaded_obj['index_to_node']
             self.node_to_index = loaded_obj['node_to_index']
             self.game_nodes = loaded_obj['game_nodes']
+
+            self.length_2_paths = (self.matrix @ self.matrix).todense()
+            self.length_3_paths = (self.matrix @ self.matrix @ self.matrix).todense()

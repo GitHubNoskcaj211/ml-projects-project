@@ -6,6 +6,11 @@ import networkx as nx
 import pandas as pd
 import os
 import numpy as np
+from pprint import pprint
+
+import sys
+sys.path.append("../utils")
+from utils import linear_transformation, gaussian_transformation
 
 class NodeType(Enum):
     GAME = 0
@@ -17,6 +22,12 @@ USERS_FILENAME = 'users.csv'
 GAMES_FILENAME = 'games.csv'
 USERS_GAMES_FILENAME = 'users_games.csv'
 FRIENDS_FILENAME = 'friends.csv'
+
+def print_game_edges_for_user(network, user):
+    print(f'Edges for user {user}:')
+    game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+    edges = nx.edge_boundary(network, [user], game_nodes, data=True)
+    pprint(list(edges))
 
 def filter_numeric_data(data):
     def is_floatable(value):
@@ -118,9 +129,53 @@ class FriendEdgeEncoding(Enum):
     BETWEEN_USERS = 1 # Will only create edges between fully defined users
     ALL_FRIENDSHIPS = 2 # Will create undefined user nodes if a node in a friendship doesn't have full data
 
+def linear_normalize_scores_per_user(network, min_score = 0, max_score = 1):
+    min_max_score_per_user = {}
+    game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+    for node, data in network.nodes(data=True):
+        if data['node_type'] != NodeType.USER:
+            continue
+        edges = nx.edge_boundary(network, [node], game_nodes, data=True)
+        scores = [data['score'] for user, game, data in edges]
+        min_max_score_per_user[node] = (min(scores), max(scores))
+
+    for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
+        user = edge[0]
+        network.edges[edge]['score'] = linear_transformation(network.edges[edge]['score'], *min_max_score_per_user[user], min_score, max_score)
+
+def linear_normalize_scores_per_user_factory(min_score, max_score):
+    return lambda network: linear_normalize_scores_per_user(network, min_score, max_score)
+
+def gaussian_normalize_scores_per_user(network, new_mean = 0.0, new_std = 1.0):
+    mean_stddev_score_per_user = {}
+    game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+    for node, data in network.nodes(data=True):
+        if data['node_type'] != NodeType.USER:
+            continue
+        edges = nx.edge_boundary(network, [node], game_nodes, data=True)
+        scores = [data['score'] for user, game, data in edges]
+        mean_stddev_score_per_user[node] = (np.mean(scores), np.std(scores))
+
+    for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
+        user = edge[0]
+        network.edges[edge]['score'] = gaussian_transformation(network.edges[edge]['score'], *mean_stddev_score_per_user[user], new_mean, new_std)
+
+def gaussian_normalize_scores_per_user_factory(new_mean, new_std):
+    return lambda network: gaussian_normalize_scores_per_user(network, new_mean, new_std)
+
+def percentile_normalize_scores_per_user(network):
+    game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+    for node, data in network.nodes(data=True):
+        if data['node_type'] != NodeType.USER:
+            continue
+        edges = list(nx.edge_boundary(network, [node], game_nodes, data=True))
+        scores = np.array([data['score'] for user, game, data in edges])
+        for user, game, data in edges:
+            network.edges[(user, game)]['score'] = (scores <= data['score']).mean()
+
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader(BaseDataLoader):
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = (lambda edge_data: 1), user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = []):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = (lambda edge_data: 1), score_normalization_functions = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = []):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.user_embeddings = user_embeddings
@@ -128,6 +183,7 @@ class DataLoader(BaseDataLoader):
         self.user_game_edge_embeddings = user_game_edge_embeddings
         self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
         self.edge_scoring_function = edge_scoring_function
+        self.score_normalization_functions = score_normalization_functions
     
     def handle_identity_embedding_command(self, network, embedding_command):
         embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], embedding_command['args'][0])))
@@ -227,5 +283,8 @@ class DataLoader(BaseDataLoader):
         self.add_embeddings(network)
 
         self.score_edges(network)
+
+        for score_normalization_function in self.score_normalization_functions:
+            score_normalization_function(network)
 
         return network

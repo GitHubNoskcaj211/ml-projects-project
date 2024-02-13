@@ -1,1 +1,0 @@
-TODO Explain high level of project & project structure
