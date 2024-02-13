@@ -9,6 +9,7 @@ import numpy as np
 from pprint import pprint
 import dill
 import pickle
+from ast import literal_eval
 
 import sys
 sys.path.append("../utils")
@@ -60,7 +61,11 @@ class BaseDataLoader(ABC):
         self.games_df = pd.read_csv(DATA_FILES_DIRECTORY + GAMES_FILENAME, dtype={
             'id': 'int64',
             'name': 'string',
-        })
+            'numReviews': 'int64',
+            'avgReviewScore': 'int64',
+            'price': 'float64',
+            'numFollowers': 'float64', # TODO Change this to int64 once
+        }, converters={'genres': literal_eval, 'tags': literal_eval})
         self.users_games_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_GAMES_FILENAME, dtype={
             'user_id': 'int64',
             'game_id': 'int64',
@@ -241,12 +246,17 @@ class DataLoader(BaseDataLoader):
     def handle_sum_embedding_command(self, network, embedding_command):
         embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], [sum(x) for x in zip(*embedding_command['args'])])))
 
+    def handle_categorical_embedding_command(self, network, embedding_command):
+        categories = set([value for lst in embedding_command['args'][0] for value in lst])
+        for category in categories:
+            embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'] + ': ' + category, dict(zip(embedding_command['key'], embedding_command['args'][0].apply(lambda lst: 1.0 if category in lst else 0.0))))
+
     def dispatch_embedding_command(self, network, embedding_command):
         match embedding_command['embedding_type']:
             case EmbeddingType.IDENTITY:
                 self.handle_identity_embedding_command(network, embedding_command)
             case EmbeddingType.CATEGORICAL:
-                pass
+                self.handle_categorical_embedding_command(network, embedding_command)
             case EmbeddingType.ONE_HOT:
                 pass
             case EmbeddingType.SUM:
@@ -265,7 +275,19 @@ class DataLoader(BaseDataLoader):
         for game_embedding in game_embeddings:
             match game_embedding:
                 case 'name':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'game_name', 'key': self.games_df['id'], 'args': [self.games_df['name']]}
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'name', 'key': self.games_df['id'], 'args': [self.games_df['name']]}
+                case 'numReviews':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_reviews', 'key': self.games_df['id'], 'args': [self.games_df['numReviews']]}
+                case 'avgReviewScore':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'avg_review_score', 'key': self.games_df['id'], 'args': [self.games_df['avgReviewScore']]}
+                case 'price':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'price', 'key': self.games_df['id'], 'args': [self.games_df['price']]}
+                case 'genres':
+                    command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Genre', 'key': self.games_df['id'], 'args': [self.games_df['genres']]}
+                case 'tags':
+                    command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Tag', 'key': self.games_df['id'], 'args': [self.games_df['tags']]}
+                case 'numFollowers':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_followers', 'key': self.games_df['id'], 'args': [self.games_df['numFollowers']]}
                 case _:
                     raise NotImplementedError(f'Cannot recognize embedding: {game_embedding}')
             self.dispatch_embedding_command(network, command)
