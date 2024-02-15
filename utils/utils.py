@@ -1,12 +1,28 @@
-def linear_transformation(number, start_domain, end_domain, start_range, end_range):
+import numpy as np
+
+def linear_transformation(numbers, start_domain, end_domain, start_range, end_range):
     if (end_domain - start_domain) == 0:
-        return end_range
+        if isinstance(numbers, (int, float)):
+            return end_range
+        elif isinstance(numbers, np.ndarray):
+            return np.full_like(numbers, end_range)
+        else:
+            raise ValueError("Input must be a number or a numpy array.")
     slope = (end_range - start_range) / (end_domain - start_domain)
     intercept = start_range - slope * start_domain
-    transformed_number = slope * number + intercept
-    return transformed_number
+    transformed_numbers = slope * numbers + intercept
+    return transformed_numbers
 
-def gaussian_transformation(number, old_mean, old_std_dev, new_mean, new_std_dev):
+def gaussian_transformation(numbers, old_mean, old_std_dev, new_mean, new_std_dev):
     if old_std_dev == 0:
-        return new_mean
-    return (number - old_mean) / old_std_dev * new_std_dev + new_mean
+        if isinstance(numbers, (int, float)):
+            return new_mean
+        elif isinstance(numbers, np.ndarray):
+            return np.full_like(numbers, new_mean)
+        else:
+            raise ValueError("Input must be a number or a numpy array.")
+    return (numbers - old_mean) / old_std_dev * new_std_dev + new_mean
+
+def get_numeric_dataframe_columns(df):
+    numeric_columns = df.select_dtypes(include='number').columns.tolist()
+    return df[numeric_columns]

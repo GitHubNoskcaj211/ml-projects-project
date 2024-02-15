@@ -39,15 +39,6 @@ def print_game_edges_for_user(network, user):
     edges = nx.edge_boundary(network, [user], game_nodes, data=True)
     pprint(list(edges))
 
-def filter_numeric_data(data):
-    def is_floatable(value):
-        try:
-            float(value)
-            return True
-        except Exception:
-            return False
-    return {key: float(value) for key, value in data.items() if is_floatable(value)}
-
 def get_edges_between_types(network, node_type1, node_type2, data=False):
     nodes_type_1 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type1)
     nodes_type_2 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type2)
