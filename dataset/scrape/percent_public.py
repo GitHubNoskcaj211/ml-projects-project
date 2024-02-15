@@ -2,7 +2,7 @@ import random
 import requests
 from tqdm import tqdm
 
-from common import *
+from util import *
 
 START = 76561197960952452
 END = 76561199616561598
