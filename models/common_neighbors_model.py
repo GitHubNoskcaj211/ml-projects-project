@@ -17,20 +17,21 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
 
     def train(self):
         self.matrix = nx.adjacency_matrix(self.data_loader.train_network)
-        self.length_2_paths = (self.matrix @ self.matrix).todense()
-        self.length_3_paths = (self.matrix @ self.matrix @ self.matrix).todense()
         self.index_to_node = list(self.data_loader.train_network.nodes())
         self.node_to_index = {node: ii for ii, node in enumerate(self.data_loader.train_network.nodes())}
         self.game_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+        
+        self.length_2_paths = (self.matrix @ self.matrix).todense()
+        self.length_3_paths = (self.matrix @ self.matrix @ self.matrix).todense()
+        self.scores = self.path_length_2_weight * self.length_2_paths + self.path_length_3_weight * self.length_3_paths
+
+    def get_embeddings_between_user_and_game(self, user, game):
+        return {'score': self.scores[self.node_to_index[user], self.node_to_index[game]]}
 
     def score_and_predict_n_games_for_user(self, user, N=None):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
-        score_fn = lambda user, game: self.path_length_2_weight * self.length_2_paths[self.node_to_index[user]][self.node_to_index[game]] + self.path_length_3_weight * self.length_3_paths[self.node_to_index[user]][self.node_to_index[game]]
-        scores = [(game, {'score': score_fn(user, game)}) for game in self.game_nodes if game not in root_node_neighbors]
-        scores = sorted(scores, key=lambda x: x[1]['score'], reverse=True)
-        if N is not None:
-            scores = scores[:N]
-        return scores
+        scores = [(game, {'score': self.scores[self.node_to_index[user], self.node_to_index[game]]}) for game in self.game_nodes if game not in root_node_neighbors]
+        return self.select_and_sort_scores(scores, N)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
@@ -56,3 +57,4 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
 
             self.length_2_paths = (self.matrix @ self.matrix).todense()
             self.length_3_paths = (self.matrix @ self.matrix @ self.matrix).todense()
+            self.scores = self.path_length_2_weight * self.length_2_paths + self.path_length_3_weight * self.length_3_paths

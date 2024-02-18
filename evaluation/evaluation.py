@@ -5,10 +5,11 @@ import numpy as np
 import pandas as pd
 from sklearn import metrics as skmetrics
 from matplotlib import pyplot as plt
+from collections import defaultdict
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../utils'))
-from data_loader import NodeType
+from data_loader import NodeType, get_edges_between_types
 from utils import linear_transformation
 
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
@@ -40,23 +41,44 @@ def get_percentile_figure(values, metric_title):
     return fig
 
 class Evaluator:
-    def reset(self, model):
+    def __init__(self, top_N_games_to_eval):
+        self.top_N_games_to_eval = top_N_games_to_eval
+
+    def reset(self, model, debug=False):
+        if debug:
+            print(model.name())
         self.metrics = {}
         self.roc_curve = None
         self.model = model
         self.data_loader = model.data_loader
         self.test_network = self.data_loader.test_network
         self.game_nodes = set(n for n, d in self.test_network.nodes(data=True) if d['node_type'] == NodeType.GAME)
-        self.all_predictions_and_scores_per_user = model.predict_for_all_users()
+        self.all_predictions_and_scores_per_user = model.predict_for_all_users(N = self.top_N_games_to_eval)
+        if debug:
+            print('Done getting predictions.')
+
         edge_data = []
         for user, game_predictions in self.all_predictions_and_scores_per_user.items():
             for ii, (game, predicted_embeddings) in enumerate(game_predictions):
                 expected_edge = game in self.test_network[user]
                 expected_embeddings = {f'expected_{key}': value for key, value in self.test_network.get_edge_data(user, game).items()} if self.test_network.get_edge_data(user, game) is not None else {}
                 predicted_embeddings = {f'predicted_{key}': value for key, value in predicted_embeddings.items()}
-                edge_data.append({'user': user, 'game': game, 'user_predicted_rank': ii, 'expected_edge': expected_edge, **predicted_embeddings, **expected_embeddings})
+                edge_data.append({'user': user, 'game': game, '': ii, 'expected_edge': expected_edge, **predicted_embeddings, **expected_embeddings})
         self.edge_results = pd.DataFrame(edge_data)
+        
+        expected_missed_edge_data = []
+        for user, game, data in get_edges_between_types(self.test_network, NodeType.USER, NodeType.GAME, data=True):
+            if not self.edge_results[(self.edge_results['user'] == user) & (self.edge_results['game'] == game)].empty:
+                continue
+            expected_embeddings = {f'expected_{key}': value for key, value in data.items()}
+            predicted_embeddings = {f'predicted_{key}': value for key, value in model.get_embeddings_between_user_and_game(user, game).items()}
+            expected_missed_edge_data.append({'user': user, 'game': game, 'expected_edge': expected_edge, **predicted_embeddings, **expected_embeddings})
+        
+        self.edge_results = pd.concat([self.edge_results, pd.DataFrame(expected_missed_edge_data)], ignore_index = True) 
+        self.edge_results['user_predicted_rank'] = self.edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1
 
+        if debug:
+            print('Done getting edge results.')
         self.positional_error_scores = None
 
     def compute_top_N_hit_percentage(self, N):

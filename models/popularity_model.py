@@ -22,7 +22,10 @@ class GamePopularityModel(BaseGameRecommendationModel):
         score_fn = lambda game: self.degrees[game]
         self.scores = [(game, {'score': score_fn(game)}) for game in self.game_nodes]
         self.scores = sorted(self.scores, key=lambda x: x[1]['score'], reverse=True)
+        self.game_to_score_index = {game: ii for ii, (game, _) in enumerate(self.scores)}
 
+    def get_embeddings_between_user_and_game(self, user, game):
+        return {'score': self.scores[self.game_to_score_index[game]][1]['score']}
 
     def score_and_predict_n_games_for_user(self, user, N=None):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
