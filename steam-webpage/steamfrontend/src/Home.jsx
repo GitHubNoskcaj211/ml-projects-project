@@ -1,6 +1,6 @@
 // Home.jsx
 import React from "react";
-import Button from "./components/GetStartedButton.jsx";
+import StandardButton from "./components/StandardButton.jsx";
 import styles from "./Home.module.css";
 
 function Home() {
@@ -11,10 +11,10 @@ function Home() {
         We weren't satisfied with Steam's native game recommendations so we
         decided to build our own.
       </p>
-      <Button
+      <StandardButton
         onClick={() => console.log("Hey")}
         content="Get Started"
-        className={`btn ${styles.customButton}`}
+        className="btn btn-outline-primary"
       />
     </div>
   );
