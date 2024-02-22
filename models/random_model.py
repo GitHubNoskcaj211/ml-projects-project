@@ -24,14 +24,14 @@ class RandomModel(BaseGameRecommendationModel):
         self.game_to_game_index = {game: ii for ii, game in enumerate(self.game_nodes)}
         self.random_scores = np.random.random((len(self.user_nodes), len(self.game_nodes)))
 
-    def get_embeddings_between_user_and_game(self, user, game):
-        return {'score': self.random_scores[self.user_to_user_index[user], self.game_to_game_index[game]]}
+    def get_score_between_user_and_game(self, user, game):
+        return self.random_scores[self.user_to_user_index[user], self.game_to_game_index[game]]
 
-    def score_and_predict_n_games_for_user(self, user, N=None):
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
         user_index = self.user_to_user_index[user]
-        scores = [(game, {'score': self.random_scores[user_index, self.game_to_game_index[game]]}) for game in self.game_nodes if game not in root_node_neighbors]
-        return self.select_and_sort_scores(scores, N)
+        scores = [(game, self.random_scores[user_index, self.game_to_game_index[game]]) for game in self.game_nodes if game not in root_node_neighbors]
+        return self.select_scores(scores, N, should_sort)
 
     def save(self, file_name, overwrite=False):
         raise NotImplementedError('Did not implement saving on random model.')

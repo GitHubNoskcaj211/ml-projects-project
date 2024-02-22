@@ -20,7 +20,6 @@ class NCF(nn.Module):
         num_epochs=50,
         batch_percent=0.1,
         learning_rate=5e-3,
-        output_size=1,
         seed=None,
     ):
         super(NCF, self).__init__()
@@ -37,9 +36,7 @@ class NCF(nn.Module):
         self.num_epochs = num_epochs
         self.batch_percent = batch_percent
         self.learning_rate = learning_rate
-        self.output_size = output_size
 
-        # check model type
         # generalized collaborative filter, multi layer perceptron, neural collaborative filter
         model_options = ["gcf", "mlp", "ncf"]
         if self.model_type not in model_options:
@@ -48,14 +45,13 @@ class NCF(nn.Module):
                     model_options
                 )
             )
-
-        self.ncf_layer_size = embedding_size + self.mlp_hidden_layer_sizes[-1]
-        self._create_model()
-        self.optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
-
+        
         self.gcf = self.model_type == 'gcf' or self.model_type == 'ncf'
         self.mlp = self.model_type == 'mlp' or self.model_type == 'ncf'
-        self.neurmf = self.model_type == 'ncf'
+        self.ncf = self.model_type == 'ncf'
+
+        self._create_model()
+        self.optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-1)
 
         print('Total Learnable Parameters:', sum(p.numel() for p in self.parameters() if p.requires_grad))
 
@@ -65,29 +61,35 @@ class NCF(nn.Module):
             self.embedding_gcf_game = nn.Embedding(self.num_games, self.embedding_size)
 
         if self.mlp:
-            self.embedding_mlp_user = nn.Embedding(
-                self.num_users, self.embedding_size
-            )
-            self.embedding_mlp_game = nn.Embedding(
-                self.num_games, self.embedding_size
-            )
+            self.embedding_mlp_user = nn.Embedding(self.num_users, self.embedding_size)
+            self.embedding_mlp_game = nn.Embedding(self.num_games, self.embedding_size)
             self.mlp_layers = nn.ModuleList()
             for layer1, layer2 in zip(self.mlp_hidden_layer_sizes[:-1], self.mlp_hidden_layer_sizes[1:]):
                 self.mlp_layers.append(nn.Linear(layer1, layer2))
                 self.mlp_layers.append(nn.ReLU())
 
-        if self.neurmf:
-            self.ncf_fc = nn.Linear(self.ncf_layer_size, self.output_size)
-        else:
-            self.ncf_fc = nn.Linear(self.embedding_size, self.output_size)
-
-        self.loss_fn = nn.MSELoss()
+        if self.ncf:
+            self.ncf_fc = nn.Linear(self.embedding_size + self.mlp_hidden_layer_sizes[-1], 1)
+        elif self.gcf:
+            self.ncf_fc = nn.Linear(self.embedding_size, 1)
+            # with torch.no_grad(): # Initialize to pass through
+            #     self.ncf_fc.weight.fill_(1)
+            #     self.ncf_fc.bias.fill_(0)
+        elif self.mlp:
+            self.ncf_fc = nn.Linear(self.mlp_hidden_layer_sizes[-1], 1)
+        
+        self.dropout = nn.Dropout(0.2)
+        self.sigmoid = nn.Sigmoid()
+        # self.loss_fn = nn.MSELoss()
+        # self.loss_fn = nn.L1Loss()
+        self.loss_fn = nn.BCELoss()
 
     def forward(self, user_index, game_index):
         if self.gcf:
             gcf_user = self.embedding_gcf_user(user_index)
             gcf_game = self.embedding_gcf_game(game_index)
             gcf_vector = gcf_user * gcf_game
+            # gcf_vector = self.dropout(gcf_vector)
 
         if self.mlp:
             mlp_user = self.embedding_mlp_user(user_index)
@@ -96,15 +98,17 @@ class NCF(nn.Module):
             for layer in self.mlp_layers:
                 mlp_vector = layer(mlp_vector)
 
-        if self.gcf:
+        if self.ncf:
+            ncf_vector = torch.cat([gcf_vector, mlp_vector], dim=1)
+        elif self.gcf:
             ncf_vector = gcf_vector
         elif self.mlp:
             ncf_vector = mlp_vector
-        else:
-            ncf_vector = torch.cat([gcf_vector, mlp_vector], dim=1)
 
+        ncf_vector = self.dropout(ncf_vector)
         output = self.ncf_fc(ncf_vector)
-        return output.squeeze()
+        output = self.sigmoid(output)
+        return output
 
     def train(self, user_indices, game_indices, labels, debug=False):
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
@@ -118,18 +122,22 @@ class NCF(nn.Module):
                 batch_end = min(batch_start + batch_size, len(user_indices))
                 batch_indices = indices[batch_start:batch_end]
 
-                batched_users, batched_games, batched_labels = user_indices[batch_indices], game_indices[batch_indices], labels[batch_indices]
+                batched_users = user_indices[batch_indices]
+                batched_games = game_indices[batch_indices]
+                batched_labels = labels[batch_indices]
                 predictions = self.forward(batched_users, batched_games)
+                # print(predictions[:10], batched_labels[:10])
                 loss = self.loss_fn(predictions, batched_labels)
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-                batch_loss_value = loss.item()
-                epoch_loss.append()
-            if debug:
-                print(epoch_count, batch_loss_value)
+                epoch_loss.append(loss.item())
+            average_epoch_loss = sum((value for value in epoch_loss)) / len(epoch_loss)
+            train_loss.append(average_epoch_loss)
+            # if debug:
+            #     print(epoch_count, average_epoch_loss)
         if debug:
             plt.plot(range(self.num_epochs), train_loss)
             plt.title('Mean Abs Error vs Epoch')
@@ -141,7 +149,7 @@ class NCF(nn.Module):
     def load(self, file_name):
         self.load_state_dict(torch.load(os.path.join(SAVED_NN_PATH, file_name + '.pth')))
 
-    def predict(self, user_index, game_index, is_list=False):
+    def predict(self, user_index, game_index):
         """Predict function of this trained model
 
         Args:
@@ -153,10 +161,6 @@ class NCF(nn.Module):
         Returns:
             list or float: A list of predicted rating or predicted rating score.
         """
-        if is_list:
+        with torch.no_grad():
             output = self.forward(user_index, game_index)
             return list(output.detach().numpy())
-
-        else:
-            output = self.forward(user_index, game_index)
-            return float(output.game())

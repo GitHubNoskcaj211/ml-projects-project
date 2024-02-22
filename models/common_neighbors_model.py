@@ -25,13 +25,13 @@ class CommonNeighborsModel(BaseGameRecommendationModel):
         self.length_3_paths = (self.matrix @ self.matrix @ self.matrix).todense()
         self.scores = self.path_length_2_weight * self.length_2_paths + self.path_length_3_weight * self.length_3_paths
 
-    def get_embeddings_between_user_and_game(self, user, game):
-        return {'score': self.scores[self.node_to_index[user], self.node_to_index[game]]}
+    def get_score_between_user_and_game(self, user, game):
+        return self.scores[self.node_to_index[user], self.node_to_index[game]]
 
-    def score_and_predict_n_games_for_user(self, user, N=None):
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
-        scores = [(game, {'score': self.scores[self.node_to_index[user], self.node_to_index[game]]}) for game in self.game_nodes if game not in root_node_neighbors]
-        return self.select_and_sort_scores(scores, N)
+        scores = [(game, self.scores[self.node_to_index[user], self.node_to_index[game]]) for game in self.game_nodes if game not in root_node_neighbors]
+        return self.select_scores(scores, N, should_sort)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

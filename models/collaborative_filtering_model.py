@@ -93,29 +93,28 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
             plt.title('Mean Abs Error vs Epoch')
         # TODO at end of training predict for all users so the other methods can just extract scores
 
-    def get_embeddings_between_user_and_game(self, user, game):
+    def get_score_between_user_and_game(self, user, game):
         user_ii = self.user_to_index[user]
         game_ii = self.game_to_index[game]
-        return {'score': np.sum(self.user_embeddings[user_ii, :] * self.game_embeddings[game_ii, :]) + np.sum(self.known_game_user_embeddings[user_ii, :] * self.known_game_embeddings[game_ii, :]) + np.sum(self.known_user_embeddings[user_ii, :] * self.known_user_game_embeddings[game_ii, :])}
+        return np.sum(self.user_embeddings[user_ii, :] * self.game_embeddings[game_ii, :]) + np.sum(self.known_game_user_embeddings[user_ii, :] * self.known_game_embeddings[game_ii, :]) + np.sum(self.known_user_embeddings[user_ii, :] * self.known_user_game_embeddings[game_ii, :])
 
-    def score_and_predict_n_games_for_user(self, user, N=None):
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
         root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
         user_ii = self.user_to_index[user]
         scores = np.sum(self.game_embeddings * self.user_embeddings[user_ii], axis=1) + np.sum(self.known_game_embeddings * self.known_game_user_embeddings[user_ii], axis=1) + np.sum(self.known_user_game_embeddings * self.known_user_embeddings[user_ii], axis=1)
-        scores = [(game, {'score': scores[self.game_to_index[game]]}) for game in self.game_nodes if game not in root_node_neighbors]
-        return self.select_and_sort_scores(scores, N)
+        scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in root_node_neighbors]
+        return self.select_scores(scores, N, should_sort)
     
-    def predict_for_all_users(self, N):
+    def predict_for_all_users(self, N, should_sort=True):
         predictions = self.user_embeddings @ self.game_embeddings.T + self.known_game_user_embeddings @ self.known_game_embeddings.T + self.known_user_embeddings @ self.known_user_game_embeddings.T
-        all_predictions_and_scores_per_user = {}
-        for node, data in self.data_loader.test_network.nodes(data=True):
-            if data['node_type'] != NodeType.USER:
-                continue
+        user_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+        all_predictions_and_scores_per_user = dict.fromkeys(user_nodes)
+        for node in tqdm(user_nodes, desc='User Predictions'):
             root_node_neighbors = list(self.data_loader.train_network.neighbors(node))
             user_ii = self.user_to_index[node]
             scores = predictions[user_ii]
-            scores = [(game, {'score': scores[self.game_to_index[game]]}) for game in self.game_nodes if game not in root_node_neighbors]
-            all_predictions_and_scores_per_user[node] = self.select_and_sort_scores(scores, N)
+            scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in root_node_neighbors]
+            all_predictions_and_scores_per_user[node] = self.select_scores(scores, N, should_sort)
         return all_predictions_and_scores_per_user
 
     def save(self, file_name, overwrite=False):

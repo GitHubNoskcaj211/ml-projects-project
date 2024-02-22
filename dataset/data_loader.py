@@ -12,8 +12,10 @@ import pickle
 from ast import literal_eval
 
 import sys
-sys.path.append("../utils")
+sys.path.append("../utils/")
 from utils import linear_transformation, gaussian_transformation
+sys.path.append("../dataset/scrape")
+from util import LogType
 
 SAVED_DATA_LOADER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_data_loader_parameters/')
 
@@ -44,6 +46,14 @@ def get_edges_between_types(network, node_type1, node_type2, data=False):
     nodes_type_2 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type2)
     return list(nx.edge_boundary(network, nodes_type_1, nodes_type_2, data=data))
 
+def read_log_file(file_path):
+    result = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            int_list = list(map(int, line.split()))
+            result.append(int_list)
+    return result
+
 class BaseDataLoader(ABC):
     def __init__(self):
         self.users_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_FILENAME, dtype={
@@ -67,6 +77,7 @@ class BaseDataLoader(ABC):
             'user1': 'int64',
             'user2': 'int64',
         })
+        self.log = read_log_file(DATA_FILES_DIRECTORY + 'log.txt')
 
     @abstractmethod
     def get_full_network(self):
@@ -193,7 +204,7 @@ def playtime_forever_edge_scoring_function(edge_data):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader(BaseDataLoader):
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = []):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], num_users_to_load = None):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.edge_scoring_function = edge_scoring_function
@@ -202,6 +213,7 @@ class DataLoader(BaseDataLoader):
         self.game_embeddings = game_embeddings
         self.user_game_edge_embeddings = user_game_edge_embeddings
         self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
+        self.num_users_to_load = num_users_to_load
 
     @classmethod
     def load_from_file(cls, file_name):
@@ -213,7 +225,8 @@ class DataLoader(BaseDataLoader):
                 parameter_dictionary['user_embeddings'],
                 parameter_dictionary['game_embeddings'],
                 parameter_dictionary['user_game_edge_embeddings'],
-                parameter_dictionary['friend_friend_edge_embeddings'])
+                parameter_dictionary['friend_friend_edge_embeddings'],
+                parameter_dictionary['num_users_to_load'])
     
     def get_data_loader_parameters(self):
         return {
@@ -224,6 +237,7 @@ class DataLoader(BaseDataLoader):
             'game_embeddings': self.game_embeddings,
             'user_game_edge_embeddings': self.user_game_edge_embeddings,
             'friend_friend_edge_embeddings': self.friend_friend_edge_embeddings,
+            'num_users_to_load': self.num_users_to_load,
         }
     
     def save_data_loader_parameters(self, file_name, overwrite=False):
@@ -243,50 +257,63 @@ class DataLoader(BaseDataLoader):
             embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'] + ': ' + category, dict(zip(embedding_command['key'], embedding_command['args'][0].apply(lambda lst: 1.0 if category in lst else 0.0))))
 
     def dispatch_embedding_command(self, network, embedding_command):
-        if embedding_command['embedding_type'] == EmbeddingType.IDENTITY:
-            self.handle_identity_embedding_command(network, embedding_command)
-        elif embedding_command['embedding_type'] == EmbeddingType.CATEGORICAL:
-            self.handle_categorical_embedding_command(network, embedding_command)
-        elif embedding_command['embedding_type'] == EmbeddingType.ONE_HOT:
-            pass
-        elif embedding_command['embedding_type'] == EmbeddingType.SUM:
-            self.handle_sum_embedding_command(network, embedding_command)
-        
+        match embedding_command['embedding_type']:
+            case EmbeddingType.IDENTITY:
+                self.handle_identity_embedding_command(network, embedding_command)
+            case EmbeddingType.CATEGORICAL:
+                self.handle_categorical_embedding_command(network, embedding_command)
+            case EmbeddingType.ONE_HOT:
+                pass
+            case EmbeddingType.SUM:
+                self.handle_sum_embedding_command(network, embedding_command)
+            case _:
+                raise NotImplementedError(f'Have embedding type that cannot be handled: {embedding_command["embedding_type"]}')
+
     def run_user_embedding_commands(self, network, user_embeddings):
         for user_embedding in user_embeddings:
-            # self.dispatch_embedding_command(network, command)
-            pass
+            match user_embedding:
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {user_embedding}')
+            self.dispatch_embedding_command(network, command)
     
     def run_game_embedding_commands(self, network, game_embeddings):
         for game_embedding in game_embeddings:
-            if game_embedding == 'name':
-                command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'name', 'key': self.games_df['id'], 'args': [self.games_df['name']]}
-            elif game_embedding == 'numReviews':
-                command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_reviews', 'key': self.games_df['id'], 'args': [self.games_df['numReviews']]}
-            elif game_embedding == 'avgReviewScore':
-                command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'avg_review_score', 'key': self.games_df['id'], 'args': [self.games_df['avgReviewScore']]}
-            elif game_embedding == 'price':
-                command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'price', 'key': self.games_df['id'], 'args': [self.games_df['price']]}
-            elif game_embedding == 'genres':
-                command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Genre', 'key': self.games_df['id'], 'args': [self.games_df['genres']]}
-            elif game_embedding == 'tags':
-                command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Tag', 'key': self.games_df['id'], 'args': [self.games_df['tags']]}
-            elif game_embedding == 'numFollowers':
-                command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_followers', 'key': self.games_df['id'], 'args': [self.games_df['numFollowers']]}
+            match game_embedding:
+                case 'name':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'name', 'key': self.games_df['id'], 'args': [self.games_df['name']]}
+                case 'numReviews':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_reviews', 'key': self.games_df['id'], 'args': [self.games_df['numReviews']]}
+                case 'avgReviewScore':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'avg_review_score', 'key': self.games_df['id'], 'args': [self.games_df['avgReviewScore']]}
+                case 'price':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'price', 'key': self.games_df['id'], 'args': [self.games_df['price']]}
+                case 'genres':
+                    command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Genre', 'key': self.games_df['id'], 'args': [self.games_df['genres']]}
+                case 'tags':
+                    command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Tag', 'key': self.games_df['id'], 'args': [self.games_df['tags']]}
+                case 'numFollowers':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_followers', 'key': self.games_df['id'], 'args': [self.games_df['numFollowers']]}
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {game_embedding}')
             self.dispatch_embedding_command(network, command)
 
     def run_user_game_edge_embedding_commands(self, network, user_game_edge_embeddings):
         for user_game_edge_embedding in user_game_edge_embeddings:
-            if user_game_edge_embedding == 'example_sum_user_id_game_id_playtime_forever':
-                command = {'embedding_type': EmbeddingType.SUM, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'example_sum_user_id_game_id_playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['user_id'], self.users_games_df['game_id'], self.users_games_df['playtime_forever']]}
-            elif user_game_edge_embedding == 'playtime_forever':
-                command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['playtime_forever']]}
+            match user_game_edge_embedding:
+                case 'example_sum_user_id_game_id_playtime_forever':
+                    command = {'embedding_type': EmbeddingType.SUM, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'example_sum_user_id_game_id_playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['user_id'], self.users_games_df['game_id'], self.users_games_df['playtime_forever']]}
+                case 'playtime_forever':
+                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['playtime_forever']]}
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {user_game_edge_embedding}')
             self.dispatch_embedding_command(network, command)
 
     def run_friend_friend_edge_embedding_commands(self, network, friend_friend_edge_embeddings):
         for friend_friend_edge_embedding in friend_friend_edge_embeddings:
-            pass
-            # self.dispatch_embedding_command(network, command)
+            match friend_friend_edge_embedding:
+                case _:
+                    raise NotImplementedError(f'Cannot recognize embedding: {friend_friend_edge_embedding}')
+            self.dispatch_embedding_command(network, command)
 
     def score_edges(self, network):
         for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
@@ -302,14 +329,25 @@ class DataLoader(BaseDataLoader):
 
     def get_full_network(self):
         network = nx.Graph()
-        network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)
+        if self.num_users_to_load is None:
+            network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)
+        else:
+            user_ids = []
+            for log_line in self.log:
+                if len(user_ids) == self.num_users_to_load:
+                    break
+                if log_line[0] == 2: # TODO Fix this?
+                    user_ids.append(log_line[1])
+            if len(user_ids) < self.num_users_to_load:
+                print(f'Couldn\'t load {self.num_users_to_load}. Loaded {len(user_ids)} instead')
+            network.add_nodes_from(user_ids, node_type=NodeType.USER)
+                
         network.add_nodes_from(self.games_df.id, node_type=NodeType.GAME)
 
         for user_game in self.users_games_df.itertuples(index=False):
-            if user_game.game_id in network: # TODO remove
+            if user_game.game_id in network and user_game.user_id in network:
                 network.add_edge(user_game.user_id, user_game.game_id)
 
-        # TODO remove
         isolated_nodes = list(nx.isolates(network))
         network.remove_nodes_from(isolated_nodes)
 

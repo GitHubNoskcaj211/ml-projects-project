@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 from quickselect import floyd_rivest
 import multiprocessing
+from tqdm import tqdm
+import gc
 
 import sys
 import os
@@ -19,17 +21,18 @@ class BaseGameRecommendationModel(ABC):
     def set_data_loader(self, data_loader):
         self.data_loader = data_loader
 
-    def select_and_sort_scores(self, scores, N = None):
+    def select_scores(self, scores, N = None, should_sort=True):
         if N is not None and N < len(scores):
-            nth_largest_score = floyd_rivest.nth_largest(scores, N - 1, key=lambda score: score[1]['score'])[1]['score']
-            scores = [score for score in scores if score[1]['score'] >= nth_largest_score]
-        scores = sorted(scores, key=lambda x: x[1]['score'], reverse=True)
+            nth_largest_score = floyd_rivest.nth_largest(scores, N - 1, key=lambda score: score[1])[1]
+            scores = [score for score in scores if score[1] >= nth_largest_score]
+        if should_sort or len(scores) > N:
+            scores = sorted(scores, key=lambda x: x[1], reverse=True)
         if N is not None:
             scores = scores[:N]
         return scores
     
-    # def select_and_sort_scores(self, scores, N = None):
-    #     scores = sorted(scores, key=lambda x: x[1]['score'], reverse=True)
+    # def select_scores(self, scores, N = None):
+    #     scores = sorted(scores, key=lambda x: x[1], reverse=True)
     #     if N is not None:
     #         scores = scores[:N]
     #     return scores
@@ -40,14 +43,14 @@ class BaseGameRecommendationModel(ABC):
         pass
 
     @abstractmethod
-    def get_embeddings_between_user_and_game(self, user, game):
+    def get_score_between_user_and_game(self, user, game):
         pass
 
     # Input: 
     # Output: list of nodes 
-    def recommend_n_games_for_user(self, user, N=None):
-        scores = self.score_and_predict_n_games_for_user(user, N)
-        return [game for game, embeddings in scores]
+    def recommend_n_games_for_user(self, user, N=None, should_sort=True):
+        scores = self.score_and_predict_n_games_for_user(user, N, should_sort=should_sort)
+        return [game for game, score in scores]
 
     # def predict_for_all_users(self, N):
     #     all_predictions_and_scores_per_user = {}
@@ -62,17 +65,16 @@ class BaseGameRecommendationModel(ABC):
     #         all_predictions_and_scores_per_user[node] = async_result.get()
     #     return all_predictions_and_scores_per_user
 
-    def predict_for_all_users(self, N):
-        all_predictions_and_scores_per_user = {}
-        for node, data in self.data_loader.test_network.nodes(data=True):
-            if data['node_type'] != NodeType.USER:
-                continue
-            all_predictions_and_scores_per_user[node] = self.score_and_predict_n_games_for_user(node, N=N)
+    def predict_for_all_users(self, N, should_sort=True):
+        user_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+        all_predictions_and_scores_per_user = dict.fromkeys(user_nodes)
+        for node in tqdm(user_nodes, desc='User Predictions'):
+            all_predictions_and_scores_per_user[node] = self.score_and_predict_n_games_for_user(node, N=N, should_sort=should_sort)
         return all_predictions_and_scores_per_user
 
-    # Output: List of top N scores (sorted) for new game recommendations for a user. Formatted as [(game_id, embedding_predictions)] where embedding_predictions is a dictionary
+    # Output: List of top N scores (sorted) for new game recommendations for a user. Formatted as [(game_id, score)]
     @abstractmethod
-    def score_and_predict_n_games_for_user(self, user, N):
+    def score_and_predict_n_games_for_user(self, user, N, should_sort = True):
         pass
 
     @abstractmethod
