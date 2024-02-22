@@ -1,23 +1,10 @@
 from collections import deque
 import dataclasses
-from dotenv import load_dotenv
 from enum import Enum
-import os
 import pandas as pd
 
-load_dotenv()
-
-DATA_ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data_files")
-KEY = os.getenv("STEAM_WEB_API_KEY")
-USERS_FILENAME = os.path.join(DATA_ROOT_DIR, "users.csv")
-GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "games.csv")
-FRIENDS_FILENAME = os.path.join(DATA_ROOT_DIR, "friends.csv")
-USER_GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "users_games.csv")
-LOG_FILENAME = os.path.join(DATA_ROOT_DIR, "log.txt")
-
-FRIENDS_URL = f"http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={KEY}&steamid={{user_id}}&relationship=friend"
-GAMES_URL = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={KEY}&steamid={{user_id}}&include_appinfo=1&format=json"
-GAME_DATA_URL = "https://api.gamalytic.com/game/{app_id}"
+from constants import *
+from merge_all import merge_all
 
 
 @dataclasses.dataclass
@@ -93,6 +80,9 @@ def close_files():
         file.close()
     log_f.close()
 
+    print("Merging")
+    merge_all()
+
 
 def replay_log():
     visited_valid = set()
@@ -119,14 +109,22 @@ def replay_log():
 
 
 def get_parsed_games():
+    if os.path.exists(ALL_GAMES_FILENAME):
+        all_games = set(pd.read_csv(ALL_GAMES_FILENAME)["id"])
+    else:
+        all_games = set()
+
     games_f.seek(0)
     games_f.readline()
     if games_f.read(1) == "":
-        return set()
+        return all_games
     games_f.seek(0)
     games_parsed = pd.read_csv(games_f)["id"]
     games_parsed_set = set(games_parsed)
     assert len(games_parsed_set) == len(games_parsed)
+
+    games_parsed_set.update(all_games)
+
     return games_parsed_set
 
 

@@ -4,9 +4,6 @@ from tqdm import tqdm
 
 from util import *
 
-ROOT = "76561198166465514"  # Akash's steam id
-NUM_USERS = 5000
-
 games_parsed = get_parsed_games()
 
 
@@ -117,6 +114,7 @@ try:
             user_id = user_ids.pop()
             if user_id in visited_valid or user_id in visited_invalid:
                 continue
+
             resp = make_single_request(FRIENDS_URL, user_id=user_id)
             if resp is None:
                 add_visited_invalid(user_id)
