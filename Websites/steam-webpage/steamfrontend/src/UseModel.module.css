@@ -1,0 +1,63 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  text-align: center;
+  color: #66c0f4; /* Steam's text color */
+  background-color: #171a21; /* Steam's background color */
+}
+
+.upperContainer {
+  background-color: #ffcc00;
+  padding: 10px;
+  text-align: center;
+}
+
+.mainContainer {
+  display: flex;
+  flex-grow: 1;
+}
+
+.modelContainer {
+  background-color: #0099ff;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.rightContainer {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+}
+
+.sliderContainer {
+  display: flex;
+  background-color: #cc66ff;
+  justify-content: space-around;
+}
+
+.gamesContainer {
+  background-color: #00cc99;
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.lowerContainer {
+  background-color: #ff6600;
+  padding: 10px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .mainContainer {
+    flex-direction: column;
+  }
+
+  .rightContainer {
+    flex-direction: column;
+  }
+}
