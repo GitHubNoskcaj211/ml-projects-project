@@ -96,11 +96,11 @@ def replay_log():
             case LogType.ADD_QUEUE:
                 user_ids.append(user_id)
             case LogType.VISITED_VALID:
-                a = user_ids.pop()
+                a = user_ids.popleft()
                 assert a == user_id
                 visited_valid.add(user_id)
             case LogType.VISITED_INVALID:
-                assert user_ids.pop() == user_id
+                assert user_ids.popleft() == user_id
                 visited_invalid.add(user_id)
             case _:
                 print("Invalid log type", log_type)
