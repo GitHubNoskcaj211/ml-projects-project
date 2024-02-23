@@ -15,8 +15,10 @@ def merge(filename):
             output.drop_duplicates("id", inplace=True)
         case "friends.csv":
             output.drop_duplicates(inplace=True)
-        case "user_games.csv":
+        case "users_games.csv":
             output.drop_duplicates(["user_id", "game_id"], inplace=True)
+        case _:
+            assert False
     output.to_csv(os.path.join(DATA_ROOT_DIR, filename), index=False)
 
 
