@@ -1,6 +1,8 @@
 import grequests
+import json
 import requests
 from tqdm import tqdm
+import traceback
 
 from util import *
 
@@ -63,20 +65,23 @@ def write_user_data(user_id):
                 continue
             assert resp.status_code == 200
 
+            resp = json.loads(resp.content)
+            try:
+                game_data = Game(
+                    id=game_id,
+                    name=resp["name"],
+                    numReviews=resp["reviews"],
+                    avgReviewScore=resp["reviewScore"],
+                    price=resp["price"],
+                    genres=resp["genres"],
+                    tags=resp["tags"],
+                    description=resp["description"],
+                    numFollowers=resp["followers"]
+                )
+            except KeyError:
+                continue
             valid = True
-            game_name = resp_game["name"].strip()
-            resp = resp.json()
-            write_game(Game(
-                id=game_id,
-                name=game_name,
-                numReviews=resp["reviews"],
-                avgReviewScore=resp["reviewScore"],
-                price=resp["price"],
-                genres=resp["genres"],
-                tags=resp["tags"],
-                description=resp["description"],
-                numFollowers=resp.get("followers", 0)
-            ))
+            write_game(game_data)
             add_edge(resp_game)
     return valid
 
@@ -133,13 +138,11 @@ try:
 except AssertionError as e:
     print(e)
     print("Rate Limited")
-    pass
 except KeyboardInterrupt:
     print("Handling Keyboard Interrupt")
-    pass
 except Exception as e:
     print(e)
+    print(traceback.format_exc())
     print("Unknown")
-    pass
 
 close_files()
