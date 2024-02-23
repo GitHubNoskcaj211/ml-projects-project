@@ -111,7 +111,7 @@ try:
         add_queue(ROOT)
     with tqdm(total=NUM_USERS, initial=len(visited_valid), desc="Users", position=0) as pbar:
         while len(user_ids) > 0 and len(visited_valid) < NUM_USERS:
-            user_id = user_ids.pop()
+            user_id = user_ids.popleft()
             if user_id in visited_valid or user_id in visited_invalid:
                 continue
 

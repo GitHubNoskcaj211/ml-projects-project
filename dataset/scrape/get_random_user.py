@@ -20,16 +20,19 @@ def verify_request(URL):
 
 while True:
     user_id = random.randint(START, END)
+
     resp = verify_request(FRIENDS_URL.format(user_id=user_id))
     if resp is None:
         continue
     if resp["friendslist"]["friends"] == []:
         continue
+
     resp = verify_request(GAMES_URL.format(user_id=user_id))
     if resp is None:
         continue
     resp = resp["response"]
     if "game_count" not in resp or resp["game_count"] == 0:
         continue
+
     print(user_id)
     break
