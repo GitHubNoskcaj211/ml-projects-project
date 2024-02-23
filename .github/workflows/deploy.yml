@@ -1,7 +1,7 @@
 on: push
 
 jobs:
-  build:
+  Build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -10,8 +10,8 @@ jobs:
           node-version: 20
       - name: Build
         run: npm run build
-        working-directory: ${{ github.workspace }}/websites/recommender-website
+        working-directory: ${{ github.workspace }}/websites/recommender-website/frontend
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ github.workspace }}/websites/recommender-website/dist
+          path: ${{ github.workspace }}/websites/recommender-website/frontend/dist
