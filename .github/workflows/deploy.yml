@@ -11,7 +11,7 @@ jobs:
       - name: Build
         run: |
           npm i
-          npm run build
+          npm run build -- --base=/ml-projects-project/
         working-directory: ${{ github.workspace }}/websites/recommender-website/frontend
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
