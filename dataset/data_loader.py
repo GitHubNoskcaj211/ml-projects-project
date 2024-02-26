@@ -14,8 +14,11 @@ from ast import literal_eval
 import sys
 sys.path.append("../utils/")
 from utils import linear_transformation, gaussian_transformation
-sys.path.append("../dataset/scrape")
-from util import LogType
+
+class LogType(Enum):
+    ADD_QUEUE = 1
+    VISITED_VALID = 2
+    VISITED_INVALID = 3
 
 SAVED_DATA_LOADER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_data_loader_parameters/')
 
@@ -55,30 +58,6 @@ def read_log_file(file_path):
     return result
 
 class BaseDataLoader(ABC):
-    def __init__(self):
-        self.users_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_FILENAME, dtype={
-            'id': 'int64',
-        })
-        self.games_df = pd.read_csv(DATA_FILES_DIRECTORY + GAMES_FILENAME, dtype={
-            'id': 'int64',
-            'name': 'string',
-            'numReviews': 'int64',
-            'avgReviewScore': 'int64',
-            'price': 'float64',
-            'numFollowers': 'int64',
-        }, converters={'genres': literal_eval, 'tags': literal_eval})
-        self.users_games_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_GAMES_FILENAME, dtype={
-            'user_id': 'int64',
-            'game_id': 'int64',
-            # 'playtime_2weeks': 'int64',
-            'playtime_forever': 'int64',
-        })
-        self.friends_df = pd.read_csv(DATA_FILES_DIRECTORY + FRIENDS_FILENAME, dtype={
-            'user1': 'int64',
-            'user2': 'int64',
-        })
-        self.log = read_log_file(DATA_FILES_DIRECTORY + 'log.txt')
-
     @abstractmethod
     def get_full_network(self):
         pass
@@ -179,7 +158,8 @@ class GaussianNormalizer(Normalizer):
                 continue
             edges = nx.edge_boundary(network, [node], game_nodes, data=True)
             scores = [data['score'] for user, game, data in edges]
-            mean_stddev_score_per_user[node] = (np.mean(scores), np.std(scores))
+            if len(scores) > 0:
+                mean_stddev_score_per_user[node] = (np.mean(scores), np.std(scores))
 
         for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
             user = edge[0]
@@ -202,9 +182,15 @@ def constant_edge_scoring_function(edge_data):
 def playtime_forever_edge_scoring_function(edge_data):
     return edge_data['playtime_forever']
 
+def never_remove_edge(edge_data):
+    return False
+
+def remove_zero_playtime_edge(edge_data):
+    return edge_data['playtime_forever'] == 0
+
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader(BaseDataLoader):
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], num_users_to_load = None):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.edge_scoring_function = edge_scoring_function
@@ -213,7 +199,70 @@ class DataLoader(BaseDataLoader):
         self.game_embeddings = game_embeddings
         self.user_game_edge_embeddings = user_game_edge_embeddings
         self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
-        self.num_users_to_load = num_users_to_load
+        self.snowball_ids = snowballs_ids
+        self.num_users_to_load_per_snowball = num_users_to_load_per_snowball
+        if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is not None:
+                self.snowball_ids = [subfolder for subfolder in os.listdir(DATA_FILES_DIRECTORY) if os.path.isdir(os.path.join(DATA_FILES_DIRECTORY, subfolder))]
+        self.remove_edge_function = remove_edge_function
+        self.load_data_files()
+
+    def load_data_files(self):
+        global_users_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_FILENAME, dtype={
+            'id': 'int64',
+        })
+        global_games_df = pd.read_csv(DATA_FILES_DIRECTORY + GAMES_FILENAME, dtype={
+            'id': 'int64',
+            'name': 'string',
+            'numReviews': 'int64',
+            'avgReviewScore': 'int64',
+            'price': 'float64',
+            'numFollowers': 'int64',
+        }, converters={'genres': literal_eval, 'tags': literal_eval})
+        global_users_games_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_GAMES_FILENAME, dtype={
+            'user_id': 'int64',
+            'game_id': 'int64',
+            # 'playtime_2weeks': 'int64',
+            'playtime_forever': 'int64',
+        })
+        global_friends_df = pd.read_csv(DATA_FILES_DIRECTORY + FRIENDS_FILENAME, dtype={
+            'user1': 'int64',
+            'user2': 'int64',
+        })
+
+        if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is None:
+            self.users_df = global_users_df
+            self.games_df = global_games_df
+            self.users_games_df = global_users_games_df
+            self.friends_df = global_friends_df
+        else:       
+            users_dfs = []
+            games_dfs = []
+            for snowball_id in self.snowball_ids:
+                users_snowball_df = pd.read_csv(DATA_FILES_DIRECTORY + snowball_id + '/' + USERS_FILENAME, usecols=['id'], dtype={
+                    'id': 'int64',
+                })
+                if self.num_users_to_load_per_snowball is not None:
+                    users_snowball_df = users_snowball_df.iloc[:self.num_users_to_load_per_snowball]
+                games_snowball_df = pd.read_csv(DATA_FILES_DIRECTORY + snowball_id + '/' + GAMES_FILENAME, usecols=['id'], dtype={
+                    'id': 'int64'
+                })
+                users_dfs.append(users_snowball_df)
+                games_dfs.append(games_snowball_df)
+
+            users_df = pd.concat(users_dfs, ignore_index=True)
+            games_df = pd.concat(games_dfs, ignore_index=True)
+
+            self.users_df = global_users_df[global_users_df['id'].isin(users_df['id'])]
+            self.games_df = global_games_df[global_games_df['id'].isin(games_df['id'])]
+            self.users_games_df = global_users_games_df[
+                (global_users_games_df['user_id'].isin(users_df['id'])) &
+                (global_users_games_df['game_id'].isin(games_df['id']))
+            ]
+            self.friends_df = global_friends_df[
+                (global_friends_df['user1'].isin(users_df['id'])) |
+                (global_friends_df['user2'].isin(users_df['id']))
+            ]
+            
 
     @classmethod
     def load_from_file(cls, file_name):
@@ -226,7 +275,9 @@ class DataLoader(BaseDataLoader):
                 parameter_dictionary['game_embeddings'],
                 parameter_dictionary['user_game_edge_embeddings'],
                 parameter_dictionary['friend_friend_edge_embeddings'],
-                parameter_dictionary['num_users_to_load'])
+                parameter_dictionary['snowballs_ids'],
+                parameter_dictionary['num_users_to_load_per_snowball'],
+                parameter_dictionary['remove_edge_function'])
     
     def get_data_loader_parameters(self):
         return {
@@ -237,7 +288,9 @@ class DataLoader(BaseDataLoader):
             'game_embeddings': self.game_embeddings,
             'user_game_edge_embeddings': self.user_game_edge_embeddings,
             'friend_friend_edge_embeddings': self.friend_friend_edge_embeddings,
-            'num_users_to_load': self.num_users_to_load,
+            'snowballs_ids': self.snowballs_ids,
+            'num_users_to_load_per_snowball': self.num_users_to_load_per_snowball,
+            'remove_edge_function': self.remove_edge_function,
         }
     
     def save_data_loader_parameters(self, file_name, overwrite=False):
@@ -315,6 +368,10 @@ class DataLoader(BaseDataLoader):
                     raise NotImplementedError(f'Cannot recognize embedding: {friend_friend_edge_embedding}')
             self.dispatch_embedding_command(network, command)
 
+    def remove_edges(self, network):
+        edges_to_remove = [edge for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME) if self.remove_edge_function(network.edges[edge])]
+        network.remove_edges_from(edges_to_remove)
+
     def score_edges(self, network):
         for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
             edge_data = network.edges[edge]
@@ -329,24 +386,15 @@ class DataLoader(BaseDataLoader):
 
     def get_full_network(self):
         network = nx.Graph()
-        if self.num_users_to_load is None:
-            network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)
-        else:
-            user_ids = []
-            for log_line in self.log:
-                if len(user_ids) == self.num_users_to_load:
-                    break
-                if log_line[0] == 2: # TODO Fix this?
-                    user_ids.append(log_line[1])
-            if len(user_ids) < self.num_users_to_load:
-                print(f'Couldn\'t load {self.num_users_to_load}. Loaded {len(user_ids)} instead')
-            network.add_nodes_from(user_ids, node_type=NodeType.USER)
-                
+        network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)                
         network.add_nodes_from(self.games_df.id, node_type=NodeType.GAME)
 
         for user_game in self.users_games_df.itertuples(index=False):
             if user_game.game_id in network and user_game.user_id in network:
                 network.add_edge(user_game.user_id, user_game.game_id)
+            else:
+                continue
+                print(f'Something is broken. {user_game.game_id} {user_game.user_id}') # TODO Add this back in after Akash fixes gamalytic data missing.
 
         isolated_nodes = list(nx.isolates(network))
         network.remove_nodes_from(isolated_nodes)
@@ -366,6 +414,8 @@ class DataLoader(BaseDataLoader):
                 network.add_edge(friends.user1, friends.user2)
             
         self.add_embeddings(network)
+
+        self.remove_edges(network)
 
         self.score_edges(network)
 

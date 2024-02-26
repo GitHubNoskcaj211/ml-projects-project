@@ -1,49 +1,9 @@
 from collections import deque
 import dataclasses
-from enum import Enum
 import pandas as pd
 
 from constants import *
 from merge_all import merge_all
-
-
-@dataclasses.dataclass
-class User:
-    id: str
-
-
-@dataclasses.dataclass
-class Friend:
-    user1: str
-    user2: str
-
-
-@dataclasses.dataclass
-class Game:
-    id: str
-    name: str
-    numReviews: int
-    avgReviewScore: float
-    price: float
-    genres: list
-    tags: list
-    description: str
-    numFollowers: int
-
-
-@dataclasses.dataclass
-class UserGame:
-    user_id: str
-    game_id: str
-    playtime_2weeks: int
-    playtime_forever: int
-
-
-class LogType(Enum):
-    ADD_QUEUE = 1
-    VISITED_VALID = 2
-    VISITED_INVALID = 3
-
 
 FILENAMES = [
     (USERS_FILENAME, User),

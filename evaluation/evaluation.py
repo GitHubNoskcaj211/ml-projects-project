@@ -53,11 +53,10 @@ class Evaluator:
         self.data_loader = model.data_loader
         self.test_network = self.data_loader.test_network
         self.game_nodes = set(n for n, d in self.test_network.nodes(data=True) if d['node_type'] == NodeType.GAME)
-        self.all_predictions_and_scores_per_user = model.predict_for_all_users(N = self.top_N_games_to_eval)
+        self.all_predictions_and_scores_per_user = model.predict_for_all_users(N = self.top_N_games_to_eval, should_sort=False)
         if debug:
             print('Done getting predictions.')
 
-        # TODO Don't have to have scores sorted for this - might make eval faster.
         edge_data = []
         for user, game_predictions in self.all_predictions_and_scores_per_user.items():
             for game, predicted_score in game_predictions:
