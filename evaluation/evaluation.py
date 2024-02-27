@@ -80,29 +80,29 @@ class Evaluator:
             print('Done getting edge results.')
         self.positional_error_scores = None
 
-    def compute_top_N_hit_percentage(self, N):
-        assert N < self.top_N_games_to_eval, 'Cannot get top N hit percentage when we have less top N games to eval since the dataframe is malformed.'
+    def compute_top_N_recall(self, N):
+        assert N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'
         top_N_rows = self.top_N_and_all_expected_edge_results[(self.top_N_and_all_expected_edge_results['user_predicted_rank'] < N)]
-        num_top_N_hits = (top_N_rows['expected_edge'] == True).sum()
+        num_top_N_recalls = (top_N_rows['expected_edge'] == True).sum()
         num_expected_edges = (self.top_N_and_all_expected_edge_results['expected_edge'] == True).sum()
-        self.metrics[f'top_{N}_hit_percentage'] = 1.0 if num_expected_edges == 0 else num_top_N_hits / num_expected_edges
+        self.metrics[f'top_{N}_recall'] = 1.0 if num_expected_edges == 0 else num_top_N_recalls / num_expected_edges
 
-    def get_top_N_hit_percentage_per_user(self, N):
-        assert N < self.top_N_games_to_eval, 'Cannot get top N hit percentage when we have less top N games to eval since the dataframe is malformed.'
+    def get_top_N_recall_per_user(self, N):
+        assert N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'
         filtered_rows = self.top_N_and_all_expected_edge_results[(self.top_N_and_all_expected_edge_results['user_predicted_rank'] < N)]
-        user_top_N_hits = filtered_rows.groupby('user')['expected_edge'].sum().reset_index(name='hit_count')
-        user_top_N_hits['num_expected_games'] = user_top_N_hits.apply(lambda row: len(list(nx.edge_boundary(self.test_network, [row['user']], self.game_nodes))), axis=1)
-        user_top_N_hits['hit_percentage'] = user_top_N_hits['hit_count'] / user_top_N_hits['num_expected_games']
-        return user_top_N_hits
+        user_top_N_recalls = filtered_rows.groupby('user')['expected_edge'].sum().reset_index(name='tps')
+        user_top_N_recalls['num_expected_games'] = user_top_N_recalls.apply(lambda row: len(list(nx.edge_boundary(self.test_network, [row['user']], self.game_nodes))), axis=1)
+        user_top_N_recalls['recall'] = user_top_N_recalls['tps'] / user_top_N_recalls['num_expected_games']
+        return user_top_N_recalls
 
-    def plot_top_N_hit_percentage_percentiles(self, N):
-        user_top_N_hits = self.get_top_N_hit_percentage_per_user(N)
-        self.metrics[f'top_{N}_hit_percentage_user_percentiles_figure'] = get_percentile_figure(user_top_N_hits.loc[user_top_N_hits['num_expected_games'] != 0, 'hit_percentage'].values, f'User Top {N} Hit Percentage Percentiles')
+    def plot_top_N_recall_percentiles(self, N):
+        user_top_N_recalls = self.get_top_N_recall_per_user(N)
+        self.metrics[f'top_{N}_recall_user_percentiles_figure'] = get_percentile_figure(user_top_N_recalls.loc[user_top_N_recalls['num_expected_games'] != 0, 'recall'].values, f'User Top {N} Hit Percentage Percentiles')
     
     # Percentile is an integer 0-100.
-    def compute_top_N_hit_percentage_at_user_percentile(self, N, percentile):
-        user_top_N_hits = self.get_top_N_hit_percentage_per_user(N)
-        self.metrics[f'top_{N}_hit_percentage_at_{percentile}_user_percentile'] = np.percentile(user_top_N_hits.loc[user_top_N_hits['num_expected_games'] != 0, 'hit_percentage'], percentile)
+    def compute_top_N_recall_at_user_percentile(self, N, percentile):
+        user_top_N_recalls = self.get_top_N_recall_per_user(N)
+        self.metrics[f'top_{N}_recall_at_{percentile}_user_percentile'] = np.percentile(user_top_N_recalls.loc[user_top_N_recalls['num_expected_games'] != 0, 'recall'], percentile)
 
     # Percentile is an integer 0-100.
     def compute_embedding_percentile_absolute_error(self, embedding, percentile):
