@@ -18,14 +18,7 @@ def remove_zero_playtime_users():
 
         sum_total_playtime = user_game_file_df.groupby('user_id')['playtime_forever'].sum()
         user_ids_with_zero_playtime = sum_total_playtime[sum_total_playtime == 0].index.tolist()
-
-        user_file_df = user_file_df[~user_file_df['id'].isin(user_ids_with_zero_playtime)]
-        user_game_file_df = user_game_file_df[~user_game_file_df['user_id'].isin(user_ids_with_zero_playtime)]
-        log_df.loc[(log_df['user_id'].isin(user_ids_with_zero_playtime)) & (log_df['value'] == LogType.VISITED_VALID.value), 'value'] = LogType.VISITED_INVALID.value
-        
-        user_file_df.to_csv(user_file, index=False)
-        log_df.to_csv(log_file, header=False, index=False, sep=" ")
-        user_game_file_df.to_csv(user_game_file, index=False)
+        assert len(user_ids_with_zero_playtime) == 0
 
 if __name__ == '__main__':
     remove_zero_playtime_users()

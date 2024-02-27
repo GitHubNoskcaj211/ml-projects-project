@@ -33,6 +33,8 @@ def write_user_data(user_id):
     if len(resp) == 0 or resp["game_count"] == 0:
         return False
     resp_games = resp["games"]
+    if all(resp_game["playtime_forever"] == 0 for resp_game in resp_games):
+        return False
 
     def add_edge(resp_game):
         write_user_game(UserGame(

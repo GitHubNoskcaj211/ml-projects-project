@@ -33,6 +33,8 @@ while True:
     resp = resp["response"]
     if "game_count" not in resp or resp["game_count"] == 0:
         continue
+    if all(resp_game["playtime_forever"] == 0 for resp_game in resp["games"]):
+        continue
 
     print(user_id)
     break

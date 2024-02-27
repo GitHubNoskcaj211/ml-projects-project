@@ -41,7 +41,7 @@ def close_files():
         file.close()
     log_f.close()
 
-    print('Removing Zero Playtime (Private) Users')
+    print('Checking for Zero Playtime (Private) Users')
     remove_zero_playtime_users()
 
     print("Merging")
