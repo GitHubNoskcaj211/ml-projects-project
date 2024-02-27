@@ -4,6 +4,7 @@ import pandas as pd
 
 from constants import *
 from merge_all import merge_all
+from remove_zero_playtime_users import remove_zero_playtime_users
 
 FILENAMES = [
     (USERS_FILENAME, User),
@@ -39,6 +40,9 @@ def close_files():
     for file in files:
         file.close()
     log_f.close()
+
+    print('Removing Zero Playtime (Private) Users')
+    remove_zero_playtime_users()
 
     print("Merging")
     merge_all()
