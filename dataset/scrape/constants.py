@@ -27,6 +27,7 @@ FRIENDS_URL = f"http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=
 GAMES_URL = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={KEY}&steamid={{user_id}}&include_appinfo=1&format=json"
 GAME_DATA_URL = "https://api.gamalytic.com/game/{app_id}"
 
+
 @dataclasses.dataclass
 class User:
     id: str
@@ -63,3 +64,4 @@ class LogType(Enum):
     ADD_QUEUE = 1
     VISITED_VALID = 2
     VISITED_INVALID = 3
+    INVALID_GAME = 4
