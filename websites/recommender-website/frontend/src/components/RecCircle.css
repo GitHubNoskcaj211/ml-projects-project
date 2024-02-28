@@ -1,0 +1,23 @@
+.recCircle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.recCircle-back {
+  fill: none;
+  stroke: #eee;
+}
+
+.recCircle-front {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.3s, stroke 0.3s;
+}
+
+.recCircle-text {
+  fill: #333;
+  font-size: 3rem;
+  font-weight: bold;
+  transition: fill 0.3s;
+}

@@ -3,8 +3,8 @@ import GameRating from "./GameRating";
 
 const App: React.FC = () => {
   const gameRatings = [
-    { name: "Rocket League", rating: 0.97 },
-    { name: "CSGO", rating: 0.9 },
+    { name: "Baldur's Gate 3", rating: 0.97 },
+    { name: "CSGO 2", rating: 0.9 },
     { name: "Speedrunners", rating: 0.5 },
   ];
 
