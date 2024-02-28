@@ -51,6 +51,7 @@ def close_files():
 def replay_log():
     visited_valid = set()
     visited_invalid = set()
+    invalid_games = set()
     user_ids = deque([])
     for line in log_f:
         line = line.strip()
@@ -66,10 +67,13 @@ def replay_log():
             case LogType.VISITED_INVALID:
                 assert user_ids.popleft() == user_id
                 visited_invalid.add(user_id)
+            case LogType.INVALID_GAME:
+                assert user_id not in invalid_games
+                invalid_games.add(user_id)
             case _:
                 print("Invalid log type", log_type)
                 assert False
-    return user_ids, visited_valid, visited_invalid
+    return user_ids, visited_valid, visited_invalid, invalid_games
 
 
 def get_parsed_games():

@@ -49,6 +49,8 @@ def write_user_data(user_id):
     new_resp_games = []
     for resp_game in resp_games:
         game_id = resp_game["appid"]
+        if game_id in invalid_games:
+            continue
         if game_id in games_parsed:
             add_edge(resp_game)
             valid = True
@@ -61,9 +63,9 @@ def write_user_data(user_id):
             pbar.update(1)
             resp_game = new_resp_games[i]
             game_id = resp_game["appid"]
-            games_parsed.add(game_id)
 
             if resp.status_code == 500:
+                add_invalid_game(game_id)
                 continue
             assert resp.status_code == 200
 
@@ -81,14 +83,16 @@ def write_user_data(user_id):
                     numFollowers=resp["followers"]
                 )
             except KeyError:
+                add_invalid_game(game_id)
                 continue
+            games_parsed.add(game_id)
             valid = True
             write_game(game_data)
             add_edge(resp_game)
     return valid
 
 
-user_ids, visited_valid, visited_invalid = replay_log()
+user_ids, visited_valid, visited_invalid, invalid_games = replay_log()
 
 
 def add_queue(user_id):
@@ -111,6 +115,11 @@ def add_visited_valid(user_id):
 
 def add_visited_invalid(user_id):
     add_visited(LogType.VISITED_INVALID, visited_invalid, user_id)
+
+
+def add_invalid_game(game_id):
+    write_log(LogType.INVALID_GAME, game_id)
+    invalid_games.add(game_id)
 
 
 try:
