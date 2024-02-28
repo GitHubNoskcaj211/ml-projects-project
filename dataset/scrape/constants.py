@@ -24,7 +24,7 @@ USER_GAMES_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "users_games.csv")
 LOG_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "log.txt")
 
 FRIENDS_URL = f"http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={KEY}&steamid={{user_id}}&relationship=friend"
-GAMES_URL = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={KEY}&steamid={{user_id}}&include_appinfo=1&format=json"
+GAMES_URL = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={KEY}&steamid={{user_id}}&include_appinfo=1&include_played_free_games=1&format=json"
 GAME_DATA_URL = "https://api.gamalytic.com/game/{app_id}"
 
 
