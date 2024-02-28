@@ -3,42 +3,41 @@
   flex-direction: column;
   width: 100%;
   align-items: center;
-  justify-content: flex-start; /* Adjusted to flex-start to start content from the top */
+  justify-content: flex-start;
   min-height: 100vh;
-  max-height: 100vh; /* Ensure the container doesn't exceed the viewport height */
-  overflow: hidden; /* Hide overflow to prevent scrolling */
+  overflow: hidden;
 }
 
 .contentContainer {
   display: flex;
-  flex-direction: row; /* Adjust for a more horizontal layout to save vertical space */
+  flex-direction: row;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: space-around;
   align-content: flex-start;
   width: 100%;
-  height: 90%; /* Limit height to leave space for the undo button */
-  overflow: auto; /* Allow scrolling within the content container if needed */
+  height: 95%;
+  overflow: auto;
 }
 
 .box {
-  flex: 1 1 auto; /* Adjust flex properties for a more dynamic resizing */
+  flex: 1 1 auto;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 0.2%; /* Reduce margin to save space */
-  border-radius: 5px; /* Adjusted for aesthetics */
+  margin: 0.2%;
+  border-radius: 5px;
   box-sizing: border-box;
-  padding: 0.5%; /* Reduce padding to save space */
-  font-size: 1vw; /* Adjust font size dynamically */
-  overflow: hidden; /* Hide overflow to keep content contained */
+  padding: 0.5%;
+  font-size: 1vw;
+  overflow: hidden;
 }
 
 .undoContainer {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 1% 0; /* Reduce padding to ensure it fits in the view */
-  height: 10%; /* Allocate height for the undo button */
+  padding: 1% 0;
+  height: 5%;
 }
 
 @media (min-width: 768px) {
@@ -49,11 +48,11 @@
 
 @media (max-width: 600px) {
   .box {
-    flex-basis: 48%; /* Adjust for smaller screens to fit two boxes per row */
-    font-size: 2vw; /* Increase font size for readability on small screens */
+    flex-basis: 48%;
+    font-size: 2vw;
   }
   .contentContainer {
-    flex-direction: column; /* Switch to column layout for very small screens */
+    flex-direction: column;
   }
 }
 
@@ -62,25 +61,19 @@
   max-width: 1200px;
   padding: 1%;
   box-sizing: border-box;
-  overflow: hidden; /* Prevent scrolling on the final page */
+  overflow: hidden;
 }
 
 .tag.box,
 .genre.box {
-  flex-direction: column; /* Adjust direction for tags and genres for a denser layout */
-  flex-wrap: wrap; /* Allow wrapping within the box */
+  flex-direction: column;
+  flex-wrap: wrap;
 }
 
-/* Ensure buttons and text adjust to smaller sizes for a denser layout */
 button,
 h1,
 h2,
 p {
   font-size: 1vw;
-  margin: 2px; /* Reduce margin around buttons and text */
-}
-
-.contentContainer {
-  display: flex;
-  flex-direction: row;
+  margin: 2px;
 }
