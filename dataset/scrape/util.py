@@ -15,9 +15,6 @@ FILENAMES = [
 ]
 
 
-NUM_USERS = 5000
-
-
 def open_files():
     files = []
     for filename, dataclass in FILENAMES:

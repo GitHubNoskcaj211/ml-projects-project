@@ -8,7 +8,7 @@ load_dotenv()
 
 KEY = os.getenv("STEAM_WEB_API_KEY")
 ROOT = os.getenv("ROOT_USER")
-NUM_USERS = os.getenv("NUM_USERS")
+NUM_USERS = int(os.getenv("NUM_USERS"))
 
 DATA_ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data_files")
 
