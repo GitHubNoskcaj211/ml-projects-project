@@ -13,6 +13,7 @@ NUM_USERS = os.getenv("NUM_USERS")
 DATA_ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data_files")
 
 ALL_GAMES_FILENAME = os.path.join(DATA_ROOT_DIR, "games.csv")
+ALL_INVALIDS_FILENAME = os.path.join(DATA_ROOT_DIR, "invalids.csv")
 
 SNOWBALL_ROOT_DIR = os.path.join(DATA_ROOT_DIR, ROOT)
 Path(SNOWBALL_ROOT_DIR).mkdir(parents=True, exist_ok=True)
@@ -21,6 +22,7 @@ USERS_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "users.csv")
 GAMES_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "games.csv")
 FRIENDS_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "friends.csv")
 USER_GAMES_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "users_games.csv")
+INVALIDS_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "invalids.csv")
 LOG_FILENAME = os.path.join(SNOWBALL_ROOT_DIR, "log.txt")
 
 FRIENDS_URL = f"http://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key={KEY}&steamid={{user_id}}&relationship=friend"
@@ -60,8 +62,17 @@ class UserGame:
     playtime_forever: int
 
 
+class InvalidDataType(Enum):
+    USER = 1
+    GAME = 2
+
+
+@dataclasses.dataclass
+class InvalidData:
+    type: int  # InvalidDataType
+    id: str
+
+
 class LogType(Enum):
     ADD_QUEUE = 1
     VISITED_VALID = 2
-    VISITED_INVALID = 3
-    INVALID_GAME = 4

@@ -7,6 +7,7 @@ import traceback
 from util import *
 
 games_parsed = get_parsed_games()
+invalid_users, invalid_games = get_invalids()
 
 
 def make_single_request(url, **kwargs):
@@ -92,18 +93,18 @@ def write_user_data(user_id):
     return valid
 
 
-user_ids, visited_valid, visited_invalid, invalid_games = replay_log()
+user_ids, visited_valid = replay_log()
 
 
 def add_queue(user_id):
-    if user_id in user_ids or user_id in visited_valid or user_id in visited_invalid:
+    if user_id in user_ids or user_id in visited_valid or user_id in invalid_users:
         return
     user_ids.append(user_id)
     write_log(LogType.ADD_QUEUE, user_id)
 
 
 def add_visited(visited_type, visited_set, user_id):
-    assert user_id not in user_ids and user_id not in visited_valid and user_id not in visited_invalid
+    assert user_id not in user_ids and user_id not in visited_valid and user_id not in invalid_users
     write_log(visited_type, user_id)
     visited_set.add(user_id)
 
@@ -114,11 +115,12 @@ def add_visited_valid(user_id):
 
 
 def add_visited_invalid(user_id):
-    add_visited(LogType.VISITED_INVALID, visited_invalid, user_id)
+    write_invalid(InvalidData(type=InvalidDataType.USER.value, id=user_id))
+    invalid_users.add(user_id)
 
 
 def add_invalid_game(game_id):
-    write_log(LogType.INVALID_GAME, game_id)
+    write_invalid(InvalidData(type=InvalidDataType.GAME.value, id=game_id))
     invalid_games.add(game_id)
 
 
@@ -128,7 +130,7 @@ try:
     with tqdm(total=NUM_USERS, initial=len(visited_valid), desc="Users", position=0) as pbar:
         while len(user_ids) > 0 and len(visited_valid) < NUM_USERS:
             user_id = user_ids.popleft()
-            if user_id in visited_valid or user_id in visited_invalid:
+            if user_id in visited_valid or user_id in invalid_users:
                 continue
 
             resp = make_single_request(FRIENDS_URL, user_id=user_id)

@@ -11,6 +11,7 @@ FILENAMES = [
     (GAMES_FILENAME, Game),
     (FRIENDS_FILENAME, Friend),
     (USER_GAMES_FILENAME, UserGame),
+    (INVALIDS_FILENAME, InvalidData),
 ]
 
 
@@ -29,7 +30,7 @@ def open_files():
 
 
 files = open_files()
-users_f, games_f, friends_f, user_games_f = files
+users_f, games_f, friends_f, user_games_f, invalids_f = files
 log_f = open(LOG_FILENAME, "a+", encoding="utf-8")
 log_f.seek(0)
 
@@ -50,8 +51,6 @@ def close_files():
 
 def replay_log():
     visited_valid = set()
-    visited_invalid = set()
-    invalid_games = set()
     user_ids = deque([])
     for line in log_f:
         line = line.strip()
@@ -64,16 +63,37 @@ def replay_log():
                 a = user_ids.popleft()
                 assert a == user_id
                 visited_valid.add(user_id)
-            case LogType.VISITED_INVALID:
-                assert user_ids.popleft() == user_id
-                visited_invalid.add(user_id)
-            case LogType.INVALID_GAME:
-                assert user_id not in invalid_games
-                invalid_games.add(user_id)
             case _:
                 print("Invalid log type", log_type)
                 assert False
-    return user_ids, visited_valid, visited_invalid, invalid_games
+    return user_ids, visited_valid
+
+
+def get_invalids():
+    if os.path.exists(ALL_INVALIDS_FILENAME):
+        invalids = pd.read_csv(ALL_INVALIDS_FILENAME)
+    else:
+        invalids = None
+
+    def extract():
+        return (
+            set(invalids[invalids["type"] == InvalidDataType.USER.value]["id"]),
+            set(invalids[invalids["type"] == InvalidDataType.GAME.value]["id"]),
+        )
+
+    invalids_f.seek(0)
+    invalids_f.readline()
+    if invalids_f.read(1) == "":
+        if invalids is None:
+            return set(), set()
+        return extract()
+
+    if invalids is None:
+        invalids = pd.read_csv(invalids_f)
+    else:
+        invalids = pd.concat([invalids, pd.read_csv(invalids_f)])
+
+    return extract()
 
 
 def get_parsed_games():
@@ -122,3 +142,7 @@ def write_game(game: Game):
 
 def write_user_game(user_game: UserGame):
     write_data(user_games_f, user_game)
+
+
+def write_invalid(invalid_data: InvalidData):
+    write_data(invalids_f, invalid_data)

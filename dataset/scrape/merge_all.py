@@ -6,6 +6,7 @@ def merge_all():
     merge("games.csv")
     merge("friends.csv")
     merge("users_games.csv")
+    merge("invalids.csv")
 
 
 if __name__ == "__main__":
