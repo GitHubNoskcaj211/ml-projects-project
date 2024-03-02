@@ -16,6 +16,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [finalGames, setFinalGames] = useState<Game[]>([]);
+  const [showContent, setShowContent] = useState(false); // State to control the display of containers
 
   const [descriptions] = useState<string[]>([
     "Baldur’s Gate 3 is a story-rich, party-based RPG set in the universe of Dungeons & Dragons, where your choices shape a tale of fellowship and betrayal, survival and sacrifice, and the lure of absolute power.",
@@ -106,7 +107,10 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      if (
+        (event.key === "ArrowRight" || event.key === "ArrowLeft") &&
+        showContent
+      ) {
         const selection = event.key === "ArrowRight" ? 1 : 0;
         const updatedGames = [...finalGames];
         if (currentIndex < games.length) {
@@ -118,9 +122,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
         }
 
         setHistory((prev) => [...prev, currentIndex]);
-        if (currentIndex < games.length) {
-          setCurrentIndex(currentIndex + 1);
-        }
+        setCurrentIndex(currentIndex + 1);
       }
     };
 
@@ -129,7 +131,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [currentIndex, finalGames, games.length]);
+  }, [currentIndex, finalGames, games.length, showContent]);
 
   const handleUndo = () => {
     if (history.length > 0) {
@@ -138,6 +140,18 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
       setCurrentIndex(previousIndex);
     }
   };
+
+  const handleSignInClick = () => {
+    setShowContent(true); // Sign In Process Akash
+  };
+
+  if (!showContent) {
+    return (
+      <div className="container signInContainer">
+        <button onClick={handleSignInClick}>Sign in through Steam</button>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
