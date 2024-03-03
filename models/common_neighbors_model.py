@@ -1,11 +1,10 @@
-from base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
+from models.base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
 import networkx as nx
 import pickle
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
-from data_loader import NodeType
+from dataset.data_loader import NodeType
 
 class CommonNeighborsModelStoragePredictEfficient(BaseGameRecommendationModel):
     def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):

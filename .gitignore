@@ -1,4 +1,5 @@
 .env
 __pycache__
 models/saved_models
+models/saved_nns
 .DS_Store

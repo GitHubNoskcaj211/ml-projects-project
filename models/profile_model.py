@@ -6,15 +6,12 @@ tracemalloc.start()
 start_time = time.perf_counter()
 
 print("Importing")
-import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
-from data_loader import DataLoader
+from dataset.data_loader import DataLoader
 
-from collaborative_filtering_model import CollaborativeFiltering  # noqa: F401
-from common_neighbors_model import CommonNeighborsModelStoragePredictEfficient, CommonNeighborsModelLoadPredictEfficient, CommonNeighborsModelStorageMemoryEfficient   # noqa: F401
-from ncf_model import NCFModel    # noqa: F401
-from popularity_model import GamePopularityModel    # noqa: F401
+from models.collaborative_filtering_model import CollaborativeFiltering  # noqa: F401
+from models.common_neighbors_model import CommonNeighborsModelStoragePredictEfficient, CommonNeighborsModelLoadPredictEfficient, CommonNeighborsModelStorageMemoryEfficient   # noqa: F401
+from models.ncf_model import NCFModel    # noqa: F401
+from models.popularity_model import GamePopularityModel    # noqa: F401
 
 model_dispatcher = {
     'common_neighbors_storage_predict_efficient': CommonNeighborsModelStoragePredictEfficient,

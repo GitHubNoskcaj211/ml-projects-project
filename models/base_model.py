@@ -1,14 +1,9 @@
 from abc import ABC, abstractmethod
-import numpy as np
 from quickselect import floyd_rivest
-import multiprocessing
 from tqdm import tqdm
-import gc
 
-import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
-from data_loader import NodeType
+from dataset.data_loader import NodeType
 
 SAVED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models/')
 SAVED_NN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_nns/')

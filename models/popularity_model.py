@@ -1,12 +1,5 @@
-from base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
-import networkx as nx
-import pickle
-import sys
-import os
-import random
-
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
-from data_loader import NodeType
+from models.base_model import BaseGameRecommendationModel
+from dataset.data_loader import NodeType
 
 # Recommend in order of most to least popular games (based on number of edges).
 class GamePopularityModel(BaseGameRecommendationModel):

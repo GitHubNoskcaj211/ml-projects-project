@@ -1,24 +1,17 @@
-from base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
-from ncf_singlenode import NCF
+from models.base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
+from models.ncf_singlenode import NCF
 import numpy as np
-from tqdm import tqdm
-import random
-from matplotlib import pyplot as plt
 import pickle
 import pandas as pd
-import math
-from pprint import pprint
 import time
 import torch
-from collections import defaultdict
-import itertools
 
 import sys
 import os
 sys.path.append("../dataset")
 sys.path.append("../utils")
-from data_loader import NodeType, get_edges_between_types
-from utils import linear_transformation, gaussian_transformation, get_numeric_dataframe_columns
+from dataset.data_loader import NodeType, get_edges_between_types
+from utils.utils import linear_transformation, gaussian_transformation, get_numeric_dataframe_columns
 
 class NCFModel(BaseGameRecommendationModel):
     def __init__(self, num_epochs = 20, embedding_size = 100, batch_percent = 0.1, learning_rate = 0.01, mlp_hidden_layer_sizes = [16], seed=int(time.time()), model_type='ncf'):
