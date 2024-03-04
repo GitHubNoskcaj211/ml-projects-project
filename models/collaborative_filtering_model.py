@@ -1,4 +1,4 @@
-from base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
+from models.base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
 import numpy as np
 from tqdm import tqdm
 import random
@@ -9,12 +9,9 @@ import math
 from pprint import pprint
 import time
 
-import sys
 import os
-sys.path.append("../dataset")
-sys.path.append("../utils")
-from data_loader import NodeType, get_edges_between_types
-from utils import linear_transformation, gaussian_transformation, get_numeric_dataframe_columns
+from dataset.data_loader import NodeType, get_edges_between_types
+from utils.utils import linear_transformation, gaussian_transformation, get_numeric_dataframe_columns
 
 MAX_DIFFERENCE = 1e5
 

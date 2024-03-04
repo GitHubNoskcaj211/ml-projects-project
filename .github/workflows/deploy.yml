@@ -1,7 +1,61 @@
 on: push
 
 jobs:
-  Build:
+  BuildAndDeployBackend:
+    env:
+      PROJECT_ID: steam-game-recommender-415605
+      REGION: us-central1
+      APP: backend
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+
+      - name: 'Checkout Dataset Repo'
+        run: |-
+          git clone https://huggingface.co/datasets/steamgamerecommender/data_files dataset/data_files
+
+      - name: 'Google auth'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: ${{ secrets.SERVICE_ACCOUNT_CREDENTIALS }}
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          project_id: '${{ env.PROJECT_ID }}'
+
+      - name: 'Docker auth'
+        run: |-
+          gcloud auth configure-docker gcr.io
+
+      - name: 'Build and push container'
+        run: |-
+          docker build -t "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}" -f backend/Dockerfile .
+          docker push "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}"
+
+      - name: 'Create release name'
+        run: |-
+          echo "RELEASE_NAME=${{ env.APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
+
+      - name: 'Deploy Cloud Release'
+        uses: 'google-github-actions/deploy-cloudrun@v2'
+        with:
+          service: '${{ env.APP }}'
+          region: '${{ env.REGION }}'
+          tag: '${{ env.RELEASE_NAME }}'
+          image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
+
+      - name: 'Report Cloud Deploy release'
+        run: |-
+          echo "Release url ${{ steps.release.outputs.url }} "
+
+  BuildFrontEnd:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +71,9 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ github.workspace }}/websites/recommender-website/frontend/dist
-  Deploy:
-    needs: build
+
+  DeployFrontEnd:
+    needs: BuildFrontEnd
     permissions:
       pages: write
       id-token: write

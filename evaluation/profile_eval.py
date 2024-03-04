@@ -1,13 +1,13 @@
-from evaluation import Evaluator
+from evaluation.evaluation_harness_harness import Evaluator
 import cProfile
 
 import sys
 sys.path.append("../dataset")
 sys.path.append("../models")
-from data_loader import DataLoader
-from random_model import RandomModel
-from common_neighbors_model import CommonNeighborsModel
-from popularity_model import GamePopularityModel
+from dataset.data_loader import DataLoader
+from models.random_model import RandomModel
+from models.common_neighbors_model import CommonNeighborsModel
+from models.popularity_model import GamePopularityModel
 
 evaluator = Evaluator()
 data_loader = DataLoader()

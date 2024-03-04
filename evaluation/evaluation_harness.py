@@ -7,10 +7,8 @@ from sklearn import metrics as skmetrics
 from matplotlib import pyplot as plt
 from collections import defaultdict
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../dataset'))
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../utils'))
-from data_loader import NodeType, get_edges_between_types
-from utils import linear_transformation
+from dataset.data_loader import NodeType, get_edges_between_types
+from utils.utils import linear_transformation
 
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
 

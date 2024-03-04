@@ -7,13 +7,9 @@ import pandas as pd
 import os
 import numpy as np
 from pprint import pprint
-import dill
 import pickle
 from ast import literal_eval
-
-import sys
-sys.path.append("../utils/")
-from utils import linear_transformation, gaussian_transformation
+from utils.utils import linear_transformation, gaussian_transformation
 
 class LogType(Enum):
     ADD_QUEUE = 1
