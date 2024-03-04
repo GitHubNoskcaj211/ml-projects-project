@@ -64,7 +64,7 @@ class BaseDataLoader(ABC):
 
     def load_random_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert train_percentage + test_percentage <= 1
-        
+
         if network is None:
             network = self.get_full_network()
         user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
@@ -108,6 +108,13 @@ class BaseDataLoader(ABC):
         self.train_network.remove_edges_from(user_game_edges_set - set(train_edges))
         self.test_network = copy.deepcopy(network)
         self.test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+
+    def load_full_train_no_test_network(self, network=None):
+        if network is None:
+            network = self.get_full_network()
+        self.train_network = network
+        self.test_network = nx.Graph()
+
 
 class EmbeddingType(Enum):
     IDENTITY = 0

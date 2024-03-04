@@ -1,5 +1,6 @@
 import tracemalloc
 import time
+import argparse
 
 tracemalloc.start()
 start_time = time.perf_counter()
@@ -11,29 +12,47 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../da
 from data_loader import DataLoader
 
 from collaborative_filtering_model import CollaborativeFiltering  # noqa: F401
-from common_neighbors_model import CommonNeighborsModel   # noqa: F401
+from common_neighbors_model import CommonNeighborsModelStoragePredictEfficient, CommonNeighborsModelLoadPredictEfficient, CommonNeighborsModelStorageMemoryEfficient   # noqa: F401
 from ncf_model import NCFModel    # noqa: F401
 from popularity_model import GamePopularityModel    # noqa: F401
+
+model_dispatcher = {
+    'common_neighbors_storage_predict_efficient': CommonNeighborsModelStoragePredictEfficient,
+    'common_neighbors_load_predict_efficient': CommonNeighborsModelLoadPredictEfficient,
+    'common_neighbors_storage_memory_efficient': CommonNeighborsModelStorageMemoryEfficient,
+}
+ 
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", "--model", help = "Model name to use", choices=list(model_dispatcher.keys()), required=True)
+parser.add_argument("-f", "--load_file_name", help = "Model save to load in", type=str, required=True)
+parser.add_argument("-N", "--num_games_to_recommend", help = "Num games to recommend", type=int, default=50)
+args = parser.parse_args()
 
 import tracemalloc
 import time
 
-model = GamePopularityModel()
-file_name = None
-N = 50
+model = model_dispatcher[args.model]()
+file_name = args.load_file_name
+N = args.num_games_to_recommend
 
 
 print("Initializing Data Loader")
 data_loader = DataLoader()
+print('Getting full network.')
 network = data_loader.get_full_network()
-data_loader.load_random_train_test_network(network=network, train_percentage=0.8, test_percentage=0.2, seed=0)
+print('Loading')
+data_loader.load_full_train_no_test_network(network)
+print('Setting.')
 model.set_data_loader(data_loader)
 
 try:
+    print('Loading Model')
     model.load(file_name)
 except NotImplementedError:
+    print('Training')
     model.train()
-preds = model.recommend_n_games_for_user(76561198166465514, N)
+print('Recommending')
+preds = model.recommend_n_games_for_user(data_loader.users_df.iloc[0]['id'], N)
 
 end_time = time.perf_counter()
 size, peak = tracemalloc.get_traced_memory()
@@ -51,3 +70,4 @@ print()
 print("Current Memory Usage:", get_human_readable(size))
 print("Peak Memory Usage:", get_human_readable(peak))
 print("Elapsed: ", end_time - start_time, "seconds")
+tracemalloc.stop()
