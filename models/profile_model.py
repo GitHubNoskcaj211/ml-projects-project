@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.abspath(''), '../'))
+
 import tracemalloc
 import time
 import argparse
@@ -17,6 +21,7 @@ model_dispatcher = {
     'common_neighbors_storage_predict_efficient': CommonNeighborsModelStoragePredictEfficient,
     'common_neighbors_load_predict_efficient': CommonNeighborsModelLoadPredictEfficient,
     'common_neighbors_storage_memory_efficient': CommonNeighborsModelStorageMemoryEfficient,
+    'game_popularity': GamePopularityModel,
 }
  
 parser = argparse.ArgumentParser()
@@ -35,11 +40,6 @@ N = args.num_games_to_recommend
 
 print("Initializing Data Loader")
 data_loader = DataLoader()
-print('Getting full network.')
-network = data_loader.get_full_network()
-print('Loading')
-data_loader.load_full_train_no_test_network(network)
-print('Setting.')
 model.set_data_loader(data_loader)
 
 try:
@@ -47,7 +47,9 @@ try:
     model.load(file_name)
 except NotImplementedError:
     print('Training')
-    model.train()
+    network = data_loader.get_full_network()
+    train_network, test_network = data_loader.load_stratified_user_train_test_network(network=network, train_percentage=0.8, test_percentage=0.2, seed=0)
+    model.train(train_network)
 print('Recommending')
 preds = model.recommend_n_games_for_user(data_loader.users_df.iloc[0]['id'], N)
 

@@ -67,10 +67,12 @@ class BaseDataLoader(ABC):
 
         train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed)
         user_game_edges_set = set(user_game_edges)
-        self.train_network = copy.deepcopy(network)
-        self.train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        self.test_network = copy.deepcopy(network)
-        self.test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+        train_network = copy.deepcopy(network)
+        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
+        test_network = copy.deepcopy(network)
+        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+
+        return train_network, test_network
 
     def load_stratified_user_degree_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert train_percentage + test_percentage <= 1
@@ -83,10 +85,12 @@ class BaseDataLoader(ABC):
         
         train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[game_degrees[user_node] for user_node, game_node in user_game_edges])
         user_game_edges_set = set(user_game_edges)
-        self.train_network = copy.deepcopy(network)
-        self.train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        self.test_network = copy.deepcopy(network)
-        self.test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+        train_network = copy.deepcopy(network)
+        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
+        test_network = copy.deepcopy(network)
+        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+
+        return train_network, test_network
     
     def load_stratified_user_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert train_percentage + test_percentage <= 1
@@ -100,16 +104,12 @@ class BaseDataLoader(ABC):
 
         train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[node_strat_classes[user_node] for user_node, game_node in user_game_edges])
         user_game_edges_set = set(user_game_edges)
-        self.train_network = copy.deepcopy(network)
-        self.train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        self.test_network = copy.deepcopy(network)
-        self.test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+        train_network = copy.deepcopy(network)
+        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
+        test_network = copy.deepcopy(network)
+        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
 
-    def load_full_train_no_test_network(self, network=None):
-        if network is None:
-            network = self.get_full_network()
-        self.train_network = network
-        self.test_network = nx.Graph()
+        return train_network, test_network
 
 
 class EmbeddingType(Enum):

@@ -2,6 +2,7 @@ from flask import Blueprint, request, Response, current_app, g, jsonify
 from flask_pydantic import validate
 from pydantic import BaseModel, Extra
 import pandas as pd
+from backend_utils.utils import load_and_get_data_loader
 
 games = Blueprint(name="game", import_name=__name__)
 
@@ -11,7 +12,7 @@ class GetGameInformationFilterInput(BaseModel, extra=Extra.forbid):
 @games.route('/get_game_information', methods=['GET'])
 @validate()
 def get_game_information(query: GetGameInformationFilterInput):
-    games_df = current_app.data_loader.games_df
+    games_df = load_and_get_data_loader(current_app).games_df
     game_id = query.game_id
     query_result = games_df[games_df['id'] == game_id]
     if query_result.empty:

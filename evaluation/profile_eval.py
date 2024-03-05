@@ -9,14 +9,14 @@ from models.random_model import RandomModel
 from models.common_neighbors_model import CommonNeighborsModel
 from models.popularity_model import GamePopularityModel
 
-evaluator = Evaluator()
 data_loader = DataLoader()
 network = data_loader.get_full_network()
-data_loader.load_stratified_user_train_test_network(network=network, train_percentage=0.9, test_percentage=0.1, seed=0)
+train_network, test_network = data_loader.load_stratified_user_train_test_network(network=network, train_percentage=0.9, test_percentage=0.1, seed=0)
+evaluator = Evaluator(test_network, top_N_games_to_eval=500)
 
 model = CommonNeighborsModel()
 model.set_data_loader(data_loader)
-model.train()
+model.train(train_network)
 
 def profile_evaluator():
     evaluator.reset(model)

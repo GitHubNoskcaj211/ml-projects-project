@@ -39,7 +39,8 @@ def get_percentile_figure(values, metric_title):
     return fig
 
 class Evaluator:
-    def __init__(self, top_N_games_to_eval):
+    def __init__(self, test_network, top_N_games_to_eval):
+        self.test_network = test_network
         self.top_N_games_to_eval = top_N_games_to_eval
 
     def reset(self, model, debug=False):
@@ -48,8 +49,6 @@ class Evaluator:
         self.metrics = {}
         self.roc_curve = None
         self.model = model
-        self.data_loader = model.data_loader
-        self.test_network = self.data_loader.test_network
         self.game_nodes = set(n for n, d in self.test_network.nodes(data=True) if d['node_type'] == NodeType.GAME)
         self.all_predictions_and_scores_per_user = model.predict_for_all_users(N = self.top_N_games_to_eval, should_sort=False)
         if debug:

@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
 from quickselect import floyd_rivest
 from tqdm import tqdm
-
 import os
-from dataset.data_loader import NodeType
 
 SAVED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models/')
 SAVED_NN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_nns/')
+PUBLISHED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'published_recommendation_models/')
 
 class BaseGameRecommendationModel(ABC):
     @abstractmethod
@@ -61,7 +60,7 @@ class BaseGameRecommendationModel(ABC):
     #     return all_predictions_and_scores_per_user
 
     def predict_for_all_users(self, N, should_sort=True):
-        user_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+        user_nodes = self.data_loader.users_df['id'].to_list()
         all_predictions_and_scores_per_user = dict.fromkeys(user_nodes)
         for node in tqdm(user_nodes, desc='User Predictions'):
             all_predictions_and_scores_per_user[node] = self.score_and_predict_n_games_for_user(node, N=N, should_sort=should_sort)
@@ -77,5 +76,9 @@ class BaseGameRecommendationModel(ABC):
         pass
 
     @abstractmethod
-    def load(self, file_name):
+    def _load(self, file_path):
         pass
+
+    def load(self, file_name, load_published_model=False):
+        folder_path = PUBLISHED_MODELS_PATH if load_published_model else SAVED_MODELS_PATH
+        self._load(folder_path + file_name)

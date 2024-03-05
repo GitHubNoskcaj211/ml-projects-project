@@ -29,11 +29,11 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
     def name(self):
         return 'collaborative_filtering'
     # TODO train with friend cosine scores
-    def train(self, debug = False):
+    def train(self, train_network, debug = False):
         random.seed(self.seed)
         np.random.seed(self.seed)
-        self.game_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        self.user_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+        self.game_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+        self.user_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
         self.game_to_index = {game: ii for ii, game in enumerate(self.game_nodes)}
         self.user_to_index = {user: ii for ii, user in enumerate(self.user_nodes)}
         
@@ -42,14 +42,14 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
             # normalized_column = linear_transformation(column, column.min(), column.max(), -0.1, 0.1)
             return normalized_column
 
-        self.game_data_df = get_numeric_dataframe_columns(pd.DataFrame([self.data_loader.train_network.nodes[game_node] for game_node in self.game_nodes]))
+        self.game_data_df = get_numeric_dataframe_columns(pd.DataFrame([train_network.nodes[game_node] for game_node in self.game_nodes]))
         self.game_data_df = self.game_data_df.apply(normalize_column, axis=0)
         # print(self.game_data_df[['num_reviews']].max(), self.game_data_df[['num_reviews']].min())
         self.known_game_embeddings = self.game_data_df.to_numpy()
         # self.known_game_user_embeddings = np.random.rand(len(self.user_nodes), self.known_game_embeddings.shape[1]) / (self.known_game_embeddings.shape[1] ** 0.5)
         self.known_game_user_embeddings = np.zeros((len(self.user_nodes), self.known_game_embeddings.shape[1]))
         
-        self.user_data_df = get_numeric_dataframe_columns(pd.DataFrame([self.data_loader.train_network.nodes[user_node] for user_node in self.user_nodes]))
+        self.user_data_df = get_numeric_dataframe_columns(pd.DataFrame([train_network.nodes[user_node] for user_node in self.user_nodes]))
         self.user_data_df = self.user_data_df.apply(normalize_column, axis=0)
         self.known_user_embeddings = self.user_data_df.to_numpy()
         # self.known_user_game_embeddings = np.random.rand(len(self.game_nodes), self.known_user_embeddings.shape[1]) / (self.known_user_embeddings.shape[1] ** 0.5)
@@ -61,7 +61,7 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
         print('Known Game Embeddings: ', self.game_data_df.columns.tolist())
         print('Known User Embeddings: ', self.user_data_df.columns.tolist())
 
-        edges = get_edges_between_types(self.data_loader.train_network, NodeType.USER, NodeType.GAME, data=True)
+        edges = get_edges_between_types(train_network, NodeType.USER, NodeType.GAME, data=True)
         learning_rate_scale = self.user_embeddings.shape[1] + self.game_embeddings.shape[1] + self.known_game_user_embeddings.shape[1] + self.known_user_game_embeddings.shape[1] + self.known_game_embeddings.shape[1] + self.known_user_embeddings.shape[1]
         abs_errors = []
         for epoch in tqdm(range(self.num_epochs)):
@@ -96,21 +96,21 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
         return np.sum(self.user_embeddings[user_ii, :] * self.game_embeddings[game_ii, :]) + np.sum(self.known_game_user_embeddings[user_ii, :] * self.known_game_embeddings[game_ii, :]) + np.sum(self.known_user_embeddings[user_ii, :] * self.known_user_game_embeddings[game_ii, :])
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
-        root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
+        games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == user]['game_id'].to_list()
         user_ii = self.user_to_index[user]
         scores = np.sum(self.game_embeddings * self.user_embeddings[user_ii], axis=1) + np.sum(self.known_game_embeddings * self.known_game_user_embeddings[user_ii], axis=1) + np.sum(self.known_user_game_embeddings * self.known_user_embeddings[user_ii], axis=1)
-        scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in root_node_neighbors]
+        scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
         return self.select_scores(scores, N, should_sort)
     
     def predict_for_all_users(self, N, should_sort=True):
         predictions = self.user_embeddings @ self.game_embeddings.T + self.known_game_user_embeddings @ self.known_game_embeddings.T + self.known_user_embeddings @ self.known_user_game_embeddings.T
-        user_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+        user_nodes = self.data_loader.users_df['id'].to_list()
         all_predictions_and_scores_per_user = dict.fromkeys(user_nodes)
         for node in tqdm(user_nodes, desc='User Predictions'):
-            root_node_neighbors = list(self.data_loader.train_network.neighbors(node))
+            games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == node, 'game_id'].to_list()
             user_ii = self.user_to_index[node]
             scores = predictions[user_ii]
-            scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in root_node_neighbors]
+            scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
             all_predictions_and_scores_per_user[node] = self.select_scores(scores, N, should_sort)
         return all_predictions_and_scores_per_user
 
@@ -131,8 +131,8 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
                 'seed': self.seed,
             }, file)
 
-    def load(self, file_name):
-        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'rb') as file:
+    def _load(self, file_path):
+        with open(file_path + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
             self.game_nodes = loaded_obj['game_nodes']
             self.user_nodes = loaded_obj['user_nodes']

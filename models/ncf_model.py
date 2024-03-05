@@ -32,9 +32,9 @@ class NCFModel(BaseGameRecommendationModel):
     def name(self):
         return f'neural_collborative_filtering_{self.model_type}'
     
-    def train(self, debug = False):
-        self.game_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        self.user_nodes = [node for node, data in self.data_loader.train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+    def train(self, train_network, debug = False):
+        self.game_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+        self.user_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
         self.game_to_index = {game: ii for ii, game in enumerate(self.game_nodes)}
         self.user_to_index = {user: ii for ii, user in enumerate(self.user_nodes)}
         
@@ -43,18 +43,18 @@ class NCFModel(BaseGameRecommendationModel):
             # normalized_column = linear_transformation(column, column.min(), column.max(), -0.1, 0.1)
             return normalized_column
 
-        game_data_df = get_numeric_dataframe_columns(pd.DataFrame([self.data_loader.train_network.nodes[game_node] for game_node in self.game_nodes]))
+        game_data_df = get_numeric_dataframe_columns(pd.DataFrame([train_network.nodes[game_node] for game_node in self.game_nodes]))
         game_data_df = game_data_df.apply(normalize_column, axis=0)
         # known_game_embeddings = game_data_df.to_numpy()
         
-        user_data_df = get_numeric_dataframe_columns(pd.DataFrame([self.data_loader.train_network.nodes[user_node] for user_node in self.user_nodes]))
+        user_data_df = get_numeric_dataframe_columns(pd.DataFrame([train_network.nodes[user_node] for user_node in self.user_nodes]))
         user_data_df = user_data_df.apply(normalize_column, axis=0)
         # known_user_embeddings = user_data_df.to_numpy()
         
         print('Known Game Embeddings: ', game_data_df.columns.tolist())
         print('Known User Embeddings: ', user_data_df.columns.tolist())
 
-        user_game_edges = list(get_edges_between_types(self.data_loader.train_network, NodeType.USER, NodeType.GAME, data=True))
+        user_game_edges = list(get_edges_between_types(train_network, NodeType.USER, NodeType.GAME, data=True))
         user_game_scores = np.array([data['score'] for user, game, data in user_game_edges])
         user_game_scores = user_game_scores.reshape((-1, 1))
         user_indices = torch.tensor([self.user_to_index[user] for user, game, data in user_game_edges])
@@ -81,9 +81,9 @@ class NCFModel(BaseGameRecommendationModel):
         return self.unnormalize_score(output[0][0])
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
-        root_node_neighbors = list(self.data_loader.train_network.neighbors(user))
+        games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == user]['game_id'].to_list()
         user_ii = self.user_to_index[user]
-        game_indices = [self.game_to_index[game] for game in self.game_nodes if game not in root_node_neighbors]
+        game_indices = [self.game_to_index[game] for game in self.game_nodes if game not in games_to_filter_out]
         output = self.ncf.predict(torch.tensor([user_ii] * len(game_indices)), torch.tensor(game_indices))
         scores = [(self.game_nodes[game_ii], self.unnormalize_score(game_output[0])) for game_ii, game_output in zip(game_indices, output)]
         return self.select_scores(scores, N, should_sort)
@@ -96,7 +96,7 @@ class NCFModel(BaseGameRecommendationModel):
     #     all_user_game_combinations = list(itertools.product(user_indices, game_indices))
     #     output = self.ncf.predict(torch.tensor([user for user, game in all_user_game_combinations]), torch.tensor([game for user, game in all_user_game_combinations]), is_list=True)
     #     for (user_ii, game_ii), user_game_output in zip(all_user_game_combinations, output):
-    #         if self.game_nodes[game_ii] in self.data_loader.train_network[self.user_nodes[user_ii]]:
+    #         if self.game_nodes[game_ii] in train_network[self.user_nodes[user_ii]]:
     #             continue
     #         all_predictions_and_scores_per_user[self.user_nodes[user_ii]].append((self.game_nodes[game_ii], {self.output_index_to_embedding_name[ii]: value for ii, value in enumerate(user_game_output)}))
     #     for user, scores in tqdm(all_predictions_and_scores_per_user.items(), desc='User Predictions'):
