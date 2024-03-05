@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import GameRating from "./GameRating";
 
+function makeBackendURL(path: string) {
+  return `${import.meta.env.VITE_BACKEND_URL}/${path}`
+}
+
 const App: React.FC = () => {
   const gameRatings = [
     { name: "Baldur's Gate 3", rating: 0.97 },
@@ -12,7 +16,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("http://127.0.0.1:3000/user", {
+      const res = await fetch(makeBackendURL("/user"), {
         mode: "cors",
         credentials: "include",
       });

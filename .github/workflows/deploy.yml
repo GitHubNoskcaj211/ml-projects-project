@@ -72,6 +72,8 @@ jobs:
         with:
           node-version: 20
       - name: Build
+        env:
+          VITE_BACKEND_URL: ${{ secrets.FLASK_BACKEND_URL }}
         run: |
           npm i
           npm run build -- --base=/ml-projects-project/
