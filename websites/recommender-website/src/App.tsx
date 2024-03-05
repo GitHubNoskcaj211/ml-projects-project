@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import GameRating from "./GameRating";
 
 function makeBackendURL(path: string) {
-  return `${import.meta.env.VITE_BACKEND_URL}/${path}`
+  const url = new URL(path, import.meta.env.VITE_BACKEND_URL);
+  return url.toString();
 }
 
 const App: React.FC = () => {
@@ -36,7 +37,7 @@ const App: React.FC = () => {
   if (userID === null) {
     return (
       <div className="container signInContainer">
-        <button onClick={() => location.href = "http://127.0.0.1:3000/login"}>Sign in through Steam</button>
+        <button onClick={() => location.href = makeBackendURL("/login")}>Sign in through Steam</button>
       </div>
     );
   }
