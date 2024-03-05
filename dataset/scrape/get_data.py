@@ -46,7 +46,8 @@ def write_user_data(user_id):
         ))
 
     valid = False
-    requests = []
+    game_data_requests = []
+    store_data_requests = []
     new_resp_games = []
     for resp_game in resp_games:
         game_id = resp_game["appid"]
@@ -57,39 +58,76 @@ def write_user_data(user_id):
             valid = True
         else:
             new_resp_games.append(resp_game)
-            requests.append(grequests.get(GAME_DATA_URL.format(app_id=game_id)))
-    num_already_seen = len(resp_games) - len(requests)
-    with tqdm(total=len(resp_games), initial=num_already_seen, desc="Games", position=1, leave=False) as pbar:
-        for i, resp in grequests.imap_enumerated(requests, size=10):
+            game_data_requests.append(grequests.get(GAME_DATA_URL.format(app_id=game_id)))
+            store_data_requests.append(grequests.get(STORE_DATA_URL.format(app_id=game_id)))
+    num_already_seen = len(resp_games) - len(new_resp_games)
+    games_data = []
+    games_valid = []
+    for ii in range(len(new_resp_games)):
+        games_data.append(Game(None, None, None, None, None, None, None, None, None, None))
+        games_valid.append(True)
+    with tqdm(total=len(resp_games), initial=num_already_seen, desc="Gamalytic", position=1, leave=False) as pbar:
+        for i, resp in grequests.imap_enumerated(game_data_requests, size=10):
             pbar.update(1)
+            
             resp_game = new_resp_games[i]
             game_id = resp_game["appid"]
+            game_data = games_data[i]
+            game_data.id = game_id
 
             if resp.status_code == 500:
-                add_invalid_game(game_id)
+                games_valid[i] = False
                 continue
             assert resp.status_code == 200
 
             resp = json.loads(resp.content)
             try:
-                game_data = Game(
-                    id=game_id,
-                    name=resp["name"],
-                    numReviews=resp["reviews"],
-                    avgReviewScore=resp["reviewScore"],
-                    price=resp["price"],
-                    genres=resp["genres"],
-                    tags=resp["tags"],
-                    description=resp["description"],
-                    numFollowers=resp["followers"]
-                )
+                game_data.name = resp["name"]
+                game_data.numReviews = resp["reviews"]
+                game_data.avgReviewScore = resp["reviewScore"]
+                game_data.price = resp["price"]
+                game_data.genres = resp["genres"]
+                game_data.tags = resp["tags"]
+                game_data.description = resp["description"]
+                game_data.numFollowers = resp["followers"]
             except KeyError:
-                add_invalid_game(game_id)
+                games_valid[i] = False
                 continue
+    with tqdm(total=len(resp_games), initial=num_already_seen, desc="Steam Store", position=1, leave=False) as pbar:
+        for i, resp in grequests.imap_enumerated(store_data_requests, size=10):
+            pbar.update(1)
+
+            game_data = games_data[i]
+            resp_game = new_resp_games[i]
+            game_id = resp_game["appid"]
+            assert resp is not None, f'Request is None. Game {game_id}.'
+            assert resp.status_code == 200, f'Request not successful. Game {game_id}. Status {resp.status_code}'
+            resp = json.loads(resp.content)
+            try:
+                if not resp[f'{game_id}']['success']:
+                    assert not games_valid[i], f'Not Successful. Gamalytic says good, steam says bad {game_id}' # TODO just for testing
+                    games_valid[i] = False
+                    continue
+                if resp[f'{game_id}']['data']['type'] != 'game':
+                    assert not games_valid[i], f'Not game. Gamalytic says good, steam says bad {game_id}' # TODO just for testing
+                    games_valid[i] = False
+                    continue
+                game_data.requiredAge = resp[f'{game_id}']['data']['required_age']
+            except KeyError:
+            assert not games_valid[i], f'Key Error. Gamalytic says good, steam says bad {game_id}' # TODO just for testing
+                games_valid[i] = False
+                continue
+            import time
+            time.sleep(0.125)
+    for resp_game, game_data, game_valid in zip(new_resp_games, games_data, games_valid):
+        if game_valid:
+            game_id = resp_game["appid"]
             games_parsed.add(game_id)
             valid = True
             write_game(game_data)
             add_edge(resp_game)
+        else:
+            add_invalid_game(game_id)
     return valid
 
 
