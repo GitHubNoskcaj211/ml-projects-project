@@ -45,8 +45,8 @@ class CommonNeighborsModelStoragePredictEfficient(BaseGameRecommendationModel):
                 'game_nodes': self.game_nodes,
             }, file)
 
-    def load(self, file_name):
-        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'rb') as file:
+    def _load(self, file_path):
+        with open(file_path + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
             self.path_length_2_weight = loaded_obj['path_length_2_weight']
             self.path_length_3_weight = loaded_obj['path_length_3_weight']
@@ -97,8 +97,8 @@ class CommonNeighborsModelLoadPredictEfficient(BaseGameRecommendationModel):
                 'scores': self.scores,
             }, file)
 
-    def load(self, file_name):
-        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'rb') as file:
+    def _load(self, file_path):
+        with open(file_path + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
             self.path_length_2_weight = loaded_obj['path_length_2_weight']
             self.path_length_3_weight = loaded_obj['path_length_3_weight']
