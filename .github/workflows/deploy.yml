@@ -40,7 +40,12 @@ jobs:
 
       - name: 'Build and push container'
         run: |-
-          docker build -t "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}" -f backend/Dockerfile .
+          docker build \
+            -t "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}" \
+            -f backend/Dockerfile . \
+            --build-arg FLASK_BACKEND_URL=${{ env.FLASK_BACKEND_URL }} \
+            --build-arg FLASK_FRONTEND_URL=${{ env.FLASK_FRONTEND_URL }} \
+            --build-arg FLASK_SECRET_KEY=${{ env.FLASK_SECRET_KEY }}
           docker push "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}"
 
       - name: 'Create release name'
