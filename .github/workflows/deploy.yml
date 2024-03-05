@@ -70,11 +70,11 @@ jobs:
         run: |
           npm i
           npm run build -- --base=/ml-projects-project/
-        working-directory: ${{ github.workspace }}/websites/recommender-website/frontend
+        working-directory: ${{ github.workspace }}/websites/recommender-website
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ github.workspace }}/websites/recommender-website/frontend/dist
+          path: ${{ github.workspace }}/websites/recommender-website/dist
 
   DeployFrontEnd:
     needs: BuildFrontEnd
