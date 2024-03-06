@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./GameRating.css"; // Import the CSS file
 import RecCircle from "./components/RecCircle";
+import PopupBox from "./components/PopUpBox";
 
 interface Game {
   name: string;
@@ -16,6 +17,9 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [finalGames, setFinalGames] = useState<Game[]>([]);
+  const [showPopup, setShowPopup] = useState(true);
+
+  
 
   const [descriptions] = useState<string[]>([
     "Baldur’s Gate 3 is a story-rich, party-based RPG set in the universe of Dungeons & Dragons, where your choices shape a tale of fellowship and betrayal, survival and sacrifice, and the lure of absolute power.",
@@ -137,8 +141,21 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
     }
   };
 
+  const closePopup = () => {
+    setShowPopup(false);
+  };
+  
+
   return (
     <div className="container">
+      {showPopup && currentIndex === 0 && (
+        <PopupBox
+          isOpen={showPopup}
+          message="Welcome to Game Rating! Close this to start."
+          onClose={closePopup}
+        />
+      )}
+
       {currentIndex < games.length ? (
         <div className="contentContainer">
           {/* Game Title */}
@@ -205,6 +222,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
       )}
     </div>
   );
+  
 };
 
 export default GameRating;
