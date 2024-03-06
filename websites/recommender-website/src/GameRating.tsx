@@ -7,6 +7,7 @@ interface Game {
   name: string;
   rating: number;
   userSelection?: number;
+  timeSpent?: number;
 }
 
 interface GameRatingProps {
@@ -18,8 +19,8 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
   const [history, setHistory] = useState<number[]>([]);
   const [finalGames, setFinalGames] = useState<Game[]>([]);
   const [showPopup, setShowPopup] = useState(true);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
-  
 
   const [descriptions] = useState<string[]>([
     "Baldur’s Gate 3 is a story-rich, party-based RPG set in the universe of Dungeons & Dragons, where your choices shape a tale of fellowship and betrayal, survival and sacrifice, and the lure of absolute power.",
@@ -110,19 +111,23 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      if (startTime && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
         const selection = event.key === "ArrowRight" ? 1 : 0;
         const updatedGames = [...finalGames];
+        const timeSpentCurrent = (Date.now() - startTime) / 1000;
+
         if (currentIndex < games.length) {
           updatedGames[currentIndex] = {
             ...updatedGames[currentIndex],
             userSelection: selection,
+            timeSpent: timeSpentCurrent
           };
           setFinalGames(updatedGames);
         }
 
         setHistory((prev) => [...prev, currentIndex]);
         setCurrentIndex(currentIndex + 1);
+        setStartTime(Date.now());
       }
     };
 
@@ -131,7 +136,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [currentIndex, finalGames, games.length]);
+  }, [currentIndex, finalGames, games.length, startTime]);
 
   const handleUndo = () => {
     if (history.length > 0) {
@@ -143,18 +148,20 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
 
   const closePopup = () => {
     setShowPopup(false);
+    setStartTime(Date.now());
   };
-  
+
 
   return (
     <div className="container">
-      {showPopup && currentIndex === 0 && (
-        <PopupBox
-          isOpen={showPopup}
-          message="Welcome to Game Rating! Close this to start."
-          onClose={closePopup}
-        />
-      )}
+      {/* Popup Directions Box*/
+        showPopup && currentIndex === 0 && (
+          <PopupBox
+            isOpen={showPopup}
+            message="Welcome to Game Rating! Close this to start."
+            onClose={closePopup}
+          />
+        )}
 
       {currentIndex < games.length ? (
         <div className="contentContainer">
@@ -222,7 +229,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
       )}
     </div>
   );
-  
+
 };
 
 export default GameRating;
