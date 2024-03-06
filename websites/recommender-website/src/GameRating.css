@@ -78,3 +78,7 @@ p {
   font-size: 1vw;
   margin: 2px;
 }
+
+button.undoButton {
+  color: red
+}

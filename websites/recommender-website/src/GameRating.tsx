@@ -209,7 +209,7 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
           <div className="undoContainer">
             {history.length > 0 && (
               <button className="undoButton" onClick={handleUndo}>
-                Undo
+                Go Back
               </button>
             )}
           </div>
