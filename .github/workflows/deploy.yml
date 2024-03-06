@@ -20,10 +20,14 @@ jobs:
       - name: 'Checkout Dataset Repo'
         run: |-
           git clone https://huggingface.co/datasets/steamgamerecommender/data_files dataset/data_files
+          cd dataset/data_files
+          git reset --hard d59bae7d21b84f469011999c0c2ab58dffaab708
 
       - name: 'Checkout Published Models Repo'
         run: |-
           git clone https://huggingface.co/steamgamerecommender/published_recommendation_models models/published_recommendation_models
+          cd models/published_recommendation_models
+          git reset --hard 83cb0fcb2b6aa98a68f651dcec33311bddc64ad0
 
       - name: 'Google auth'
         id: 'auth'
