@@ -4,12 +4,12 @@ import pandas as pd
 
 from dataset.scrape.constants import *
 from dataset.scrape.merge_all import merge_all
-from dataset.scrape.remove_zero_playtime_users import remove_zero_playtime_users
 
-class FileManager():
+
+class FileManager:
     def __init__(self):
         self.open_files()
-        
+
     def open_files(self):
         self.files = []
         for filename, dataclass in ENVIRONMENT.FILENAMES:
@@ -18,11 +18,17 @@ class FileManager():
                 header = ",".join(map(lambda x: x.name, dataclasses.fields(dataclass)))
                 f.write(header + "\n")
             self.files.append(f)
-        self.users_f, self.games_f, self.friends_f, self.user_games_f, self.invalids_f = self.files
+        (
+            self.users_f,
+            self.games_f,
+            self.friends_f,
+            self.user_games_f,
+            self.invalids_f,
+        ) = self.files
         self.log_f = open(ENVIRONMENT.LOG_FILENAME, "a+", encoding="utf-8")
         self.log_f.seek(0)
         return tuple(self.files)
-    
+
     def close_files(self):
         print("Saving")
         assert len(ENVIRONMENT.FILENAMES)
@@ -30,13 +36,12 @@ class FileManager():
             file.close()
         self.log_f.close()
 
-        print('Checking for Zero Playtime (Private) Users')
-        remove_zero_playtime_users()
-
         print("Merging")
         merge_all()
 
+
 FILE_MANAGER = FileManager()
+
 
 def replay_log():
     visited_valid = set()
@@ -114,6 +119,7 @@ def write_data(file, data):
     def convert(x):
         repl = str(x).replace('"', '""')
         return f'"{repl}"'
+
     line = ",".join(map(convert, dataclasses.astuple(data)))
     file.write(line + "\n")
 

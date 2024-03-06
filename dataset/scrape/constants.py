@@ -3,9 +3,10 @@ import os
 from pathlib import Path
 import dataclasses
 from enum import Enum
-from dataclasses import dataclass
 
 load_dotenv()
+
+
 @dataclasses.dataclass
 class User:
     id: str
@@ -53,13 +54,15 @@ class LogType(Enum):
     ADD_QUEUE = 1
     VISITED_VALID = 2
 
-@dataclass
+
 class Environment:
     def initialize_environment(self, key, root, num_users):
         self.KEY = key
         self.ROOT = root
         self.NUM_USERS = num_users
-        self.DATA_ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data_files")
+        self.DATA_ROOT_DIR = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "../data_files"
+        )
 
         self.ALL_GAMES_FILENAME = os.path.join(self.DATA_ROOT_DIR, "games.csv")
         self.ALL_INVALIDS_FILENAME = os.path.join(self.DATA_ROOT_DIR, "invalids.csv")
@@ -70,7 +73,9 @@ class Environment:
         self.USERS_FILENAME = os.path.join(self.SNOWBALL_ROOT_DIR, "users.csv")
         self.GAMES_FILENAME = os.path.join(self.SNOWBALL_ROOT_DIR, "games.csv")
         self.FRIENDS_FILENAME = os.path.join(self.SNOWBALL_ROOT_DIR, "friends.csv")
-        self.USER_GAMES_FILENAME = os.path.join(self.SNOWBALL_ROOT_DIR, "users_games.csv")
+        self.USER_GAMES_FILENAME = os.path.join(
+            self.SNOWBALL_ROOT_DIR, "users_games.csv"
+        )
         self.INVALIDS_FILENAME = os.path.join(self.SNOWBALL_ROOT_DIR, "invalids.csv")
         self.LOG_FILENAME = os.path.join(self.SNOWBALL_ROOT_DIR, "log.txt")
 
@@ -86,6 +91,8 @@ class Environment:
             (self.INVALIDS_FILENAME, InvalidData),
         ]
 
-ENVIRONMENT = Environment()
-ENVIRONMENT.initialize_environment(os.getenv("STEAM_WEB_API_KEY"), os.getenv("ROOT_USER"), int(os.getenv("NUM_USERS")))
 
+ENVIRONMENT = Environment()
+ENVIRONMENT.initialize_environment(
+    os.getenv("STEAM_WEB_API_KEY"), os.getenv("ROOT_USER"), int(os.getenv("NUM_USERS"))
+)

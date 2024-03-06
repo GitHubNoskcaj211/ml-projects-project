@@ -1,16 +1,18 @@
 import sys
 import os
-if __name__=='__main__':
-    sys.path.append(os.path.abspath(''))
+
+if __name__ == "__main__":
+    sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 import grequests
 import json
 import requests
 from tqdm import tqdm
 import traceback
 
-from dataset.scrape.util import *
+from dataset.scrape.file_manager import *
 
-class Cache():
+
+class Cache:
     def __init__(self):
         self.reset()
 
@@ -58,12 +60,14 @@ def write_user_data(user_id):
         return False
 
     def add_edge(resp_game):
-        write_user_game(UserGame(
-            user_id=user_id,
-            game_id=resp_game["appid"],
-            playtime_2weeks=resp_game.get("playtime_2weeks", 0),
-            playtime_forever=resp_game["playtime_forever"]
-        ))
+        write_user_game(
+            UserGame(
+                user_id=user_id,
+                game_id=resp_game["appid"],
+                playtime_2weeks=resp_game.get("playtime_2weeks", 0),
+                playtime_forever=resp_game["playtime_forever"],
+            )
+        )
 
     valid = False
     requests = []
@@ -77,9 +81,17 @@ def write_user_data(user_id):
             valid = True
         else:
             new_resp_games.append(resp_game)
-            requests.append(grequests.get(ENVIRONMENT.GAME_DATA_URL.format(app_id=game_id)))
+            requests.append(
+                grequests.get(ENVIRONMENT.GAME_DATA_URL.format(app_id=game_id))
+            )
     num_already_seen = len(resp_games) - len(requests)
-    with tqdm(total=len(resp_games), initial=num_already_seen, desc="Games", position=1, leave=False) as pbar:
+    with tqdm(
+        total=len(resp_games),
+        initial=num_already_seen,
+        desc="Games",
+        position=1,
+        leave=False,
+    ) as pbar:
         for i, resp in grequests.imap_enumerated(requests, size=10):
             pbar.update(1)
             resp_game = new_resp_games[i]
@@ -101,7 +113,7 @@ def write_user_data(user_id):
                     genres=resp["genres"],
                     tags=resp["tags"],
                     description=resp["description"],
-                    numFollowers=resp["followers"]
+                    numFollowers=resp["followers"],
                 )
             except KeyError:
                 add_invalid_game(game_id)
@@ -114,14 +126,22 @@ def write_user_data(user_id):
 
 
 def add_queue(user_id):
-    if user_id in CACHE.user_ids or user_id in CACHE.visited_valid or user_id in CACHE.invalid_users:
+    if (
+        user_id in CACHE.user_ids
+        or user_id in CACHE.visited_valid
+        or user_id in CACHE.invalid_users
+    ):
         return
     CACHE.user_ids.append(user_id)
     write_log(LogType.ADD_QUEUE, user_id)
 
 
 def add_visited(visited_type, visited_set, user_id):
-    assert user_id not in CACHE.user_ids and user_id not in CACHE.visited_valid and user_id not in CACHE.invalid_users
+    assert (
+        user_id not in CACHE.user_ids
+        and user_id not in CACHE.visited_valid
+        and user_id not in CACHE.invalid_users
+    )
     write_log(visited_type, user_id)
     visited_set.add(user_id)
 
@@ -140,11 +160,19 @@ def add_invalid_game(game_id):
     write_invalid(InvalidData(type=InvalidDataType.GAME.value, id=game_id))
     CACHE.invalid_games.add(game_id)
 
+
 def get_data():
     if len(CACHE.user_ids) == 0:
         add_queue(ENVIRONMENT.ROOT)
-    with tqdm(total=ENVIRONMENT.NUM_USERS, initial=len(CACHE.visited_valid), desc="Users", position=0) as pbar:
-        while len(CACHE.user_ids) > 0 and len(CACHE.visited_valid) < ENVIRONMENT.NUM_USERS:
+    with tqdm(
+        total=ENVIRONMENT.NUM_USERS,
+        initial=len(CACHE.visited_valid),
+        desc="Users",
+        position=0,
+    ) as pbar:
+        while (
+            len(CACHE.user_ids) > 0 and len(CACHE.visited_valid) < ENVIRONMENT.NUM_USERS
+        ):
             user_id = CACHE.user_ids.popleft()
             if user_id in CACHE.visited_valid or user_id in CACHE.invalid_users:
                 continue
@@ -165,7 +193,8 @@ def get_data():
                 write_friend(Friend(user1=user_id, user2=friend_id))
             pbar.update(1)
 
-if __name__=='__main__':
+
+if __name__ == "__main__":
     try:
         get_data()
     except AssertionError as e:

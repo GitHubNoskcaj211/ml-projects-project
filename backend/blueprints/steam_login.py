@@ -7,8 +7,6 @@ from flask_login import (
     logout_user,
 )
 from urllib.parse import urlencode
-import sys
-import subprocess
 from dataset.scrape.get_data import reset_get_data, get_data
 
 steam_login = Blueprint(name="steam_login", import_name=__name__)
