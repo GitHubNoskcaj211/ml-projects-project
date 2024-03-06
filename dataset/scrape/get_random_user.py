@@ -1,14 +1,14 @@
 import random
 import requests
 
-from constants import *
+from dataset.scrape.constants import *
 
 START = 76561197960952452
 END = 76561199616561598
 
 
 def verify_request(URL):
-    resp = requests.get(URL.format(user_id=ROOT))
+    resp = requests.get(URL.format(user_id=ENVIRONMENT.ROOT))
     if resp.status_code == 401 or resp.status_code == 404:
         return None
     if resp.status_code != 200:
@@ -21,13 +21,13 @@ def verify_request(URL):
 while True:
     user_id = random.randint(START, END)
 
-    resp = verify_request(FRIENDS_URL.format(user_id=user_id))
+    resp = verify_request(ENVIRONMENT.FRIENDS_URL.format(user_id=user_id))
     if resp is None:
         continue
     if resp["friendslist"]["friends"] == []:
         continue
 
-    resp = verify_request(GAMES_URL.format(user_id=user_id))
+    resp = verify_request(ENVIRONMENT.GAMES_URL.format(user_id=user_id))
     if resp is None:
         continue
     resp = resp["response"]

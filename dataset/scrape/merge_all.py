@@ -1,4 +1,4 @@
-from merge_data import merge
+from dataset.scrape.merge_data import merge
 
 
 def merge_all():

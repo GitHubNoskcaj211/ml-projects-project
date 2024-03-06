@@ -1,8 +1,7 @@
 import sys
-
-sys.path.append("..")
-
 import os
+if __name__=='__main__':
+    sys.path.append(os.path.abspath(''))
 import config
 import json
 import time
