@@ -1,6 +1,14 @@
 from flask import Blueprint, request, Response, redirect, current_app, jsonify
-from flask_login import current_user, LoginManager, login_user, login_required, logout_user
+from flask_login import (
+    current_user,
+    LoginManager,
+    login_user,
+    login_required,
+    logout_user,
+)
 from urllib.parse import urlencode
+import sys
+import subprocess
 
 steam_login = Blueprint(name="steam_login", import_name=__name__)
 login_manager = LoginManager()
@@ -43,6 +51,26 @@ def auth_with_steam():
     assert login_user(User(id))
     resp = redirect(current_app.config["FRONTEND_URL"])
     return resp
+
+
+@steam_login.route("/init_user", methods=["GET"])
+@login_required
+def init_user():
+    if current_app.debug:
+        cwd = "../dataset/scrape/"
+    else:
+        cwd = "./dataset/scrape/"
+    ret = subprocess.run(
+        [sys.executable, "get_data.py"],
+        cwd=cwd,
+        env={
+            "STEAM_WEB_API_KEY": current_app.config["STEAM_WEB_API_KEY"],
+            "ROOT_USER": current_user.id,
+            "NUM_USERS": "1",
+        }
+    )
+    print(ret)
+    return Response("Hi")
 
 
 @steam_login.route("/logout", methods=["GET"])
