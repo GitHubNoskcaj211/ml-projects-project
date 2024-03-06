@@ -26,7 +26,6 @@ const PopUpBox: React.FC<PopUpBox> = ({ isOpen, onClose }) => {
               <span>Swipe Right if you like it! </span> <span>👉</span>
             </div>  
           </div>
-          z
         </div>
       );
     };      
