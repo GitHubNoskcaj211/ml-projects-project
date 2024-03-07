@@ -3,12 +3,11 @@ import dataclasses
 import pandas as pd
 
 from dataset.scrape.constants import *
-from dataset.scrape.merge_all import merge_all
 
 
 class FileManager:
     def __init__(self):
-        self.open_files()
+        self.opened = False
 
     def open_files(self):
         self.files = []
@@ -27,17 +26,23 @@ class FileManager:
         ) = self.files
         self.log_f = open(ENVIRONMENT.LOG_FILENAME, "a+", encoding="utf-8")
         self.log_f.seek(0)
+        self.opened = True
         return tuple(self.files)
 
     def close_files(self):
         print("Saving")
-        assert len(ENVIRONMENT.FILENAMES)
+        assert len(ENVIRONMENT.FILENAMES) == len(self.files)
+        self.opened = False
         for file in self.files:
             file.close()
         self.log_f.close()
 
-        print("Merging")
-        merge_all()
+        self.users_f = None
+        self.games_f = None
+        self.friends_f = None
+        self.user_games_f = None
+        self.invalids_f = None
+        self.log_f = None
 
 
 FILE_MANAGER = FileManager()
@@ -76,17 +81,22 @@ def get_invalids():
             set(invalids[invalids["type"] == InvalidDataType.GAME.value]["id"]),
         )
 
-    FILE_MANAGER.invalids_f.seek(0)
-    FILE_MANAGER.invalids_f.readline()
-    if FILE_MANAGER.invalids_f.read(1) == "":
-        if invalids is None:
-            return set(), set()
-        return extract()
+    if FILE_MANAGER.opened:
+        FILE_MANAGER.invalids_f.seek(0)
+        FILE_MANAGER.invalids_f.readline()
+        if FILE_MANAGER.invalids_f.read(1) == "":
+            if invalids is None:
+                return set(), set()
+            return extract()
 
     if invalids is None:
-        invalids = pd.read_csv(FILE_MANAGER.invalids_f)
+        if FILE_MANAGER.opened:
+            invalids = pd.read_csv(FILE_MANAGER.invalids_f)
+        else:
+            return set(), set()
     else:
-        invalids = pd.concat([invalids, pd.read_csv(FILE_MANAGER.invalids_f)])
+        if FILE_MANAGER.opened:
+            invalids = pd.concat([invalids, pd.read_csv(FILE_MANAGER.invalids_f)])
 
     return extract()
 
@@ -97,14 +107,17 @@ def get_parsed_games():
     else:
         all_games = set()
 
-    FILE_MANAGER.games_f.seek(0)
-    FILE_MANAGER.games_f.readline()
-    if FILE_MANAGER.games_f.read(1) == "":
-        return all_games
-    FILE_MANAGER.games_f.seek(0)
-    games_parsed = pd.read_csv(FILE_MANAGER.games_f)["id"]
-    games_parsed_set = set(games_parsed)
-    assert len(games_parsed_set) == len(games_parsed)
+    if FILE_MANAGER.opened:
+        FILE_MANAGER.games_f.seek(0)
+        FILE_MANAGER.games_f.readline()
+        if FILE_MANAGER.games_f.read(1) == "":
+            return all_games
+        FILE_MANAGER.games_f.seek(0)
+        games_parsed = pd.read_csv(FILE_MANAGER.games_f)["id"]
+        games_parsed_set = set(games_parsed)
+        assert len(games_parsed_set) == len(games_parsed)
+    else:
+        games_parsed_set = set()
 
     games_parsed_set.update(all_games)
 

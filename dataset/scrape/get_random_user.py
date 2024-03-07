@@ -1,6 +1,10 @@
 import random
 import requests
 
+if __name__ == "__main__":
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from dataset.scrape.constants import *
 
 START = 76561197960952452
@@ -20,6 +24,7 @@ def verify_request(URL):
 
 while True:
     user_id = random.randint(START, END)
+    print("Trying", user_id)
 
     resp = verify_request(ENVIRONMENT.FRIENDS_URL.format(user_id=user_id))
     if resp is None:

@@ -1,6 +1,8 @@
-import sys
-import os
 if __name__ == "__main__":
+    import sys
+    import os
+    from gevent import monkey
+    monkey.patch_all()
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import config
 import json

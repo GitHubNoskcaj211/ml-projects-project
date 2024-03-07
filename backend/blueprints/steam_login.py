@@ -7,7 +7,8 @@ from flask_login import (
     logout_user,
 )
 from urllib.parse import urlencode
-from dataset.scrape.get_data import reset_get_data, get_data
+from dataset.scrape.get_data import CACHE, ENVIRONMENT, FILE_MANAGER, get_single_user
+import traceback
 
 steam_login = Blueprint(name="steam_login", import_name=__name__)
 login_manager = LoginManager()
@@ -55,16 +56,19 @@ def auth_with_steam():
 @steam_login.route("/init_user", methods=["GET"])
 @login_required
 def init_user():
-    # if current_app.debug:
-    #     cwd = "../dataset/scrape/"
-    # else:
-    #     cwd = "./dataset/scrape/"
     try:
-        # TODO figure out whether or not they are public.
-        reset_get_data(current_app.config["STEAM_WEB_API_KEY"], current_user.id, 1)
+        CACHE.invalid_users.discard(current_user.id)
+        ENVIRONMENT.initialize_environment(current_app.config["STEAM_WEB_API_KEY"], current_user.id, None)
+        FILE_MANAGER.open_files()
+        success = get_single_user(current_user.id)
+        FILE_MANAGER.close_files()
+        if not success:
+            return Response("Bad Scrape", 500)
         return Response("Good Scrape")
-    except Exception:
-        return Response("Bad Scrape")
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+        return Response("Bad Scrape", 500)
 
 
 @steam_login.route("/logout", methods=["GET"])

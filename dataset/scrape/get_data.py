@@ -10,26 +10,24 @@ from tqdm import tqdm
 import traceback
 
 from dataset.scrape.file_manager import *
+from dataset.scrape.merge_all import merge_all
 
 
 class Cache:
     def __init__(self):
-        self.reset()
-
-    def reset(self):
         self.games_parsed = get_parsed_games()
         self.invalid_users, self.invalid_games = get_invalids()
+        if __name__ != "__main__":
+            self.user_ids = deque([])
+            self.visited_valid = set()
+
+    def replay(self):
         self.user_ids, self.visited_valid = replay_log()
 
 
-CACHE = Cache()
-
-
-def reset_get_data(web_api_key, root_user, num_users):
-    FILE_MANAGER.close_files()
-    ENVIRONMENT.initialize_environment(web_api_key, root_user, num_users)
+if __name__ == "__main__":
     FILE_MANAGER.open_files()
-    CACHE.reset()
+CACHE = Cache()
 
 
 def make_single_request(url, **kwargs):
@@ -161,6 +159,26 @@ def add_invalid_game(game_id):
     CACHE.invalid_games.add(game_id)
 
 
+def get_single_user(user_id):
+    if user_id in CACHE.visited_valid or user_id in CACHE.invalid_users:
+        return False
+    resp = make_single_request(ENVIRONMENT.FRIENDS_URL, user_id=user_id)
+    if resp is None:
+        add_visited_invalid(user_id)
+        return False
+    valid = write_user_data(user_id)
+    if not valid:
+        add_visited_invalid(user_id)
+        return False
+    add_visited_valid(user_id)
+    friends = resp.json()["friendslist"]["friends"]
+    for friend in friends:
+        friend_id = friend["steamid"]
+        add_queue(friend_id)
+        write_friend(Friend(user1=user_id, user2=friend_id))
+    return True
+
+
 def get_data():
     if len(CACHE.user_ids) == 0:
         add_queue(ENVIRONMENT.ROOT)
@@ -174,28 +192,14 @@ def get_data():
             len(CACHE.user_ids) > 0 and len(CACHE.visited_valid) < ENVIRONMENT.NUM_USERS
         ):
             user_id = CACHE.user_ids.popleft()
-            if user_id in CACHE.visited_valid or user_id in CACHE.invalid_users:
+            if not get_single_user(user_id):
                 continue
-
-            resp = make_single_request(ENVIRONMENT.FRIENDS_URL, user_id=user_id)
-            if resp is None:
-                add_visited_invalid(user_id)
-                continue
-            valid = write_user_data(user_id)
-            if not valid:
-                add_visited_invalid(user_id)
-                continue
-            add_visited_valid(user_id)
-            friends = resp.json()["friendslist"]["friends"]
-            for friend in friends:
-                friend_id = friend["steamid"]
-                add_queue(friend_id)
-                write_friend(Friend(user1=user_id, user2=friend_id))
             pbar.update(1)
 
 
 if __name__ == "__main__":
     try:
+        CACHE.replay()
         get_data()
     except AssertionError as e:
         print(e)
@@ -208,3 +212,5 @@ if __name__ == "__main__":
         print("Unknown")
 
     FILE_MANAGER.close_files()
+    print("Merging")
+    merge_all()
