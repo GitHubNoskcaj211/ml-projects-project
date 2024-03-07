@@ -8,6 +8,7 @@ firebase-admin==6.4.0
 flask-cors==4.0.0
 flask-login==0.6.3
 Flask-Pydantic==0.12.0
+grequests==0.7.0
 scikit-learn==1.4.1.post1
 networkx==3.2.1
 pandas==2.2.0
