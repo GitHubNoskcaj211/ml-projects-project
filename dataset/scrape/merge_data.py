@@ -2,12 +2,17 @@ import os
 import pandas as pd
 import sys
 
-from constants import *
+from dataset.scrape.constants import *
 
 
 def merge(filename):
-    snowballs = filter(lambda x: os.path.isdir(os.path.join(DATA_ROOT_DIR, x)), os.listdir(DATA_ROOT_DIR))
-    snowball_files = map(lambda x: os.path.join(DATA_ROOT_DIR, x, filename), snowballs)
+    snowballs = filter(
+        lambda x: os.path.isdir(os.path.join(ENVIRONMENT.DATA_ROOT_DIR, x)),
+        os.listdir(ENVIRONMENT.DATA_ROOT_DIR),
+    )
+    snowball_files = map(
+        lambda x: os.path.join(ENVIRONMENT.DATA_ROOT_DIR, x, filename), snowballs
+    )
 
     output = pd.concat(map(pd.read_csv, snowball_files))
     match filename:
@@ -21,7 +26,7 @@ def merge(filename):
             output.drop_duplicates(["type", "id"], inplace=True)
         case _:
             assert False
-    output.to_csv(os.path.join(DATA_ROOT_DIR, filename), index=False)
+    output.to_csv(os.path.join(ENVIRONMENT.DATA_ROOT_DIR, filename), index=False)
 
 
 if __name__ == "__main__":

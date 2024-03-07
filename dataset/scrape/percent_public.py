@@ -2,12 +2,12 @@ import random
 import requests
 from tqdm import tqdm
 
-from util import *
+from dataset.scrape.file_manager import *
 
 START = 76561197960952452
 END = 76561199616561598
 NUM_SAMPLES = 1000
-URL = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={KEY}&steamid={{user_id}}&include_appinfo=1&format=json"
+URL = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={ENVIRONMENT.KEY}&steamid={{user_id}}&include_appinfo=1&format=json"
 
 num_public = 0
 for _ in tqdm(range(NUM_SAMPLES)):

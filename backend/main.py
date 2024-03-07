@@ -1,8 +1,15 @@
-import sys
-import os
-sys.path.append(os.path.abspath(''))
+import gevent
+from gevent import monkey
+import socket
+monkey.patch_all()
+if socket.socket is gevent.socket.socket:
+    import grpc.experimental.gevent as grpc_gevent
+    grpc_gevent.init_gevent()
 
-import os
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import config
 import json
 import time
@@ -10,6 +17,9 @@ from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 import uuid
 from urllib.parse import urlparse, urlunparse
+
+import firebase_admin
+from firebase_admin import firestore
 
 # from blueprints.activities import activities
 from blueprints.errors import errors
@@ -80,6 +90,13 @@ origin = urlunparse(frontend_url_parsed)
 cors = CORS(app, origins=[origin], supports_credentials=True)
 
 login_manager.init_app(app)
+
+
+app.firebase_app = firebase_admin.initialize_app()
+app.db = firestore.client()
+app.games_ref = app.db.collection("games")
+app.friends_ref = app.db.collection("friends")
+app.users_games_ref = app.db.collection("users_games")
 
 if __name__ == "__main__":
     print("Starting app...")
