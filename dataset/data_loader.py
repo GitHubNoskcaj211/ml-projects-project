@@ -150,7 +150,7 @@ class DataLoader():
         
         self.remove_edge_function = remove_edge_function
 
-        self.database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
+        self.database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db', check_same_thread=False)
         self.full_load = full_load
         if self.full_load:
             self.load_data_files()
