@@ -150,31 +150,36 @@ class DataLoader():
         
         self.remove_edge_function = remove_edge_function
 
-        self.database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db', check_same_thread=False)
         self.full_load = full_load
         if self.full_load:
             self.load_data_files()
+
+    def run_database_query(self, query):
+        database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
+        result = pd.read_sql_query(query, database)
+        database.close()
+        return result
         
     def get_users_games_df_for_user(self, user_id):
         if self.full_load:
             return self.users_games_df[self.users_games_df['user_id'] == user_id]
         else:
             query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
-            return pd.read_sql_query(query, self.database)
+            return self.run_database_query(query)
     
     def get_game_information(self, game_id):
         if self.full_load:
             return self.games_df[self.games_df['id'] == game_id]
         else:
             query = f"SELECT * FROM games WHERE id = {game_id}"
-            return pd.read_sql_query(query, self.database)
+            return self.run_database_query(query)
         
     def get_user_information(self, user_id):
         if self.full_load:
             return self.users_df[self.users_df['id'] == user_id]
         else:
             query = f"SELECT * FROM users WHERE id = {user_id}"
-            return pd.read_sql_query(query, self.database)
+            return self.run_database_query(query)
     
     def get_user_node_ids(self):
         assert self.full_load, 'Method requires full load.'
