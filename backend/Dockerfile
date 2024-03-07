@@ -17,7 +17,7 @@ WORKDIR $APP_HOME
 
 COPY backend/ ./
 
-COPY dataset/data_files/* ./dataset/data_files/
+COPY dataset/data_files/global_database.db ./dataset/data_files/
 
 COPY dataset/data_loader.py ./dataset/
 
