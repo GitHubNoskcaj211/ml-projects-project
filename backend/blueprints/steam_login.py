@@ -6,9 +6,13 @@ from flask_login import (
     login_required,
     logout_user,
 )
-from urllib.parse import urlencode
-from dataset.scrape.get_data import CACHE, ENVIRONMENT, FILE_MANAGER, get_single_user
+import gevent
+import os
+import pandas as pd
 import traceback
+from urllib.parse import urlencode
+
+from dataset.scrape.get_data import CACHE, ENVIRONMENT, FILE_MANAGER, get_single_user
 
 steam_login = Blueprint(name="steam_login", import_name=__name__)
 login_manager = LoginManager()
@@ -56,19 +60,43 @@ def auth_with_steam():
 @steam_login.route("/init_user", methods=["GET"])
 @login_required
 def init_user():
+    if current_app.users_games_ref.document(current_user.id).get().exists:
+        return "User already exists"
     try:
         CACHE.invalid_users.discard(current_user.id)
-        ENVIRONMENT.initialize_environment(current_app.config["STEAM_WEB_API_KEY"], current_user.id, None)
+        ENVIRONMENT.initialize_environment(
+            current_app.config["STEAM_WEB_API_KEY"], current_user.id, None
+        )
         FILE_MANAGER.open_files()
         success = get_single_user(current_user.id)
         FILE_MANAGER.close_files()
-        if not success:
-            return Response("Bad Scrape", 500)
-        return Response("Good Scrape")
     except Exception as e:
         print(e)
         print(traceback.format_exc())
         return Response("Bad Scrape", 500)
+    if not success:
+        print("Failed to scrape")
+        return Response("Bad Scrape", 500)
+
+    user_data_dir = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, current_user.id)
+
+    games = pd.read_csv(os.path.join(user_data_dir, "games.csv"))
+    games = games.to_dict("records")
+
+    friends = pd.read_csv(os.path.join(user_data_dir, "friends.csv"))
+    assert (friends["user1"] == int(current_user.id)).all()
+    friends = {"friends": friends.to_dict("records")}
+
+    user_games = pd.read_csv(os.path.join(user_data_dir, "users_games.csv"))
+    assert (user_games["user_id"] == int(current_user.id)).all()
+    user_games = {"games": user_games.to_dict("records")}
+
+    for game in games:
+        current_app.games_ref.document(str(game["id"])).set(game, merge=True)
+    current_app.friends_ref.document(current_user.id).set(friends, merge=True)
+    current_app.users_games_ref.document(current_user.id).set(user_games, merge=True)
+
+    return "Good Scrape"
 
 
 @steam_login.route("/logout", methods=["GET"])
