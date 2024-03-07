@@ -11,9 +11,12 @@ class GamePopularityModel(BaseGameRecommendationModel):
     def name(self):
         return 'game_popularity'
 
-    def train(self, train_network):
-        game_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        degrees = {node: val for (node, val) in train_network.degree()}
+    def train(self):
+        game_nodes = self.data_loader.get_game_node_ids()
+        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
+        user_degree_counts = train_users_games_df.groupby('game_id').size().reset_index(name='user_degree')
+        degrees = {row['game_id']: row['user_degree'] for index, row in user_degree_counts.iterrows()}
+        degrees = {game: degrees[game] if game in degrees else 0 for game in game_nodes}
         score_fn = lambda game: degrees[game]
         self.scores = [(game, score_fn(game)) for game in game_nodes]
         self.scores = sorted(self.scores, key=lambda x: x[1], reverse=True)
@@ -23,7 +26,8 @@ class GamePopularityModel(BaseGameRecommendationModel):
         return self.scores[self.game_to_score_index[game]][1]
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
-        games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == user]['game_id'].to_list()
+        user_games_df = self.data_loader.get_users_games_df_for_user(user)
+        games_to_filter_out = user_games_df['game_id'].to_list()
         scores_for_user = [(game, embeddings) for game, embeddings in self.scores if game not in games_to_filter_out]
         if N is not None:
             scores_for_user = scores_for_user[:N]

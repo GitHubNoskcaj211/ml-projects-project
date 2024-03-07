@@ -29,6 +29,7 @@ parser.add_argument("-m", "--model", help = "Model name to use", choices=list(mo
 parser.add_argument("-f", "--load_file_name", help = "Model save to load in", type=str, required=True)
 parser.add_argument("-N", "--num_games_to_recommend", help = "Num games to recommend", type=int, default=50)
 args = parser.parse_args()
+test_user_id = 76561198835352289
 
 import tracemalloc
 import time
@@ -37,21 +38,22 @@ model = model_dispatcher[args.model]()
 file_name = args.load_file_name
 N = args.num_games_to_recommend
 
-
-print("Initializing Data Loader")
-data_loader = DataLoader()
-model.set_data_loader(data_loader)
-
 try:
+    print("Initializing Data Loader")
+    data_loader = DataLoader()
+    model.set_data_loader(data_loader)
     print('Loading Model')
     model.load(file_name)
 except NotImplementedError:
-    print('Training')
+    print("Initializing Data Loader")
+    data_loader = DataLoader(full_load=True)
+    model.set_data_loader(data_loader)
     network = data_loader.get_full_network()
+    print('Training')
     train_network, test_network = data_loader.load_stratified_user_train_test_network(network=network, train_percentage=0.8, test_percentage=0.2, seed=0)
     model.train(train_network)
 print('Recommending')
-preds = model.recommend_n_games_for_user(data_loader.users_df.iloc[0]['id'], N)
+preds = model.recommend_n_games_for_user(test_user_id, N)
 
 end_time = time.perf_counter()
 size, peak = tracemalloc.get_traced_memory()

@@ -12,9 +12,9 @@ class GetGameInformationFilterInput(BaseModel, extra=Extra.forbid):
 @games.route('/get_game_information', methods=['GET'])
 @validate()
 def get_game_information(query: GetGameInformationFilterInput):
-    games_df = load_and_get_data_loader(current_app).games_df
+    data_loader = load_and_get_data_loader(current_app)
     game_id = query.game_id
-    query_result = games_df[games_df['id'] == game_id]
+    query_result = data_loader.get_game_information(game_id)
     if query_result.empty:
         return jsonify({'error': f'Game with game_id {game_id} not found'}), 404
     elif len(query_result) > 1:

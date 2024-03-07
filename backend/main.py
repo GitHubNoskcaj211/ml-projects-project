@@ -1,6 +1,6 @@
 import sys
-
-sys.path.append("..")
+import os
+sys.path.append(os.path.abspath(''))
 
 import os
 import config

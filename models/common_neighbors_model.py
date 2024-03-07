@@ -6,6 +6,58 @@ import os
 
 from dataset.data_loader import NodeType
 
+
+class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
+    def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):
+        self.path_length_2_weight = path_length_2_weight
+        self.path_length_3_weight = path_length_3_weight
+
+    def name(self):
+        return 'common_neighbors'
+
+    def train(self):
+        assert self.data_loader.full_load, 'Method requires full load.'
+        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
+        self.matrix = self.data_loader.get_user_game_adjacency_matrix(train_users_games_df)
+        self.index_to_node = self.data_loader.get_all_node_ids()
+        self.node_to_index = {node: ii for ii, node in enumerate(self.index_to_node)}
+        self.game_nodes = self.data_loader.get_game_node_ids()
+
+    def get_score_between_user_and_game(self, user, game):
+        user_index = self.node_to_index[user]
+        game_index = self.node_to_index[game]
+        return self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix[:, game_index])[0, 0] + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix[:, game_index])[0, 0]
+
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
+        user_games_df = self.data_loader.get_users_games_df_for_user(user)
+        games_to_filter_out = user_games_df['game_id'].to_list()
+        user_index = self.node_to_index[user]
+        user_scores = (self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix) + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix)).todense()
+        scores = [(game, user_scores[0, self.node_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
+        return self.select_scores(scores, N, should_sort)
+
+    def save(self, file_name, overwrite=False):
+        assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
+        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'wb') as file:
+            pickle.dump({
+                'path_length_2_weight': self.path_length_2_weight,
+                'path_length_3_weight': self.path_length_3_weight,
+                'matrix': self.matrix,
+                'index_to_node': self.index_to_node,
+                'node_to_index': self.node_to_index,
+                'game_nodes': self.game_nodes,
+            }, file)
+
+    def _load(self, file_path):
+        with open(file_path + '.pkl', 'rb') as file:
+            loaded_obj = pickle.load(file)
+            self.path_length_2_weight = loaded_obj['path_length_2_weight']
+            self.path_length_3_weight = loaded_obj['path_length_3_weight']
+            self.matrix = loaded_obj['matrix']
+            self.index_to_node = loaded_obj['index_to_node']
+            self.node_to_index = loaded_obj['node_to_index']
+            self.game_nodes = loaded_obj['game_nodes']
+
 # TODO Add unit tests to ensure these are equivalent.
 class CommonNeighborsModelStoragePredictEfficient(BaseGameRecommendationModel):
     def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):
@@ -106,51 +158,3 @@ class CommonNeighborsModelLoadPredictEfficient(BaseGameRecommendationModel):
             self.node_to_index = loaded_obj['node_to_index']
             self.game_nodes = loaded_obj['game_nodes']
             self.scores = loaded_obj['scores']
-
-class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
-    def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):
-        self.path_length_2_weight = path_length_2_weight
-        self.path_length_3_weight = path_length_3_weight
-
-    def name(self):
-        return 'common_neighbors'
-
-    def train(self, train_network):
-        self.matrix = nx.adjacency_matrix(train_network)
-        self.index_to_node = list(train_network.nodes())
-        self.node_to_index = {node: ii for ii, node in enumerate(train_network.nodes())}
-        self.game_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-
-    def get_score_between_user_and_game(self, user, game):
-        user_index = self.node_to_index[user]
-        game_index = self.node_to_index[game]
-        return self.path_length_2_weight * (self.matrix[[user_index], :] @ self.matrix[:, [game_index]])[0, 0] + self.path_length_3_weight * (self.matrix[[user_index], :] @ self.matrix @ self.matrix[:, [game_index]])[0, 0]
-
-    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
-        games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == user]['game_id'].to_list()
-        user_index = self.node_to_index[user]
-        user_scores = (self.path_length_2_weight * (self.matrix[[user_index], :] @ self.matrix) + self.path_length_3_weight * (self.matrix[[user_index], :] @ self.matrix @ self.matrix)).todense()[0]
-        scores = [(game, user_scores[self.node_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
-        return self.select_scores(scores, N, should_sort)
-
-    def save(self, file_name, overwrite=False):
-        assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
-        with open(SAVED_MODELS_PATH + file_name + '.pkl', 'wb') as file:
-            pickle.dump({
-                'path_length_2_weight': self.path_length_2_weight,
-                'path_length_3_weight': self.path_length_3_weight,
-                'matrix': self.matrix,
-                'index_to_node': self.index_to_node,
-                'node_to_index': self.node_to_index,
-                'game_nodes': self.game_nodes,
-            }, file)
-
-    def _load(self, file_path):
-        with open(file_path + '.pkl', 'rb') as file:
-            loaded_obj = pickle.load(file)
-            self.path_length_2_weight = loaded_obj['path_length_2_weight']
-            self.path_length_3_weight = loaded_obj['path_length_3_weight']
-            self.matrix = loaded_obj['matrix']
-            self.index_to_node = loaded_obj['index_to_node']
-            self.node_to_index = loaded_obj['node_to_index']
-            self.game_nodes = loaded_obj['game_nodes']

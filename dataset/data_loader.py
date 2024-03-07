@@ -10,6 +10,8 @@ from pprint import pprint
 import pickle
 from ast import literal_eval
 from utils.utils import linear_transformation, gaussian_transformation
+import sqlite3
+from scipy.sparse import coo_matrix, csr_matrix
 
 class LogType(Enum):
     ADD_QUEUE = 1
@@ -52,65 +54,6 @@ def read_log_file(file_path):
             int_list = list(map(int, line.split()))
             result.append(int_list)
     return result
-
-class BaseDataLoader(ABC):
-    @abstractmethod
-    def get_full_network(self):
-        pass
-
-    def load_random_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert train_percentage + test_percentage <= 1
-
-        if network is None:
-            network = self.get_full_network()
-        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
-
-        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed)
-        user_game_edges_set = set(user_game_edges)
-        train_network = copy.deepcopy(network)
-        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        test_network = copy.deepcopy(network)
-        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
-
-        return train_network, test_network
-
-    def load_stratified_user_degree_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert train_percentage + test_percentage <= 1
-
-        if network is None:
-            network = self.get_full_network()
-        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        game_degrees = {node: len(list(nx.edge_boundary(network, [node], game_nodes, data=True))) for node, data in network.nodes(data=True) if data['node_type'] == NodeType.USER}
-        
-        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[game_degrees[user_node] for user_node, game_node in user_game_edges])
-        user_game_edges_set = set(user_game_edges)
-        train_network = copy.deepcopy(network)
-        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        test_network = copy.deepcopy(network)
-        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
-
-        return train_network, test_network
-    
-    def load_stratified_user_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert train_percentage + test_percentage <= 1
-
-        if network is None:
-            network = self.get_full_network()
-        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
-        # If any nodes have 1 or 0 edges - remap them to an "other" stratification grouping.
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        node_strat_classes = {node: node if len(list(nx.edge_boundary(network, [node], game_nodes, data=True))) > 1 else -1 for node, data in network.nodes(data=True) if data['node_type'] == NodeType.USER}
-
-        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[node_strat_classes[user_node] for user_node, game_node in user_game_edges])
-        user_game_edges_set = set(user_game_edges)
-        train_network = copy.deepcopy(network)
-        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        test_network = copy.deepcopy(network)
-        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
-
-        return train_network, test_network
-
 
 class EmbeddingType(Enum):
     IDENTITY = 0
@@ -192,8 +135,8 @@ def remove_zero_playtime_edge(edge_data):
     return edge_data['playtime_forever'] == 0
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
-class DataLoader(BaseDataLoader):
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge):
+class DataLoader():
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, full_load = False):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.edge_scoring_function = edge_scoring_function
@@ -204,12 +147,125 @@ class DataLoader(BaseDataLoader):
         self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
         self.snowball_ids = snowballs_ids
         self.num_users_to_load_per_snowball = num_users_to_load_per_snowball
-        if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is not None:
-                self.snowball_ids = [subfolder for subfolder in os.listdir(DATA_FILES_DIRECTORY) if os.path.isdir(os.path.join(DATA_FILES_DIRECTORY, subfolder))]
+        
         self.remove_edge_function = remove_edge_function
-        self.load_data_files()
 
+        self.database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
+        self.full_load = full_load
+        if self.full_load:
+            self.load_data_files()
+        
+    def get_users_games_df_for_user(self, user_id):
+        if self.full_load:
+            return self.users_games_df[self.users_games_df['user_id'] == user_id]
+        else:
+            query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
+            return pd.read_sql_query(query, self.database)
+    
+    def get_game_information(self, game_id):
+        if self.full_load:
+            return self.games_df[self.games_df['id'] == game_id]
+        else:
+            query = f"SELECT * FROM games WHERE id = {game_id}"
+            return pd.read_sql_query(query, self.database)
+        
+    def get_user_information(self, user_id):
+        if self.full_load:
+            return self.users_df[self.users_df['id'] == user_id]
+        else:
+            query = f"SELECT * FROM users WHERE id = {user_id}"
+            return pd.read_sql_query(query, self.database)
+    
+    def get_user_node_ids(self):
+        assert self.full_load, 'Method requires full load.'
+        return self.users_df['id'].unique().tolist()
+    
+    def get_game_node_ids(self):
+        assert self.full_load, 'Method requires full load.'
+        return self.games_df['id'].unique().tolist()
+
+    def get_all_node_ids(self):
+        assert self.full_load, 'Method requires full load.'
+        return np.concatenate((self.users_df['id'].unique(), self.games_df['id'].unique())).tolist()
+
+    def get_user_game_adjacency_matrix(self, users_games_df_view):
+        assert self.full_load, 'Method requires full load.'
+
+        all_node_ids = self.get_all_node_ids()
+        node_to_index = {node_id: index for index, node_id in enumerate(all_node_ids)}
+        user_indices = [node_to_index[user_id] for user_id in users_games_df_view['user_id']]
+        game_indices = [node_to_index[game_id] for game_id in users_games_df_view['game_id']]
+        rows = user_indices + game_indices
+        cols = game_indices + user_indices
+        data = [1] * (len(users_games_df_view) * 2)
+
+        sparse_matrix = coo_matrix((data, (rows, cols)), shape=(len(all_node_ids), len(all_node_ids)))
+        sparse_matrix_csr = sparse_matrix.tocsr()
+        return sparse_matrix_csr
+
+    
+    def load_random_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
+        assert self.full_load, 'Method requires full load.'
+        assert train_percentage + test_percentage <= 1
+
+        train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed)
+        self.users_games_df['train_split'] = None
+        self.users_games_df.loc[train_edges, 'train_split'] = True
+        self.users_games_df.loc[test_edges, 'train_split'] = False
+    
+    def load_stratified_user_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
+        assert self.full_load, 'Method requires full load.'
+        assert train_percentage + test_percentage <= 1
+
+        # If any nodes have 1 or 0 edges - remap them to an "other" stratification grouping.
+        node_strat_classes = {user_id: user_id if len(self.users_games_df[self.users_games_df['user_id'] == user_id]) > 1 else -1 for user_id in self.get_user_node_ids()}
+
+        train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[node_strat_classes[user_node] for user_node in self.users_games_df['user_id']])
+        self.users_games_df['train_split'] = None
+        self.users_games_df.loc[train_edges, 'train_split'] = True
+        self.users_games_df.loc[test_edges, 'train_split'] = False
+            
+
+    @classmethod
+    def load_from_file(cls, file_name):
+        with open(SAVED_DATA_LOADER_PATH + file_name + '.pkl', 'rb') as file:
+            parameter_dictionary = pickle.load(file)
+            return cls(parameter_dictionary['friendship_edge_encoding'],
+                parameter_dictionary['edge_scoring_function'],
+                parameter_dictionary['score_normalizers'],
+                parameter_dictionary['user_embeddings'],
+                parameter_dictionary['game_embeddings'],
+                parameter_dictionary['user_game_edge_embeddings'],
+                parameter_dictionary['friend_friend_edge_embeddings'],
+                parameter_dictionary['snowballs_ids'],
+                parameter_dictionary['num_users_to_load_per_snowball'],
+                parameter_dictionary['remove_edge_function'],
+                parameter_dictionary['full_load'])
+    
+    def get_data_loader_parameters(self):
+        return {
+            'friendship_edge_encoding': self.friendship_edge_encoding,
+            'edge_scoring_function': self.edge_scoring_function,
+            'score_normalizers': self.score_normalizers,
+            'user_embeddings': self.user_embeddings,
+            'game_embeddings': self.game_embeddings,
+            'user_game_edge_embeddings': self.user_game_edge_embeddings,
+            'friend_friend_edge_embeddings': self.friend_friend_edge_embeddings,
+            'snowballs_ids': self.snowballs_ids,
+            'num_users_to_load_per_snowball': self.num_users_to_load_per_snowball,
+            'remove_edge_function': self.remove_edge_function,
+            'full_load': self.full_load,
+        }
+    
+    def save_data_loader_parameters(self, file_name, overwrite=False):
+        assert not os.path.isfile(SAVED_DATA_LOADER_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
+        with open(SAVED_DATA_LOADER_PATH + file_name + '.pkl', 'wb') as file:
+            pickle.dump(self.get_data_loader_parameters(), file)
+    
     def load_data_files(self):
+        if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is not None:
+            self.snowball_ids = [subfolder for subfolder in os.listdir(DATA_FILES_DIRECTORY) if os.path.isdir(os.path.join(DATA_FILES_DIRECTORY, subfolder))]
+
         global_users_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_FILENAME, dtype={
             'id': 'int64',
         })
@@ -265,42 +321,7 @@ class DataLoader(BaseDataLoader):
                 (global_friends_df['user1'].isin(users_df['id'])) |
                 (global_friends_df['user2'].isin(users_df['id']))
             ]
-            
 
-    @classmethod
-    def load_from_file(cls, file_name):
-        with open(SAVED_DATA_LOADER_PATH + file_name + '.pkl', 'rb') as file:
-            parameter_dictionary = pickle.load(file)
-            return cls(parameter_dictionary['friendship_edge_encoding'],
-                parameter_dictionary['edge_scoring_function'],
-                parameter_dictionary['score_normalizers'],
-                parameter_dictionary['user_embeddings'],
-                parameter_dictionary['game_embeddings'],
-                parameter_dictionary['user_game_edge_embeddings'],
-                parameter_dictionary['friend_friend_edge_embeddings'],
-                parameter_dictionary['snowballs_ids'],
-                parameter_dictionary['num_users_to_load_per_snowball'],
-                parameter_dictionary['remove_edge_function'])
-    
-    def get_data_loader_parameters(self):
-        return {
-            'friendship_edge_encoding': self.friendship_edge_encoding,
-            'edge_scoring_function': self.edge_scoring_function,
-            'score_normalizers': self.score_normalizers,
-            'user_embeddings': self.user_embeddings,
-            'game_embeddings': self.game_embeddings,
-            'user_game_edge_embeddings': self.user_game_edge_embeddings,
-            'friend_friend_edge_embeddings': self.friend_friend_edge_embeddings,
-            'snowballs_ids': self.snowballs_ids,
-            'num_users_to_load_per_snowball': self.num_users_to_load_per_snowball,
-            'remove_edge_function': self.remove_edge_function,
-        }
-    
-    def save_data_loader_parameters(self, file_name, overwrite=False):
-        assert not os.path.isfile(SAVED_DATA_LOADER_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
-        with open(SAVED_DATA_LOADER_PATH + file_name + '.pkl', 'wb') as file:
-            pickle.dump(self.get_data_loader_parameters(), file)
-    
     def handle_identity_embedding_command(self, network, embedding_command):
         embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], embedding_command['args'][0])))
 
@@ -388,6 +409,7 @@ class DataLoader(BaseDataLoader):
         self.run_friend_friend_edge_embedding_commands(network, self.friend_friend_edge_embeddings)
 
     def get_full_network(self):
+        assert self.full_load, 'Method requires full load.'
         network = nx.Graph()
         network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)                
         network.add_nodes_from(self.games_df.id, node_type=NodeType.GAME)
@@ -426,3 +448,56 @@ class DataLoader(BaseDataLoader):
             normalizer.normalize(network)
 
         return network
+    
+    def load_random_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
+        assert train_percentage + test_percentage <= 1
+
+        if network is None:
+            network = self.get_full_network()
+        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
+
+        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed)
+        user_game_edges_set = set(user_game_edges)
+        train_network = copy.deepcopy(network)
+        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
+        test_network = copy.deepcopy(network)
+        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+
+        return train_network, test_network
+
+    def load_stratified_user_degree_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
+        assert train_percentage + test_percentage <= 1
+
+        if network is None:
+            network = self.get_full_network()
+        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
+        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+        game_degrees = {node: len(list(nx.edge_boundary(network, [node], game_nodes, data=True))) for node, data in network.nodes(data=True) if data['node_type'] == NodeType.USER}
+        
+        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[game_degrees[user_node] for user_node, game_node in user_game_edges])
+        user_game_edges_set = set(user_game_edges)
+        train_network = copy.deepcopy(network)
+        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
+        test_network = copy.deepcopy(network)
+        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+
+        return train_network, test_network
+    
+    def load_stratified_user_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
+        assert train_percentage + test_percentage <= 1
+
+        if network is None:
+            network = self.get_full_network()
+        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
+        # If any nodes have 1 or 0 edges - remap them to an "other" stratification grouping.
+        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
+        node_strat_classes = {node: node if len(list(nx.edge_boundary(network, [node], game_nodes, data=True))) > 1 else -1 for node, data in network.nodes(data=True) if data['node_type'] == NodeType.USER}
+
+        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[node_strat_classes[user_node] for user_node, game_node in user_game_edges])
+        user_game_edges_set = set(user_game_edges)
+        train_network = copy.deepcopy(network)
+        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
+        test_network = copy.deepcopy(network)
+        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
+
+        return train_network, test_network

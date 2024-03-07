@@ -4,7 +4,7 @@ import pandas as pd
 
 from constants import *
 from merge_all import merge_all
-from remove_zero_playtime_users import remove_zero_playtime_users
+from convert_to_database import convert_all_to_database
 
 FILENAMES = [
     (USERS_FILENAME, User),
@@ -39,11 +39,11 @@ def close_files():
         file.close()
     log_f.close()
 
-    print('Checking for Zero Playtime (Private) Users')
-    remove_zero_playtime_users()
-
     print("Merging")
     merge_all()
+
+    print("Converting to database")
+    convert_all_to_database()
 
 
 def replay_log():
