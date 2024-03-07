@@ -213,7 +213,7 @@ if __name__ == "__main__":
         print("Unknown")
 
     FILE_MANAGER.close_files()
-    
+
     print("Merging")
     merge_all()
 
