@@ -42,12 +42,17 @@ jobs:
 
       - name: 'Docker auth'
         run: |-
-          gcloud auth configure-docker gcr.io
+          gcloud auth configure-docker gcr.io'
 
-      - name: Build Container
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Container
         uses: docker/build-push-action@v5
         with:
           context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}
           file: backend/Dockerfile
           build-args: |

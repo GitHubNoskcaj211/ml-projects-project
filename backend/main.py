@@ -83,11 +83,9 @@ app.model_wrappers = model_wrappers
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_SECURE"] = True
 
-print("Using frontend url", app.config["FRONTEND_URL"])
 frontend_url_parsed = urlparse(app.config["FRONTEND_URL"])
 frontend_url_parsed = frontend_url_parsed._replace(path="", params="", query="", fragment="")
 origin = urlunparse(frontend_url_parsed)
-print("Using origin", origin)
 cors = CORS(app, origins=[origin], supports_credentials=True)
 
 login_manager.init_app(app)
