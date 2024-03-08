@@ -17,7 +17,7 @@ model_wrappers = [
         "test_common_neighbors_storage_memory_efficient",
         None,
     ),
-    ModelWrapper(GamePopularityModel, "test_popularity_model", None),
+    # ModelWrapper(GamePopularityModel, "test_popularity_model", None),
 ]
 
 

@@ -43,7 +43,6 @@ class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
             self.matrix[:, self.node_to_index[user_id]] = user_connections.reshape(-1, 1)
         self.matrix = self.matrix.tocsr() # TODO figure out why this is necessary
 
-
     def get_score_between_user_and_game(self, user, game):
         user_index = self.node_to_index[user]
         game_index = self.node_to_index[game]
