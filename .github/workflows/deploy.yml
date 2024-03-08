@@ -54,11 +54,7 @@ jobs:
             FLASK_BACKEND_URL=${{ secrets.FLASK_BACKEND_URL }}
             FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
             FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
-          load: true
-
-      - name: Push Container
-        run: |
-          docker push "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}"
+          push: true
 
       - name: 'Create release name'
         run: |-
