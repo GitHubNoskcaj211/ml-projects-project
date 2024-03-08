@@ -56,16 +56,18 @@ class LogType(Enum):
 
 
 class Environment:
-    def initialize_environment(self, key, root, num_users):
-        self.KEY = key
-        self.ROOT = root
-        self.NUM_USERS = num_users
+    def __init__(self):
         self.DATA_ROOT_DIR = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "../data_files"
         )
 
         self.ALL_GAMES_FILENAME = os.path.join(self.DATA_ROOT_DIR, "games.csv")
         self.ALL_INVALIDS_FILENAME = os.path.join(self.DATA_ROOT_DIR, "invalids.csv")
+
+    def initialize_environment(self, key, root, num_users):
+        self.KEY = key
+        self.ROOT = root
+        self.NUM_USERS = num_users
 
         self.SNOWBALL_ROOT_DIR = os.path.join(self.DATA_ROOT_DIR, self.ROOT)
         Path(self.SNOWBALL_ROOT_DIR).mkdir(parents=True, exist_ok=True)
@@ -93,6 +95,3 @@ class Environment:
 
 
 ENVIRONMENT = Environment()
-ENVIRONMENT.initialize_environment(
-    os.getenv("STEAM_WEB_API_KEY"), os.getenv("ROOT_USER"), int(os.getenv("NUM_USERS"))
-)

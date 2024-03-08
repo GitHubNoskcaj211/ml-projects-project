@@ -20,6 +20,12 @@ COPY backend/ ./
 COPY dataset/data_files/global_database.db ./dataset/data_files/
 
 COPY dataset/data_loader.py ./dataset/
+COPY dataset/scrape/constants.py ./dataset/scrape
+COPY dataset/scrape/convert_to_database.py ./dataset/scrape
+COPY dataset/scrape/file_manager.py ./dataset/scrape
+COPY dataset/scrape/get_data.py ./dataset/scrape
+COPY dataset/scrape/merge_all.py ./dataset/scrape
+COPY dataset/scrape/merge_data.py ./dataset/scrape
 
 COPY models/published_recommendation_models ./models/published_recommendation_models/
 

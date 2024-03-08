@@ -27,6 +27,11 @@ class Cache:
 
 
 if __name__ == "__main__":
+    ENVIRONMENT.initialize_environment(
+        os.getenv("STEAM_WEB_API_KEY"),
+        os.getenv("ROOT_USER"),
+        int(os.getenv("NUM_USERS")),
+    )
     FILE_MANAGER.open_files()
 CACHE = Cache()
 
