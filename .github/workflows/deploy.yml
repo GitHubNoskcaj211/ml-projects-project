@@ -17,7 +17,7 @@ jobs:
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
         with:
-          token: ${{ secrets.HF_TOKEN }}
+          ssh-key: ${{ secrets.HF_TOKEN }}
           submodules: true
 
       - name: 'Google auth'
