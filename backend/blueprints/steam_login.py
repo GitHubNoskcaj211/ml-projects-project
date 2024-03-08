@@ -81,7 +81,10 @@ def init_user():
 
     user_data_dir = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, current_user.id)
 
+    print("User data dir", user_data_dir)
     games = pd.read_csv(os.path.join(user_data_dir, "games.csv"))
+    print("Games csv", os.path.join(user_data_dir, "games.csv"))
+    print("Games", games)
     games = games.to_dict("records")
 
     friends = pd.read_csv(os.path.join(user_data_dir, "friends.csv"))
