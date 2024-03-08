@@ -38,10 +38,10 @@ class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
             self.matrix = scipy.sparse.vstack([self.matrix, user_connections.reshape(1, -1)])
             user_connections = np.append(user_connections, 0)
             self.matrix = scipy.sparse.hstack([self.matrix, user_connections.reshape(-1, 1)])
+            self.matrix = self.matrix.tocsr() # Have to convert because we are doing an hstack on all columns.
         else:
             self.matrix[self.node_to_index[user_id], :] = user_connections.reshape(1, -1)
             self.matrix[:, self.node_to_index[user_id]] = user_connections.reshape(-1, 1)
-        self.matrix = self.matrix.tocsr() # TODO figure out why this is necessary
 
     def get_score_between_user_and_game(self, user, game):
         user_index = self.node_to_index[user]
