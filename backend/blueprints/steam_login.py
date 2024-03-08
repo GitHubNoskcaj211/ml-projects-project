@@ -63,13 +63,15 @@ def init_user():
     if current_app.users_games_ref.document(current_user.id).get().exists:
         return jsonify(id=current_user.id)
     try:
-        CACHE.invalid_users.discard(current_user.id)
         ENVIRONMENT.initialize_environment(
             current_app.config["STEAM_WEB_API_KEY"], current_user.id, None
         )
         shutil.rmtree(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         os.mkdir(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         FILE_MANAGER.open_files()
+        CACHE.user_ids.discard(current_user.id)
+        CACHE.visited_valid.discard(current_user.id)
+        CACHE.invalid_users.discard(current_user.id)
         success = get_single_user(current_user.id)
         FILE_MANAGER.close_files()
     except Exception as e:
