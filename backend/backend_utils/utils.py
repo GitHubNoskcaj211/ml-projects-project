@@ -13,7 +13,7 @@ class ModelWrapper:
 
 def load_and_get_data_loader(app):
     if app.data_loader is None:
-        app.data_loader = DataLoader(app=app)
+        app.data_loader = DataLoader(app=app, get_init_database=True)
     return app.data_loader
 
 

@@ -3,12 +3,15 @@ import networkx as nx
 import pickle
 import sys
 import os
+import scipy
+import numpy as np
 
 from dataset.data_loader import NodeType
 
 
 class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
     def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):
+        super().__init__()
         self.path_length_2_weight = path_length_2_weight
         self.path_length_3_weight = path_length_3_weight
 
@@ -22,6 +25,24 @@ class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
         self.index_to_node = self.data_loader.get_all_node_ids()
         self.node_to_index = {node: ii for ii, node in enumerate(self.index_to_node)}
         self.game_nodes = self.data_loader.get_game_node_ids()
+
+    def _fine_tune(self, user_id): # TODO Add new games?
+        user_games_df = self.data_loader.get_users_games_df_for_user(user_id)
+        user_connections = np.full((self.matrix.shape[0]), 0)
+        for ii, row in user_games_df.iterrows():
+            if row['game_id'] in self.node_to_index:
+                user_connections[self.node_to_index[row['game_id']]] = 1
+        if not user_id in self.node_to_index:
+            self.node_to_index[user_id] = len(self.index_to_node)
+            self.index_to_node.append(user_id)
+            self.matrix = scipy.sparse.vstack([self.matrix, user_connections.reshape(1, -1)])
+            user_connections = np.append(user_connections, 0)
+            self.matrix = scipy.sparse.hstack([self.matrix, user_connections.reshape(-1, 1)])
+        else:
+            self.matrix[self.node_to_index[user_id], :] = user_connections.reshape(1, -1)
+            self.matrix[:, self.node_to_index[user_id]] = user_connections.reshape(-1, 1)
+        self.matrix = self.matrix.tocsr() # TODO figure out why this is necessary
+
 
     def get_score_between_user_and_game(self, user, game):
         user_index = self.node_to_index[user]

@@ -6,7 +6,7 @@ import os
 # Recommend in order of most to least popular games (based on number of edges).
 class GamePopularityModel(BaseGameRecommendationModel):
     def __init__(self):
-        pass
+        super().__init__()
 
     def name(self):
         return 'game_popularity'
@@ -24,6 +24,10 @@ class GamePopularityModel(BaseGameRecommendationModel):
 
     def get_score_between_user_and_game(self, user, game):
         return self.scores[self.game_to_score_index[game]][1]
+    
+    def _fine_tune(self, user_id): # TODO Add new games?
+        pass
+        # TODO
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
         user_games_df = self.data_loader.get_users_games_df_for_user(user)

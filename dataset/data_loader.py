@@ -136,7 +136,7 @@ def remove_zero_playtime_edge(edge_data):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader():
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, full_load = False, app = None):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, cache_local_dataset = False, app = None, get_local = True, get_init_database = False):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.edge_scoring_function = edge_scoring_function
@@ -150,70 +150,82 @@ class DataLoader():
 
         self.remove_edge_function = remove_edge_function
 
-        self.full_load = full_load
-        if self.full_load:
-            self.load_data_files()
+        self.cache_local_dataset = cache_local_dataset
+        if self.cache_local_dataset:
+            self.load_local_dataset()
 
         self.app = app
+        self.get_local = get_local
+        self.get_init_database = get_init_database
 
-    def run_database_query(self, query):
+
+    def run_local_database_query(self, query):
         database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
         result = pd.read_sql_query(query, database)
         database.close()
         return result
 
     def get_users_games_df_for_user(self, user_id):
-        if self.full_load:
-            return self.users_games_df[self.users_games_df['user_id'] == user_id]
-        query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
-        df = self.run_database_query(query)
-
-        db_data = self.app.users_games_ref.document(str(user_id)).get()
-        if db_data.exists:
-            db_data = db_data.to_dict()["games"]
-            if df.empty:
-                return pd.DataFrame(db_data)
-            df = pd.concat([pd.DataFrame(db_data), df])
-            df.drop_duplicates(subset=["game_id"], keep="first", inplace=True).reset_index(drop=True)
+        df = pd.DataFrame()
+        if self.get_local:
+            if self.cache_local_dataset:
+                df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
+            else:
+                query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
+                df = pd.concat([df, self.run_local_database_query(query)])
+        
+        if self.get_init_database:
+            db_data = self.app.users_games_ref.document(str(user_id)).get()
+            if db_data.exists:
+                db_data = db_data.to_dict()["games"]
+                df = pd.concat([pd.DataFrame(db_data), df])
+        df.drop_duplicates(subset=["game_id"], keep="first", inplace=True)
         return df
 
     def get_game_information(self, game_id):
-        if self.full_load:
-            return self.games_df[self.games_df['id'] == game_id]
-        query = f"SELECT * FROM games WHERE id = {game_id}"
-        df = self.run_database_query(query)
-        if not df.empty:
-            return df.to_dict("records")
-        info = self.app.games_ref.document(str(game_id)).get()
-        if info.exists:
-            return [info.to_dict()]
-        return None
+        df = pd.DataFrame()
+        if self.get_local:
+            if self.cache_local_dataset:
+                df = pd.concat([df, self.games_df[self.games_df['id'] == game_id]])
+            else:
+                query = f"SELECT * FROM games WHERE id = {game_id}"
+                df = self.run_local_database_query(query)
+        if self.get_init_database:
+            info = self.app.games_ref.document(str(game_id)).get()
+            if info.exists:
+                info = info.to_dict()
+                df = pd.concat([pd.DataFrame([info]), df])
+        df.drop_duplicates(subset=["id"], keep="first", inplace=True)
+        return df.to_dict("records")
 
     def user_exists(self, user_id):
-        if self.full_load:
-            return self.users_df[self.users_df['id'] == user_id]
-
-        query = f"SELECT * FROM users WHERE id = {user_id}"
-        info = self.run_database_query(query)
-        if not info.empty:
-            return True
-        # TODO: Put this in some central place?
-        return self.app.users_games_ref.document(str(user_id)).get().exists
+        if self.get_local:
+            if self.cache_local_dataset:
+                if not self.users_df[self.users_df['id'] == user_id].empty:
+                    return True
+            else:
+                query = f"SELECT * FROM users WHERE id = {user_id}"
+                if not self.run_local_database_query(query).empty:
+                    return True
+        if self.get_init_database:
+            if self.app.users_games_ref.document(str(user_id)).get().exists:
+                return True
+        return False
     
     def get_user_node_ids(self):
-        assert self.full_load, 'Method requires full load.'
+        assert self.cache_local_dataset, 'Method requires full load.'
         return self.users_df['id'].unique().tolist()
     
     def get_game_node_ids(self):
-        assert self.full_load, 'Method requires full load.'
+        assert self.cache_local_dataset, 'Method requires full load.'
         return self.games_df['id'].unique().tolist()
 
     def get_all_node_ids(self):
-        assert self.full_load, 'Method requires full load.'
+        assert self.cache_local_dataset, 'Method requires full load.'
         return np.concatenate((self.users_df['id'].unique(), self.games_df['id'].unique())).tolist()
 
     def get_user_game_adjacency_matrix(self, users_games_df_view):
-        assert self.full_load, 'Method requires full load.'
+        assert self.cache_local_dataset, 'Method requires full load.'
 
         all_node_ids = self.get_all_node_ids()
         node_to_index = {node_id: index for index, node_id in enumerate(all_node_ids)}
@@ -229,7 +241,7 @@ class DataLoader():
 
     
     def load_random_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert self.full_load, 'Method requires full load.'
+        assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
 
         train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed)
@@ -238,7 +250,7 @@ class DataLoader():
         self.users_games_df.loc[test_edges, 'train_split'] = False
     
     def load_stratified_user_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert self.full_load, 'Method requires full load.'
+        assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
 
         # If any nodes have 1 or 0 edges - remap them to an "other" stratification grouping.
@@ -264,7 +276,9 @@ class DataLoader():
                 parameter_dictionary['snowballs_ids'],
                 parameter_dictionary['num_users_to_load_per_snowball'],
                 parameter_dictionary['remove_edge_function'],
-                parameter_dictionary['full_load'])
+                parameter_dictionary['cache_local_dataset'],
+                parameter_dictionary['get_local'],
+                parameter_dictionary['get_init_database'])
     
     def get_data_loader_parameters(self):
         return {
@@ -278,7 +292,9 @@ class DataLoader():
             'snowballs_ids': self.snowballs_ids,
             'num_users_to_load_per_snowball': self.num_users_to_load_per_snowball,
             'remove_edge_function': self.remove_edge_function,
-            'full_load': self.full_load,
+            'cache_local_dataset': self.cache_local_dataset,
+            'get_local': self.get_local,
+            'get_init_database': self.get_init_database,
         }
     
     def save_data_loader_parameters(self, file_name, overwrite=False):
@@ -286,7 +302,7 @@ class DataLoader():
         with open(SAVED_DATA_LOADER_PATH + file_name + '.pkl', 'wb') as file:
             pickle.dump(self.get_data_loader_parameters(), file)
     
-    def load_data_files(self):
+    def load_local_dataset(self):
         if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is not None:
             self.snowball_ids = [subfolder for subfolder in os.listdir(DATA_FILES_DIRECTORY) if os.path.isdir(os.path.join(DATA_FILES_DIRECTORY, subfolder))]
 

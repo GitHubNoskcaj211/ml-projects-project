@@ -12,11 +12,11 @@ from backend_utils.utils import (
 recommendation = Blueprint(name="recommendation", import_name=__name__)
 
 model_wrappers = [
-    # ModelWrapper(
-    #     CommonNeighborsModelStorageMemoryEfficient,
-    #     "test_common_neighbors_storage_memory_efficient",
-    #     None,
-    # ),
+    ModelWrapper(
+        CommonNeighborsModelStorageMemoryEfficient,
+        "test_common_neighbors_storage_memory_efficient",
+        None,
+    ),
     ModelWrapper(GamePopularityModel, "test_popularity_model", None),
 ]
 
@@ -34,6 +34,7 @@ def get_recommendations(query: GetRecommendationFilterInput):
     model = model_wrapper.model
     if not data_loader.user_exists(query.user_id):
         return jsonify({"error": f"User with user_id {query.user_id} not found"}), 404
+    model.fine_tune(query.user_id)
     recommendations = model.score_and_predict_n_games_for_user(
         query.user_id, query.N, should_sort=True
     )

@@ -8,6 +8,9 @@ SAVED_NN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_
 PUBLISHED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'published_recommendation_models/')
 
 class BaseGameRecommendationModel(ABC):
+    def __init__(self):
+        self.users_fine_tuned = []
+    
     @abstractmethod
     def name(self):
         pass
@@ -34,6 +37,16 @@ class BaseGameRecommendationModel(ABC):
     # Train the model given the data loader.
     @abstractmethod
     def train(self):
+        pass
+
+    def fine_tune(self, user_id):
+        if user_id in self.users_fine_tuned:
+            return
+        self._fine_tune(user_id)
+        self.users_fine_tuned.append(user_id)
+
+    @abstractmethod
+    def _fine_tune(self, user_id):
         pass
 
     @abstractmethod
