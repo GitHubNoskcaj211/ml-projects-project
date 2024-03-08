@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, jsonify
+from flask_login import current_user, login_required
 from flask_pydantic import validate
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel
 from models.common_neighbors_model import CommonNeighborsModelStorageMemoryEfficient
 from models.popularity_model import GamePopularityModel
 from backend_utils.utils import (
@@ -21,22 +22,23 @@ model_wrappers = [
 ]
 
 
-class GetRecommendationFilterInput(BaseModel, extra=Extra.forbid):
-    user_id: int
+class GetRecommendationFilterInput(BaseModel, extra="forbid"):
     N: int
 
 
 @recommendation.route("/get_N_recommendations_for_user", methods=["GET"])
+@login_required
 @validate()
 def get_recommendations(query: GetRecommendationFilterInput):
     data_loader = load_and_get_data_loader(current_app)
     model_wrapper = load_and_get_random_model_wrapper(current_app)
     model = model_wrapper.model
-    if not data_loader.user_exists(query.user_id):
-        return jsonify({"error": f"User with user_id {query.user_id} not found"}), 404
-    model.fine_tune(query.user_id)
+    user_id = current_user.id
+    if not data_loader.user_exists(user_id):
+        return jsonify({"error": f"User with user_id {user_id} not found"}), 404
+    model.fine_tune(user_id)
     recommendations = model.score_and_predict_n_games_for_user(
-        query.user_id, query.N, should_sort=True
+        user_id, query.N, should_sort=True
     )
     recommendations = [
         {"game_id": int(game_id), "recommendation_score": float(score)}
@@ -48,3 +50,19 @@ def get_recommendations(query: GetRecommendationFilterInput):
         "model_save_path": model_wrapper.save_file_name,
     }
     return jsonify(output)
+
+
+class Interaction(BaseModel, extra="forbid"):
+    game_id: int
+    user_liked: bool
+    time_spent: float
+
+
+@recommendation.route("/add_interaction", methods=["POST"])
+@login_required
+@validate()
+def add_interaction(body: Interaction):
+    interaction = body.dict()
+    interaction["user_id"] = int(current_user.id)
+    current_app.interactions_ref.add(interaction)
+    return jsonify({"success": 1})

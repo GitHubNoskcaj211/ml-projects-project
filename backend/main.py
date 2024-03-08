@@ -96,6 +96,7 @@ app.db = firestore.client()
 app.games_ref = app.db.collection("games")
 app.friends_ref = app.db.collection("friends")
 app.users_games_ref = app.db.collection("users_games")
+app.interactions_ref = app.db.collection("interactions")
 
 if __name__ == "__main__":
     print("Starting app...")

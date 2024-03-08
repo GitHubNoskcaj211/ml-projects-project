@@ -30,7 +30,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     async function runGamesProcess() {
       try {
-        gameIDs = await fetchGameRecommendations(details.userID);
+        gameIDs = await fetchGameRecommendations();
         const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
         const gamesInfo = await Promise.all(fetchPromises);
         setAllGameInfos(gamesInfo);

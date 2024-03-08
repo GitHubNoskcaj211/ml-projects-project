@@ -10,12 +10,10 @@ interface ApiResponse {
   version: string;
 }
 
-export async function fetchGameRecommendations(
-  userId: string
-): Promise<string[]> {
+export async function fetchGameRecommendations(): Promise<string[]> {
   try {
     const response = await axios.get<ApiResponse>(
-      makeBackendURL(`get_N_recommendations_for_user?user_id=${userId}&N=10`),
+      makeBackendURL(`get_N_recommendations_for_user?N=10`),
       {
         withCredentials: true,
       }
