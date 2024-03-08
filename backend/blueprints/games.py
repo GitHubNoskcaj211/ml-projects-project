@@ -15,7 +15,7 @@ class GetGameInformationFilterInput(BaseModel, extra=Extra.forbid):
 def get_game_information(query: GetGameInformationFilterInput):
     data_loader = load_and_get_data_loader(current_app)
     game_id = query.game_id
-    info = data_loader.get_game_information(current_app, game_id)
+    info = data_loader.get_game_information(game_id)
     if info is None:
         return jsonify({"error": f"Game with game_id {game_id} not found"}), 404
     elif len(info) > 1:
