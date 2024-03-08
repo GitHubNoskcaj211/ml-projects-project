@@ -8,10 +8,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(makeBackendURL("/init_user"), {
-        mode: "cors",
-        credentials: "include",
-      });
+      const res = await fetch(makeBackendURL("/init_user"));
       if (res.status == 401) {
         setUserID(null);
         return;
