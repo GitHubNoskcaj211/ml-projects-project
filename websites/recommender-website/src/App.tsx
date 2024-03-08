@@ -23,7 +23,7 @@ const App: React.FC = () => {
   if (userID === null) {
     return (
       <div className="container signInContainer">
-        <button onClick={() => (location.href = makeBackendURL("/login"))}>
+        <button onClick={() => (location.href = "/api/login")}>
           Sign in through Steam
         </button>
       </div>
