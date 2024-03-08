@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Add HF Known Host
         run: |
-          echo "hf.co ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJjhgtT9FOQrsVSarIoPVI1jFMh3VSHdKfdqp/O776s" >> ~/.ssh/known_hosts
+          echo "hf.co ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJjhgtT9FOQrsVSarIoPVI1jFMh3VSHdKfdqp/O776s" > ~/.ssh/known_hosts
 
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
