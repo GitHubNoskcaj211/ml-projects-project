@@ -1,4 +1,5 @@
 import axios from "axios";
+import { makeBackendURL } from "../util";
 
 interface ApiResponse {
   model_name: string;
@@ -14,7 +15,10 @@ export async function fetchGameRecommendations(
 ): Promise<string[]> {
   try {
     const response = await axios.get<ApiResponse>(
-      `/api/get_N_recommendations_for_user?user_id=${userId}&N=10`
+      makeBackendURL(`/get_N_recommendations_for_user?user_id=${userId}&N=10`),
+      {
+        withCredentials: true,
+      }
     );
     const gameIds = response.data.recommendations.map(
       (recommendation) => recommendation.game_id
