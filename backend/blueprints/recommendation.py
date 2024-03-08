@@ -12,11 +12,11 @@ from backend_utils.utils import (
 recommendation = Blueprint(name="recommendation", import_name=__name__)
 
 model_wrappers = [
-    ModelWrapper(
-        CommonNeighborsModelStorageMemoryEfficient,
-        "test_common_neighbors_storage_memory_efficient",
-        None,
-    ),
+    # ModelWrapper(
+    #     CommonNeighborsModelStorageMemoryEfficient,
+    #     "test_common_neighbors_storage_memory_efficient",
+    #     None,
+    # ),
     ModelWrapper(GamePopularityModel, "test_popularity_model", None),
 ]
 
