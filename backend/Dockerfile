@@ -19,6 +19,7 @@ COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 COPY dataset/data_files/global_database.db ./dataset/data_files/
+COPY models/published_recommendation_models ./models/published_recommendation_models/
 
 COPY dataset/__init__.py ./dataset/
 COPY dataset/data_loader.py ./dataset/
@@ -29,8 +30,6 @@ COPY dataset/scrape/file_manager.py ./dataset/scrape
 COPY dataset/scrape/get_data.py ./dataset/scrape
 COPY dataset/scrape/merge_all.py ./dataset/scrape
 COPY dataset/scrape/merge_data.py ./dataset/scrape
-
-COPY models/published_recommendation_models ./models/published_recommendation_models/
 
 COPY models/__init__.py ./models/
 COPY models/base_model.py ./models/
@@ -46,4 +45,4 @@ COPY utils/utils.py ./utils/
 
 COPY backend/ ./
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
+CMD exec gunicorn --bind :$PORT --worker-class gevent --workers 1 --threads 8 --timeout 0 main:app
