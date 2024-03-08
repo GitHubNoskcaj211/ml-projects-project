@@ -1,6 +1,6 @@
 [submodule "dataset/data_files"]
 	path = dataset/data_files
-	url = git@hf.co:datasets/steamgamerecommender/data_files
+	url = https://huggingface.co/datasets/steamgamerecommender/data_files
 [submodule "models/published_recommendation_models"]
 	path = models/published_recommendation_models
-	url = git@hf.co:steamgamerecommender/published_recommendation_models
+	url = https://huggingface.co/steamgamerecommender/published_recommendation_models
