@@ -16,20 +16,9 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
-        # with:
-        #   submodules: true
-
-      - name: 'Checkout Dataset Repo'
-        run: |-
-          git clone https://huggingface.co/datasets/steamgamerecommender/data_files dataset/data_files
-          cd dataset/data_files
-          git reset --hard d6351f36d9ca3a5663fea5e2b93efe725e598b64
-
-      - name: 'Checkout Published Models Repo'
-        run: |-
-          git clone https://huggingface.co/steamgamerecommender/published_recommendation_models models/published_recommendation_models
-          cd models/published_recommendation_models
-          git reset --hard 7dfd990c34487f150978cbaee34fcad6faf4d247
+        token: ${{ secrets.HF_TOKEN }}
+        with:
+          submodules: true
 
       - name: 'Google auth'
         id: 'auth'
