@@ -8,15 +8,15 @@ interface RecCircleProps {
 const RecCircle: React.FC<RecCircleProps> = ({ value }) => {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
-  const percentage = value * 100; // Convert to percentage
+  const percentage = value;
   const strokeValue = (percentage / 100) * circumference;
   const strokeDasharray = `${strokeValue} ${circumference}`;
-  const color = `rgb(${255 * (1 - value)}, ${255 * value}, 0)`;
+  const color = `rgb(${255 * (1 - value / 100)}, ${(255 * value) / 100}, 0)`;
 
   return (
     <div className="recCircle">
       <div>
-        <p>Reccomendation Score </p>
+        <p>Steam Review Score </p>
       </div>
       <svg width="120" height="120" viewBox="0 0 120 120">
         <circle

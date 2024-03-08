@@ -7,12 +7,6 @@ function makeBackendURL(path: string) {
 }
 
 const App: React.FC = () => {
-  const gameRatings = [
-    { name: "Baldur's Gate 3", rating: 0.97 },
-    { name: "CSGO 2", rating: 0.9 },
-    { name: "Speedrunners", rating: 0.5 },
-  ];
-
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
 
   useEffect(() => {
@@ -37,14 +31,18 @@ const App: React.FC = () => {
   if (userID === null) {
     return (
       <div className="container signInContainer">
-        <button onClick={() => location.href = makeBackendURL("/login")}>Sign in through Steam</button>
+        <button onClick={() => (location.href = makeBackendURL("/login"))}>
+          Sign in through Steam
+        </button>
       </div>
     );
   }
 
   return (
     <div>
-      <GameRating games={gameRatings} />
+      {userID !== undefined && userID !== null && (
+        <GameRating details={{ userID }} />
+      )}
     </div>
   );
 };

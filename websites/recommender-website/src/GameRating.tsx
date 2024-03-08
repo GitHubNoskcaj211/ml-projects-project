@@ -2,125 +2,65 @@ import React, { useState, useEffect } from "react";
 import "./GameRating.css"; // Import the CSS file
 import RecCircle from "./components/RecCircle";
 import PopupBox from "./components/PopUpBox";
+import { fetchGameRecommendations } from "./components/GetRecs";
+import { fetchGameInfo } from "./components/GetGameDetails";
 
 interface Game {
-  name: string;
-  rating: number;
+  userID: string;
+  gameID?: string;
   userSelection?: number;
   timeSpent?: number;
 }
 
 interface GameRatingProps {
-  games: Game[];
+  details: Game;
 }
 
-const GameRating: React.FC<GameRatingProps> = ({ games }) => {
+const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [finalGames, setFinalGames] = useState<Game[]>([]);
   const [showPopup, setShowPopup] = useState(true);
   const [startTime, setStartTime] = useState<number | null>(null);
-
-
-  const [descriptions] = useState<string[]>([
-    "Baldur’s Gate 3 is a story-rich, party-based RPG set in the universe of Dungeons & Dragons, where your choices shape a tale of fellowship and betrayal, survival and sacrifice, and the lure of absolute power.",
-    "For over two decades, Counter-Strike has offered an elite competitive experience, one shaped by millions of players from across the globe. And now the next chapter in the CS story is about to begin. This is Counter-Strike 2.",
-    "Cut-throat multiplayer running game that pits 4 players against each other, locally and/or online. Run, jump, swing around, and use devious weapons and pick-ups to knock opponents off-screen! One of the most competitive games you'll ever play.",
-  ]);
-
-  const genres: string[][] = [
-    ["Adventure", "RPG", "Strategy"],
-    ["Action", "Free to Play"],
-    ["Action", "Casual", "Indie", "Racing", "Sports"],
-  ];
-
-  const gameID: string[] = ["1086940", "730", "207140"];
-
-  const tags: string[][] = [
-    [
-      "RPG",
-      "Choices Matter",
-      "Story Rich",
-      "Character Customization",
-      "Turn-Based Combat",
-      "Dungeons & Dragons",
-      "Adventure",
-      "CRPG",
-      "Fantasy",
-      "Online Co-Op",
-      "Multiplayer",
-      "Romance",
-      "Strategy",
-      "Singleplayer",
-      "Co-op Campaign",
-      "Class-Based",
-      "Sexual Content",
-      "Dark Fantasy",
-      "Combat",
-      "Controller",
-    ],
-    [
-      "FPS",
-      "Shooter",
-      "Multiplayer",
-      "Competitive",
-      "Action",
-      "Team-Based",
-      "eSports",
-      "Tactical",
-      "First-Person",
-      "PvP",
-      "Online Co-Op",
-      "Co-op",
-      "Strategy",
-      "Military",
-      "War",
-      "Difficult",
-      "Trading",
-      "Realistic",
-      "Fast-Paced",
-      "Moddable",
-    ],
-    [
-      "Multiplayer",
-      "Racing",
-      "Local Multiplayer",
-      "Indie",
-      "Competitive",
-      "Fast-Paced",
-      "Platformer",
-      "Action",
-      "2D",
-      "4 Player Local",
-      "Funny",
-      "Parkour",
-      "Sports",
-      "Controller",
-      "Local Co-Op",
-      "Co-op",
-      "Level Editor",
-      "Singleplayer",
-      "Arcade",
-      "Superhero",
-    ],
-  ];
+  const [loading, setLoading] = useState(true);
+  const [allGameInfos, setAllGameInfos] = useState<Array<any>>([]);
+  let gameIDs: Array<string> = [];
 
   useEffect(() => {
-    setFinalGames(games.map((game) => ({ ...game })));
-  }, [games]);
+    console.log("Effect for fetchGameRecommendations running", details.userID);
+    async function runGamesProcess() {
+      try {
+        gameIDs = await fetchGameRecommendations(details.userID);
+        const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
+        const gamesInfo = await Promise.all(fetchPromises);
+        setAllGameInfos(gamesInfo);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching games or game info:", error);
+      }
+    }
+
+    runGamesProcess();
+  }, [details.userID]);
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (startTime && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
+      if (loading) return;
+
+      if (
+        startTime &&
+        (event.key === "ArrowRight" || event.key === "ArrowLeft")
+      ) {
         const selection = event.key === "ArrowRight" ? 1 : 0;
         const updatedGames = [...finalGames];
         const timeSpentCurrent = (Date.now() - startTime) / 1000;
 
-        if (currentIndex < games.length) {
+        if (currentIndex < allGameInfos.length) {
           updatedGames[currentIndex] = {
             ...updatedGames[currentIndex],
+            gameID: allGameInfos[currentIndex].id,
             userSelection: selection,
-            timeSpent: timeSpentCurrent
+            timeSpent: timeSpentCurrent,
           };
           setFinalGames(updatedGames);
         }
@@ -132,14 +72,13 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
     };
 
     window.addEventListener("keydown", handleKeyPress);
-
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [currentIndex, finalGames, games.length, startTime]);
+  }, [currentIndex, finalGames, allGameInfos.length, startTime, loading]);
 
   const handleUndo = () => {
-    if (history.length > 0) {
+    if (history.length > 0 && !loading) {
       const previousIndex = history.pop()!;
       setHistory([...history]);
       setCurrentIndex(previousIndex);
@@ -151,52 +90,62 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
     setStartTime(Date.now());
   };
 
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="container">
-      {/* Popup Directions Box*/
+      {
+        /* Popup Directions Box*/
         showPopup && currentIndex === 0 && (
           <PopupBox
             isOpen={showPopup}
             message="Welcome to Game Rating! Close this to start."
             onClose={closePopup}
           />
-        )}
+        )
+      }
 
-      {currentIndex < games.length ? (
+      {currentIndex < 10 ? (
         <div className="contentContainer">
           {/* Game Title */}
           <div className="title box">
-            <h1>{finalGames[currentIndex]?.name}</h1>
+            <h1>{allGameInfos[currentIndex].name}</h1>
           </div>
+          <div className="secondRow">
+            {/* Image */}
+            <div className="image box">
+              <img
+                src={`https://cdn.akamai.steamstatic.com/steam/apps/${allGameInfos[currentIndex].id}/header.jpg`}
+                alt={allGameInfos[currentIndex].name}
+              />
+            </div>
 
-          {/* Image */}
-          <div className="image box">
-            <img
-              src={`https://cdn.akamai.steamstatic.com/steam/apps/${gameID[currentIndex]}/header.jpg`}
-              alt={finalGames[currentIndex]?.name}
-            />
-          </div>
-
-          {/* RecCircle */}
-          <div className="rec box">
-            <RecCircle value={finalGames[currentIndex]?.rating || 0} />
+            {/* RecCircle */}
+            <div className="rec box">
+              <RecCircle
+                value={allGameInfos[currentIndex].avgReviewScore || 0}
+              />
+            </div>
           </div>
 
           {/* Game Description */}
           <div className="game box">
-            <p>{descriptions[currentIndex]}</p>
+            <p>{allGameInfos[currentIndex].description}</p>
           </div>
 
           {/* Genres */}
           <div className="genre box">
             <h2>Genres</h2>
             <div className="genreButtons">
-              {genres[currentIndex].map((genre, index) => (
-                <button key={index} disabled>
-                  {genre}
-                </button>
-              ))}
+              {allGameInfos[currentIndex].genres.map(
+                (genre: string, index: number) => (
+                  <button key={index} disabled>
+                    {genre}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
@@ -204,11 +153,13 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
           <div className="tag box">
             <h2>Tags</h2>
             <div className="tagButtons">
-              {tags[currentIndex].map((tag, index) => (
-                <button key={index} disabled>
-                  {tag}
-                </button>
-              ))}
+              {allGameInfos[currentIndex].tags.map(
+                (tag: string, index: number) => (
+                  <button key={index} disabled>
+                    {tag}
+                  </button>
+                )
+              )}
             </div>
           </div>
 
@@ -229,7 +180,6 @@ const GameRating: React.FC<GameRatingProps> = ({ games }) => {
       )}
     </div>
   );
-
 };
 
 export default GameRating;

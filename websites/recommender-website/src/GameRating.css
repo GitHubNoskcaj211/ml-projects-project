@@ -11,12 +11,11 @@
 
 .contentContainer {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-around;
-  align-content: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
   width: 100%;
-  height: 95%;
+  height: auto;
   overflow: auto;
 }
 
@@ -47,12 +46,24 @@
   }
 }
 
-@media (max-width: 600px) {
-  .box {
-    flex-basis: 48%;
-    font-size: 2vw;
-  }
-  .contentContainer {
+.secondRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.image.box,
+.rec.box {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0.5%;
+}
+
+@media (max-width: 768px) {
+  .secondRow {
     flex-direction: column;
   }
 }
@@ -80,5 +91,5 @@ p {
 }
 
 button.undoButton {
-  color: red
+  color: red;
 }
