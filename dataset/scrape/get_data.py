@@ -141,11 +141,12 @@ def add_queue(user_id):
 
 
 def add_visited(visited_type, visited_set, user_id):
-    assert (
-        user_id not in CACHE.user_ids
-        and user_id not in CACHE.visited_valid
-        and user_id not in CACHE.invalid_users
-    )
+    if __name__ == "__main__":
+        assert (
+            user_id not in CACHE.user_ids
+            and user_id not in CACHE.visited_valid
+            and user_id not in CACHE.invalid_users
+        )
     write_log(visited_type, user_id)
     visited_set.add(user_id)
 

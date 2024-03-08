@@ -69,8 +69,6 @@ def init_user():
         shutil.rmtree(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         os.mkdir(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         FILE_MANAGER.open_files()
-        CACHE.visited_valid.discard(current_user.id)
-        CACHE.invalid_users.discard(current_user.id)
         success = get_single_user(current_user.id)
         FILE_MANAGER.close_files()
     except Exception as e:
