@@ -11,7 +11,7 @@ import traceback
 
 from dataset.scrape.file_manager import *
 from dataset.scrape.merge_all import merge_all
-from convert_to_database import convert_to_database
+from dataset.scrape.convert_to_database import convert_to_database
 
 
 class Cache:
