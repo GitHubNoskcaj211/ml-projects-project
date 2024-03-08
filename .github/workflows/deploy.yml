@@ -19,6 +19,11 @@ jobs:
         with:
           submodules: true
 
+      - name: Clone LFS Submodules
+        run: |
+          git -C dataset/data_files lfs pull
+          git -C models/published_recommendation_models lfs pull
+
       - name: 'Google auth'
         id: 'auth'
         uses: 'google-github-actions/auth@v2'
