@@ -93,7 +93,7 @@ jobs:
           VITE_BACKEND_URL: ${{ secrets.FLASK_BACKEND_URL }}
         run: |
           npm i
-          npm run build -- --base=/ml-projects-project/
+          npm run build
         working-directory: ${{ github.workspace }}/websites/recommender-website
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
