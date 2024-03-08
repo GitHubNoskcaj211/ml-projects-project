@@ -5,7 +5,7 @@ function GetGames() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    axios.get('http://localhost:8000/api/get-recs')
+    axios.get('/api/get-recs')
       .then(response => {
         setMessage(response.data.message);
       })

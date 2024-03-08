@@ -14,7 +14,7 @@ interface GameInfo {
 
 export async function fetchGameInfo(gameID: string): Promise<GameInfo> {
   try {
-    const response = await axios.get(`/get_game_information?game_id=${gameID}`);
+    const response = await axios.get(`/api/get_game_information?game_id=${gameID}`);
     const data = response.data;
     return {
       avgReviewScore: data.avgReviewScore,
