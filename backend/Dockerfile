@@ -15,7 +15,8 @@ ENV PORT 3000
 
 WORKDIR $APP_HOME
 
-COPY backend/ ./
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r ./requirements.txt
 
 COPY dataset/data_files/global_database.db ./dataset/data_files/
 
@@ -43,6 +44,6 @@ COPY models/random_model.py ./models/
 COPY utils/__init__.py ./utils/
 COPY utils/utils.py ./utils/
 
-RUN pip install --no-cache-dir -r ./requirements.txt
+COPY backend/ ./
 
 CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app

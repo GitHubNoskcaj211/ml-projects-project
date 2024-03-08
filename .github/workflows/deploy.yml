@@ -44,14 +44,21 @@ jobs:
         run: |-
           gcloud auth configure-docker gcr.io
 
-      - name: 'Build and push container'
-        run: |-
-          docker build \
-            -t "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}" \
-            -f backend/Dockerfile . \
-            --build-arg FLASK_BACKEND_URL=${{ secrets.FLASK_BACKEND_URL }} \
-            --build-arg FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }} \
-            --build-arg FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
+      - name: Build Container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}
+          file: backend/Dockerfile
+          build-args: |
+            FLASK_BACKEND_URL=${{ secrets.FLASK_BACKEND_URL }}
+            FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
+            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
+
+      - name: Push Container
+        run: |
           docker push "gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}"
 
       - name: 'Create release name'
