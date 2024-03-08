@@ -136,7 +136,7 @@ def remove_zero_playtime_edge(edge_data):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader():
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, full_load = False):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, full_load = False, app = None):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.edge_scoring_function = edge_scoring_function
@@ -147,39 +147,58 @@ class DataLoader():
         self.friend_friend_edge_embeddings = friend_friend_edge_embeddings
         self.snowball_ids = snowballs_ids
         self.num_users_to_load_per_snowball = num_users_to_load_per_snowball
-        
+
         self.remove_edge_function = remove_edge_function
 
         self.full_load = full_load
         if self.full_load:
             self.load_data_files()
 
+        self.app = app
+
     def run_database_query(self, query):
         database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
         result = pd.read_sql_query(query, database)
         database.close()
         return result
-        
+
     def get_users_games_df_for_user(self, user_id):
         if self.full_load:
             return self.users_games_df[self.users_games_df['user_id'] == user_id]
-        else:
-            query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
-            return self.run_database_query(query)
-    
+        query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
+        df = self.run_database_query(query)
+
+        db_data = self.app.users_games_ref.document(str(user_id)).get()
+        if db_data.exists:
+            db_data = db_data.to_dict()["games"]
+            if df.empty:
+                return pd.DataFrame(db_data)
+            df = pd.concat([pd.DataFrame(db_data), df])
+            df.drop_duplicates(subset=["game_id"], keep="first", inplace=True).reset_index(drop=True)
+        return df
+
     def get_game_information(self, game_id):
         if self.full_load:
             return self.games_df[self.games_df['id'] == game_id]
-        else:
-            query = f"SELECT * FROM games WHERE id = {game_id}"
-            return self.run_database_query(query)
-        
-    def get_user_information(self, user_id):
+        query = f"SELECT * FROM games WHERE id = {game_id}"
+        df = self.run_database_query(query)
+        if not df.empty:
+            return df.to_dict("records")
+        info = self.app.games_ref.document(str(game_id)).get()
+        if info.exists:
+            return [info.to_dict()]
+        return None
+
+    def user_exists(self, user_id):
         if self.full_load:
             return self.users_df[self.users_df['id'] == user_id]
-        else:
-            query = f"SELECT * FROM users WHERE id = {user_id}"
-            return self.run_database_query(query)
+
+        query = f"SELECT * FROM users WHERE id = {user_id}"
+        info = self.run_database_query(query)
+        if not info.empty:
+            return True
+        # TODO: Put this in some central place?
+        return self.app.users_games_ref.document(str(user_id)).get().exists
     
     def get_user_node_ids(self):
         assert self.full_load, 'Method requires full load.'

@@ -8,6 +8,7 @@ from flask_login import (
 )
 import os
 import pandas as pd
+import shutil
 import traceback
 from urllib.parse import urlencode
 
@@ -66,6 +67,8 @@ def init_user():
         ENVIRONMENT.initialize_environment(
             current_app.config["STEAM_WEB_API_KEY"], current_user.id, None
         )
+        shutil.rmtree(ENVIRONMENT.SNOWBALL_ROOT_DIR)
+        os.mkdir(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         FILE_MANAGER.open_files()
         success = get_single_user(current_user.id)
         FILE_MANAGER.close_files()

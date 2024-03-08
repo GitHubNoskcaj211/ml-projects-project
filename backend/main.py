@@ -63,8 +63,7 @@ def create_app():
 
     @app.after_request
     def after_request(response):
-        if response and response.get_json():
-            data = response.get_json()
+        if response and (data := response.get_json()) and isinstance(data, dict):
             data["time_request"] = int(time.time())
             data["execution_time_ms"] = int(time.time() * 1000 - g.start_time * 1000)
             data["version"] = config.VERSION
