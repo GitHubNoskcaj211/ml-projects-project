@@ -61,7 +61,7 @@ def auth_with_steam():
 @login_required
 def init_user():
     if current_app.users_games_ref.document(current_user.id).get().exists:
-        return jsonify(id=current_user.id)
+        return "User already exists"
     try:
         CACHE.invalid_users.discard(current_user.id)
         ENVIRONMENT.initialize_environment(
@@ -98,7 +98,7 @@ def init_user():
     current_app.friends_ref.document(current_user.id).set(friends, merge=True)
     current_app.users_games_ref.document(current_user.id).set(user_games, merge=True)
 
-    return jsonify(id=current_user.id)
+    return "Good Scrape"
 
 
 @steam_login.route("/logout", methods=["GET"])
@@ -106,3 +106,9 @@ def init_user():
 def logout():
     logout_user()
     return redirect(current_app.config["FRONTEND_URL"])
+
+
+@steam_login.route("/user", methods=["GET"])
+@login_required
+def get_user():
+    return jsonify(id=current_user.id)

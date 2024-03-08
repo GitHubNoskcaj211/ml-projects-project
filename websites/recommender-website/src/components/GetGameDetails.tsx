@@ -15,7 +15,9 @@ interface GameInfo {
 
 export async function fetchGameInfo(gameID: string): Promise<GameInfo> {
   try {
-    const response = await axios.get(makeBackendURL(`/get_game_information?game_id=${gameID}`));
+    const response = await axios.get(makeBackendURL(`/get_game_information?game_id=${gameID}`), {
+      withCredentials: true,
+    });
     const data = response.data;
     return {
       avgReviewScore: data.avgReviewScore,
