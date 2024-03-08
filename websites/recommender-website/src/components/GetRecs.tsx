@@ -15,7 +15,7 @@ export async function fetchGameRecommendations(
 ): Promise<string[]> {
   try {
     const response = await axios.get<ApiResponse>(
-      makeBackendURL(`/get_N_recommendations_for_user?user_id=${userId}&N=10`),
+      makeBackendURL(`get_N_recommendations_for_user?user_id=${userId}&N=10`),
       {
         withCredentials: true,
       }
