@@ -8,7 +8,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(makeBackendURL("/user"), {
+      const res = await fetch(makeBackendURL("/init_user"), {
         mode: "cors",
         credentials: "include",
       });
@@ -16,10 +16,6 @@ const App: React.FC = () => {
         setUserID(null);
         return;
       }
-      await fetch(makeBackendURL("/init_user"), {
-        mode: "cors",
-        credentials: "include",
-      });
       const data = await res.json();
       setUserID(data.id);
     })();
