@@ -22,7 +22,7 @@ jobs:
           echo "hf.co ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBL0wtM52yIjm8gRecBy2wRyEMqr8ulG0uewT/IQOGz5K0ZPTIy6GIGHsTi8UXBiEzEIznV3asIz2sS7SiQ311tU=" >> ~/.ssh/known_hosts
           echo "hf.co ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJjhgtT9FOQrsVSarIoPVI1jFMh3VSHdKfdqp/O776s" >> ~/.ssh/known_hosts
           pip install huggingface_hub
-          huggingface-cli login
+          huggingface-cli login --token ${{ secrets.HF_TOKEN }}
           git clone git@hf.co:datasets/steamgamerecommender/data_files
 
       - name: 'Checkout'
