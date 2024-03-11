@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import GameRating from "./GameRating";
+import PublicDirectionsBox from "./components/publicDirections";
 
 import { makeBackendURL } from "./util";
 
 const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
+  const [showPopup, setShowPopup] = useState(false);
+
 
   useEffect(() => {
     (async () => {
@@ -12,14 +15,30 @@ const App: React.FC = () => {
         mode: "cors",
         credentials: "include",
       });
-      if (res.status == 401) {
+      if (res.status === 401) {
         setUserID(null);
+        const attempts = parseInt(localStorage.getItem('loginAttempts') || '0') + 1;
+        localStorage.setItem('loginAttempts', attempts.toString());
+        if (attempts > 2) {
+          setShowPopup(true);
+        }
         return;
       }
       const data = await res.json();
       setUserID(data.id);
     })();
   }, []);
+
+  useEffect(() => {
+    const attempts = parseInt(localStorage.getItem('loginAttempts') || '0');
+    if (attempts > 2) {
+      setShowPopup(true);
+    }
+  }, []);
+
+  const closePopup = () => {
+    setShowPopup(false);
+  };
 
   if (userID === undefined) {
     return <div className="container">Loading...</div>;
@@ -28,7 +47,16 @@ const App: React.FC = () => {
   if (userID === null) {
     return (
       <div className="container signInContainer">
-        <button onClick={() => (location.href = makeBackendURL("/login"))}>
+        {
+          /* Popup Directions Box*/
+          showPopup && (
+            <PublicDirectionsBox
+              isOpen={showPopup}
+              onClose={closePopup}
+            />
+          )
+        }
+        <button onClick={() => (location.href = makeBackendURL("/login"))} >
           Sign in through Steam
         </button>
       </div>

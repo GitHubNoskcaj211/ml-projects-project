@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./GameRating.css"; // Import the CSS file
 import RecCircle from "./components/RecCircle";
-import PopupBox from "./components/PopUpBox";
+import PopUpBox from "./components/PopUpBox";
 import { fetchGameRecommendations } from "./components/GetRecs";
 import { fetchGameInfo } from "./components/GetGameDetails";
 
@@ -69,6 +69,9 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         setCurrentIndex(currentIndex + 1);
         setStartTime(Date.now());
       }
+      else if (event.key === "Escape") {
+        closePopup();
+      }
     };
 
     window.addEventListener("keydown", handleKeyPress);
@@ -99,11 +102,11 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       {
         /* Popup Directions Box*/
         showPopup && currentIndex === 0 && (
-          <PopupBox
+          <PopUpBox
             isOpen={showPopup}
-            message="Welcome to Game Rating! Close this to start."
             onClose={closePopup}
           />
+
         )
       }
 

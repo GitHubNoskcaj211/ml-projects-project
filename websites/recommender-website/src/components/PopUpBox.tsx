@@ -4,7 +4,6 @@ import './PopUpBox.css';
 interface PopUpBox {
     isOpen: boolean;
     onClose: () => void;
-    message: string;
 }
 
 const PopUpBox: React.FC<PopUpBox> = ({ isOpen, onClose }) => {
