@@ -8,6 +8,20 @@ const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
   const [showPopup, setShowPopup] = useState(false);
 
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      
+      if (showPopup && event.key === "Escape") {
+        closePopup();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [showPopup]);
+
 
   useEffect(() => {
     (async () => {
