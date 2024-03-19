@@ -21,6 +21,12 @@ def verify_request(URL):
     assert resp.status_code == 200
     return resp.json()
 
+if __name__ == "__main__":
+    ENVIRONMENT.initialize_environment(
+        os.getenv("STEAM_WEB_API_KEY"),
+        os.getenv("ROOT_USER"),
+        int(os.getenv("NUM_USERS")),
+    )
 
 while True:
     user_id = random.randint(START, END)
