@@ -62,7 +62,7 @@ class Interaction(BaseModel, extra="forbid"):
 @login_required
 @validate()
 def add_interaction(body: Interaction):
-    interaction = body.dict()
-    interaction["user_id"] = int(current_user.id)
-    current_app.interactions_ref.add(interaction)
+    interaction = body.model_dump()
+    interaction["user_id"] = current_user.id
+    current_app.interactions_ref.document(str(current_user.id)).collection(str(interaction["game_id"])).add(interaction)
     return jsonify({"success": 1})
