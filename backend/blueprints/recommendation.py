@@ -63,6 +63,6 @@ class Interaction(BaseModel, extra="forbid"):
 @validate()
 def add_interaction(body: Interaction):
     interaction = body.model_dump()
-    interaction["user_id"] = current_user.id
-    current_app.interactions_ref.document(str(current_user.id)).collection(str(interaction["game_id"])).add(interaction)
+    interaction["user_id"] = int(current_user.id)
+    current_app.interactions_ref.document("data").collection(str(current_user.id)).document(str(interaction["game_id"])).set(interaction)
     return jsonify({"success": 1})
