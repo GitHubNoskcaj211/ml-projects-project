@@ -26,6 +26,7 @@ from blueprints.errors import errors
 from blueprints.games import games
 from blueprints.steam_login import steam_login, login_manager
 from blueprints.recommendation import recommendation, model_wrappers
+from blueprints.interactions import interactions
 
 from dotenv import load_dotenv
 
@@ -38,6 +39,7 @@ def create_app():
     app.register_blueprint(games)
     app.register_blueprint(steam_login)
     app.register_blueprint(recommendation)
+    app.register_blueprint(interactions)
 
     @app.errorhandler(404)
     def resource_not_found(e):
