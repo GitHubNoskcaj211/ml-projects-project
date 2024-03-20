@@ -12,6 +12,7 @@ class GamePopularityModel(BaseGameRecommendationModel):
         return 'game_popularity'
 
     def train(self):
+        assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         game_nodes = self.data_loader.get_game_node_ids()
         train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
         user_degree_counts = train_users_games_df.groupby('game_id').size().reset_index(name='user_degree')
@@ -25,13 +26,12 @@ class GamePopularityModel(BaseGameRecommendationModel):
     def get_score_between_user_and_game(self, user, game):
         return self.scores[self.game_to_score_index[game]][1]
     
-    def _fine_tune(self, user_id): # TODO Add new games?
+    def _fine_tune(self, user_id):
         pass
         # TODO
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
-        user_games_df = self.data_loader.get_users_games_df_for_user(user)
-        games_to_filter_out = user_games_df['game_id'].to_list()
+        games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
         scores_for_user = [(game, embeddings) for game, embeddings in self.scores if game not in games_to_filter_out]
         if N is not None:
             scores_for_user = scores_for_user[:N]

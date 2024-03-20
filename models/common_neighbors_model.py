@@ -18,20 +18,27 @@ class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
     def name(self):
         return 'common_neighbors'
 
+    # TODO Set different interaction strengths based on game ownership, user liked, and user disliked
     def train(self):
-        assert self.data_loader.full_load, 'Method requires full load.'
+        # TODO train on downloaded interactions
+        assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
         self.matrix = self.data_loader.get_user_game_adjacency_matrix(train_users_games_df)
         self.index_to_node = self.data_loader.get_all_node_ids()
         self.node_to_index = {node: ii for ii, node in enumerate(self.index_to_node)}
         self.game_nodes = self.data_loader.get_game_node_ids()
 
-    def _fine_tune(self, user_id): # TODO Add new games?
-        user_games_df = self.data_loader.get_users_games_df_for_user(user_id)
-        user_connections = np.full((self.matrix.shape[0]), 0)
-        for ii, row in user_games_df.iterrows():
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
+        if not user_id in self.node_to_index:
+            user_connections = np.full((self.matrix.shape[0]), 0)
+        else:
+            user_connections = self.matrix.getrow(self.node_to_index[user_id]).toarray().flatten()
+        for ii, row in new_user_games_df.iterrows():
             if row['game_id'] in self.node_to_index:
                 user_connections[self.node_to_index[row['game_id']]] = 1
+        for ii, row in new_interactions_df.iterrows():
+            if row['game_id'] in self.node_to_index:
+                user_connections[self.node_to_index[row['game_id']]] = 1 if row['user_liked'] else -1
         if not user_id in self.node_to_index:
             self.node_to_index[user_id] = len(self.index_to_node)
             self.index_to_node.append(user_id)
@@ -40,8 +47,9 @@ class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
             self.matrix = scipy.sparse.hstack([self.matrix, user_connections.reshape(-1, 1)])
             self.matrix = self.matrix.tocsr() # Have to convert because we are doing an hstack on all columns.
         else:
-            self.matrix[self.node_to_index[user_id], :] = user_connections.reshape(1, -1)
-            self.matrix[:, self.node_to_index[user_id]] = user_connections.reshape(-1, 1)
+            indices = np.where(user_connections != 0)[0]
+            self.matrix[self.node_to_index[user_id], indices] = user_connections[indices]
+            self.matrix[indices, self.node_to_index[user_id]] = user_connections[indices]
 
     def get_score_between_user_and_game(self, user, game):
         user_index = self.node_to_index[user]
@@ -49,8 +57,7 @@ class CommonNeighborsModelStorageMemoryEfficient(BaseGameRecommendationModel):
         return self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix[:, game_index])[0, 0] + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix[:, game_index])[0, 0]
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
-        user_games_df = self.data_loader.get_users_games_df_for_user(user)
-        games_to_filter_out = user_games_df['game_id'].to_list()
+        games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
         user_index = self.node_to_index[user]
         user_scores = (self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix) + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix)).todense()
         scores = [(game, user_scores[0, self.node_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]

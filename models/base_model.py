@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from quickselect import floyd_rivest
 from tqdm import tqdm
 import os
+import pandas as pd
 
 SAVED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models/')
 SAVED_NN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_nns/')
@@ -9,7 +10,10 @@ PUBLISHED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 class BaseGameRecommendationModel(ABC):
     def __init__(self):
-        self.users_fine_tuned = []
+        schema = {'user_id': 'int64',
+                  'game_id': 'int64',
+                 }
+        self.users_games_interactions_fine_tuned = pd.DataFrame(columns=schema.keys()).astype(schema)
     
     @abstractmethod
     def name(self):
@@ -18,21 +22,24 @@ class BaseGameRecommendationModel(ABC):
     def set_data_loader(self, data_loader):
         self.data_loader = data_loader
 
-    def select_scores(self, scores, N = None, should_sort=True):
-        if N is not None and N < len(scores):
-            nth_largest_score = floyd_rivest.nth_largest(scores, N - 1, key=lambda score: score[1])[1]
-            scores = [score for score in scores if score[1] >= nth_largest_score]
-        if should_sort or len(scores) > N:
-            scores = sorted(scores, key=lambda x: x[1], reverse=True)
-        if N is not None:
-            scores = scores[:N]
-        return scores
-    
-    # def select_scores(self, scores, N = None):
-    #     scores = sorted(scores, key=lambda x: x[1], reverse=True)
+    # Module has gt -> ge bug. Uncomment when fixed
+    # def select_scores(self, scores, N = None, should_sort=True):
+    #     if N is not None and N < len(scores):
+    #         nth_largest_score = floyd_rivest.nth_largest([score[1] for score in scores], N - 1)
+    #         print(nth_largest_score)
+    #         scores = [score for score in scores if score[1] >= nth_largest_score]
+    #         print(scores)
+    #     if should_sort or (N is not None and len(scores) > N):
+    #         scores = sorted(scores, key=lambda x: x[1], reverse=True)
     #     if N is not None:
     #         scores = scores[:N]
     #     return scores
+    
+    def select_scores(self, scores, N = None, should_sort=True):
+        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        if N is not None:
+            scores = scores[:N]
+        return scores
 
     # Train the model given the data loader.
     @abstractmethod
@@ -40,13 +47,19 @@ class BaseGameRecommendationModel(ABC):
         pass
 
     def fine_tune(self, user_id):
-        if user_id in self.users_fine_tuned:
-            return
-        self._fine_tune(user_id)
-        self.users_fine_tuned.append(user_id)
+        user_games_df = self.data_loader.get_users_games_df_for_user(user_id, get_local=False)
+        interactions_df = self.data_loader.get_interactions_df_for_user(user_id, get_local=False)
+        def get_new_df(df):
+            merged_df = pd.merge(df, self.users_games_interactions_fine_tuned, on=['user_id', 'game_id'], how='left', indicator=True)
+            return merged_df[merged_df['_merge'] == 'left_only'].drop(columns='_merge')
+        new_user_games_df = get_new_df(user_games_df)
+        new_interactions_df = get_new_df(interactions_df)
+
+        self._fine_tune(user_id, new_user_games_df, new_interactions_df)
+        self.users_games_interactions_fine_tuned = pd.concat([self.users_games_interactions_fine_tuned, new_user_games_df[['user_id', 'game_id']], new_interactions_df[['user_id', 'game_id']]])
 
     @abstractmethod
-    def _fine_tune(self, user_id):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
         pass
 
     @abstractmethod

@@ -30,6 +30,38 @@ class FriendEdgeEncoding(Enum):
     BETWEEN_USERS = 1 # Will only create edges between fully defined users
     ALL_FRIENDSHIPS = 2 # Will create undefined user nodes if a node in a friendship doesn't have full data
 
+USERS_GAMES_SCHEMA = {
+            'user_id': 'int64',
+            'game_id': 'int64',
+            'playtime_2weeks': 'int64',
+            'playtime_forever': 'int64',
+        }
+
+INTERACTIONS_SCHEMA = {
+                  'user_id': 'int64',
+                  'game_id': 'int64',
+                  'user_liked': 'bool',
+                  'time_spent': 'float64',
+                 }
+
+GAME_SCHEMA = {
+            'id': 'int64',
+            'name': 'string',
+            'numReviews': 'int64',
+            'avgReviewScore': 'int64',
+            'price': 'float64',
+            'numFollowers': 'int64',
+        }
+
+USER_SCHEMA = {
+            'id': 'int64',
+        }
+
+FRIENDS_SCHEMA = {
+            'user1': 'int64',
+            'user2': 'int64',
+        }
+
 DATA_FILES_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data_files/')
 USERS_FILENAME = 'users.csv'
 GAMES_FILENAME = 'games.csv'
@@ -136,7 +168,7 @@ def remove_zero_playtime_edge(edge_data):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader():
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, cache_local_dataset = False, app = None, get_local = True, get_init_database = False):
+    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, cache_local_dataset = False, app = None, get_local = True, get_external_database = False):
         super().__init__()
         self.friendship_edge_encoding = friendship_edge_encoding
         self.edge_scoring_function = edge_scoring_function
@@ -156,8 +188,7 @@ class DataLoader():
 
         self.app = app
         self.get_local = get_local
-        self.get_init_database = get_init_database
-
+        self.get_external_database = get_external_database
 
     def run_local_database_query(self, query):
         database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
@@ -165,22 +196,49 @@ class DataLoader():
         database.close()
         return result
 
-    def get_users_games_df_for_user(self, user_id):
-        df = pd.DataFrame()
-        if self.get_local:
+    def get_users_games_df_for_user(self, user_id, get_local=True, get_external_database=True):
+        df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
+        if self.get_local and get_local:
             if self.cache_local_dataset:
                 df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
             else:
                 query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
                 df = pd.concat([df, self.run_local_database_query(query)])
         
-        if self.get_init_database:
+        if self.get_external_database and get_external_database:
             db_data = self.app.users_games_ref.document(str(user_id)).get()
             if db_data.exists:
                 db_data = db_data.to_dict()["games"]
                 df = pd.concat([pd.DataFrame(db_data), df])
+        df.drop_duplicates(subset=["game_id"], keep="first", inplace=True) # TODO remove if its too inefficient.
+        return df
+    
+    def get_interactions_df_for_user(self, user_id, get_local=True, get_external_database=True):
+        df = pd.DataFrame(columns=INTERACTIONS_SCHEMA.keys()).astype(INTERACTIONS_SCHEMA)
+        if self.get_local and get_local:
+            if self.cache_local_dataset:
+                pass
+                # TODO
+                # df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
+            else:
+                pass
+                # TODO
+                # query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
+                # df = pd.concat([df, self.run_local_database_query(query)])
+        
+        if self.get_external_database and get_external_database:
+            recommendation_interactions = self.app.interactions_ref.document('data').collection(str(user_id)).get()
+            if recommendation_interactions:
+                interactions = [interaction_document.to_dict() for interaction_document in recommendation_interactions]
+                db_data = pd.DataFrame(interactions)
+                df = pd.concat([db_data, df])
         df.drop_duplicates(subset=["game_id"], keep="first", inplace=True)
         return df
+    
+    def get_all_game_ids_for_user(self, user_id):
+        user_games_df = self.get_users_games_df_for_user(user_id)
+        interactions_df = self.get_interactions_df_for_user(user_id)
+        return user_games_df['game_id'].to_list() + interactions_df['game_id'].to_list()
 
     def get_game_information(self, game_id):
         df = pd.DataFrame()
@@ -190,7 +248,7 @@ class DataLoader():
             else:
                 query = f"SELECT * FROM games WHERE id = {game_id}"
                 df = self.run_local_database_query(query)
-        if self.get_init_database:
+        if self.get_external_database:
             info = self.app.games_ref.document(str(game_id)).get()
             if info.exists:
                 info = info.to_dict()
@@ -207,7 +265,7 @@ class DataLoader():
                 query = f"SELECT * FROM users WHERE id = {user_id}"
                 if not self.run_local_database_query(query).empty:
                     return True
-        if self.get_init_database:
+        if self.get_external_database:
             if self.app.users_games_ref.document(str(user_id)).get().exists:
                 return True
         return False
@@ -222,7 +280,7 @@ class DataLoader():
 
     def get_all_node_ids(self):
         assert self.cache_local_dataset, 'Method requires full load.'
-        return np.concatenate((self.users_df['id'].unique(), self.games_df['id'].unique())).tolist()
+        return self.get_user_node_ids() + self.get_game_node_ids()
 
     def get_user_game_adjacency_matrix(self, users_games_df_view):
         assert self.cache_local_dataset, 'Method requires full load.'
@@ -238,7 +296,6 @@ class DataLoader():
         sparse_matrix = coo_matrix((data, (rows, cols)), shape=(len(all_node_ids), len(all_node_ids)))
         sparse_matrix_csr = sparse_matrix.tocsr()
         return sparse_matrix_csr
-
     
     def load_random_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert self.cache_local_dataset, 'Method requires full load.'
@@ -260,7 +317,6 @@ class DataLoader():
         self.users_games_df['train_split'] = None
         self.users_games_df.loc[train_edges, 'train_split'] = True
         self.users_games_df.loc[test_edges, 'train_split'] = False
-            
 
     @classmethod
     def load_from_file(cls, file_name):
@@ -278,7 +334,7 @@ class DataLoader():
                 parameter_dictionary['remove_edge_function'],
                 parameter_dictionary['cache_local_dataset'],
                 parameter_dictionary['get_local'],
-                parameter_dictionary['get_init_database'])
+                parameter_dictionary['get_external_database'])
     
     def get_data_loader_parameters(self):
         return {
@@ -294,7 +350,7 @@ class DataLoader():
             'remove_edge_function': self.remove_edge_function,
             'cache_local_dataset': self.cache_local_dataset,
             'get_local': self.get_local,
-            'get_init_database': self.get_init_database,
+            'get_external_database': self.get_external_database,
         }
     
     def save_data_loader_parameters(self, file_name, overwrite=False):
@@ -306,27 +362,10 @@ class DataLoader():
         if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is not None:
             self.snowball_ids = [subfolder for subfolder in os.listdir(DATA_FILES_DIRECTORY) if os.path.isdir(os.path.join(DATA_FILES_DIRECTORY, subfolder))]
 
-        global_users_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_FILENAME, dtype={
-            'id': 'int64',
-        })
-        global_games_df = pd.read_csv(DATA_FILES_DIRECTORY + GAMES_FILENAME, dtype={
-            'id': 'int64',
-            'name': 'string',
-            'numReviews': 'int64',
-            'avgReviewScore': 'int64',
-            'price': 'float64',
-            'numFollowers': 'int64',
-        }, converters={'genres': literal_eval, 'tags': literal_eval})
-        global_users_games_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_GAMES_FILENAME, dtype={
-            'user_id': 'int64',
-            'game_id': 'int64',
-            # 'playtime_2weeks': 'int64',
-            'playtime_forever': 'int64',
-        })
-        global_friends_df = pd.read_csv(DATA_FILES_DIRECTORY + FRIENDS_FILENAME, dtype={
-            'user1': 'int64',
-            'user2': 'int64',
-        })
+        global_users_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_FILENAME, dtype=USER_SCHEMA)
+        global_games_df = pd.read_csv(DATA_FILES_DIRECTORY + GAMES_FILENAME, dtype=GAME_SCHEMA, converters={'genres': literal_eval, 'tags': literal_eval})
+        global_users_games_df = pd.read_csv(DATA_FILES_DIRECTORY + USERS_GAMES_FILENAME, dtype=USERS_GAMES_SCHEMA)
+        global_friends_df = pd.read_csv(DATA_FILES_DIRECTORY + FRIENDS_FILENAME, dtype=FRIENDS_SCHEMA)
 
         if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is None:
             self.users_df = global_users_df
@@ -361,6 +400,12 @@ class DataLoader():
                 (global_friends_df['user1'].isin(users_df['id'])) |
                 (global_friends_df['user2'].isin(users_df['id']))
             ]
+        
+        # self.add_embeddings()
+
+        # self.remove_edges()
+
+        # self.score_edges()
 
     def handle_identity_embedding_command(self, network, embedding_command):
         embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], embedding_command['args'][0])))
