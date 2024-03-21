@@ -2,8 +2,7 @@ from flask import Blueprint, current_app, jsonify
 from flask_login import current_user, login_required
 from flask_pydantic import validate
 from pydantic import BaseModel
-from models.common_neighbors_model import CommonNeighborsModelStorageMemoryEfficient
-from models.popularity_model import GamePopularityModel
+from models.common_neighbors_model import CommonNeighbors
 from backend_utils.utils import (
     load_and_get_data_loader,
     load_and_get_random_model_wrapper,
@@ -14,11 +13,17 @@ recommendation = Blueprint(name="recommendation", import_name=__name__)
 
 model_wrappers = [
     ModelWrapper(
-        CommonNeighborsModelStorageMemoryEfficient,
-        "test_common_neighbors_storage_memory_efficient",
+        CommonNeighbors,
+        "test_common_neighbors_default",
+        "test_common_neighbors_default_data_loader",
         None,
     ),
-    # ModelWrapper(GamePopularityModel, "test_popularity_model", None),
+    ModelWrapper(
+        CommonNeighbors,
+        "test_common_neighbors_playtime_scored_gaussian_normalized",
+        "test_common_neighbors_playtime_scored_gaussian_normalized_data_loader",
+        None,
+    ),
 ]
 
 
@@ -47,7 +52,7 @@ def get_recommendations(query: GetRecommendationFilterInput):
     output = {
         "recommendations": recommendations,
         "model_name": model.name(),
-        "model_save_path": model_wrapper.save_file_name,
+        "model_save_path": model_wrapper.model_save_file_name,
     }
     return jsonify(output)
 

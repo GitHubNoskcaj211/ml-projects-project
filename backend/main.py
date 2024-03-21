@@ -80,7 +80,7 @@ def create_app():
 
 app = create_app()
 app.secret_key = bytes.fromhex(app.config["SECRET_KEY"])
-app.data_loader = None
+app.default_data_loader = None
 app.model_wrappers = model_wrappers
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_SECURE"] = True

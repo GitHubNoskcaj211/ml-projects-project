@@ -1,5 +1,4 @@
 from models.base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
-from dataset.data_loader import NodeType
 import pickle
 import os
 

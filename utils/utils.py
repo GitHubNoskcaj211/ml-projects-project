@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def linear_transformation(numbers, start_domain, end_domain, start_range, end_range):
     if (end_domain - start_domain) == 0:
@@ -6,6 +7,8 @@ def linear_transformation(numbers, start_domain, end_domain, start_range, end_ra
             return end_range
         elif isinstance(numbers, np.ndarray):
             return np.full_like(numbers, end_range)
+        elif isinstance(numbers, pd.Series):
+            return pd.Series(np.full_like(numbers.values, end_range), index=numbers.index)
         else:
             raise ValueError("Input must be a number or a numpy array.")
     slope = (end_range - start_range) / (end_domain - start_domain)
@@ -19,6 +22,8 @@ def gaussian_transformation(numbers, old_mean, old_std_dev, new_mean, new_std_de
             return new_mean
         elif isinstance(numbers, np.ndarray):
             return np.full_like(numbers, new_mean)
+        elif isinstance(numbers, pd.Series):
+            return pd.Series(np.full_like(numbers.values, new_mean), index=numbers.index)
         else:
             raise ValueError("Input must be a number or a numpy array.")
     return (numbers - old_mean) / old_std_dev * new_std_dev + new_mean

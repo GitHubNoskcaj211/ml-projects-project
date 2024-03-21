@@ -3,6 +3,7 @@ from quickselect import floyd_rivest
 from tqdm import tqdm
 import os
 import pandas as pd
+from dataset.data_loader import EXTERNAL_DATA_SOURCE
 
 SAVED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models/')
 SAVED_NN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_nns/')
@@ -47,8 +48,11 @@ class BaseGameRecommendationModel(ABC):
         pass
 
     def fine_tune(self, user_id):
-        user_games_df = self.data_loader.get_users_games_df_for_user(user_id, get_local=False)
-        interactions_df = self.data_loader.get_interactions_df_for_user(user_id, get_local=False)
+        user_games_df = self.data_loader.get_users_games_df_for_user(user_id, preprocess=True)
+        interactions_df = self.data_loader.get_interactions_df_for_user(user_id, preprocess=True)
+        # Get all then filter to do score normalization on all data but only do modifications on external data.
+        user_games_df = user_games_df[user_games_df['source'] == EXTERNAL_DATA_SOURCE]
+        interactions_df = interactions_df[interactions_df['source'] == EXTERNAL_DATA_SOURCE]
         def get_new_df(df):
             merged_df = pd.merge(df, self.users_games_interactions_fine_tuned, on=['user_id', 'game_id'], how='left', indicator=True)
             return merged_df[merged_df['_merge'] == 'left_only'].drop(columns='_merge')
@@ -71,19 +75,6 @@ class BaseGameRecommendationModel(ABC):
     def recommend_n_games_for_user(self, user, N=None, should_sort=True):
         scores = self.score_and_predict_n_games_for_user(user, N, should_sort=should_sort)
         return [game for game, score in scores]
-
-    # def predict_for_all_users(self, N):
-    #     all_predictions_and_scores_per_user = {}
-    #     pool = multiprocessing.Pool(processes=16, maxtasksperchild=1)
-    #     for node, data in self.data_loader.test_network.nodes(data=True):
-    #         if data['node_type'] != NodeType.USER:
-    #             continue
-    #         all_predictions_and_scores_per_user[node] = pool.apply_async(self.score_and_predict_n_games_for_user, args=(node, N))
-    #     pool.close()
-    #     pool.join()
-    #     for node, async_result in all_predictions_and_scores_per_user.items():
-    #         all_predictions_and_scores_per_user[node] = async_result.get()
-    #     return all_predictions_and_scores_per_user
 
     def predict_for_all_users(self, N, should_sort=True):
         user_nodes = self.data_loader.users_df['id'].to_list()

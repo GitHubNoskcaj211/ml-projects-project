@@ -1,40 +1,23 @@
 from abc import ABC, abstractmethod
-import copy
 from sklearn.model_selection import train_test_split
 from enum import Enum
 import networkx as nx
 import pandas as pd
 import os
-import numpy as np
-from pprint import pprint
 import pickle
 from ast import literal_eval
 from utils.utils import linear_transformation, gaussian_transformation
 import sqlite3
-from scipy.sparse import coo_matrix, csr_matrix
-
-class LogType(Enum):
-    ADD_QUEUE = 1
-    VISITED_VALID = 2
-    VISITED_INVALID = 3
 
 SAVED_DATA_LOADER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_data_loader_parameters/')
-
-class NodeType(Enum):
-    GAME = 0
-    USER = 1
-    UNDEFINED_USER = 2
-
-class FriendEdgeEncoding(Enum):
-    NONE = 0 # No friend edges
-    BETWEEN_USERS = 1 # Will only create edges between fully defined users
-    ALL_FRIENDSHIPS = 2 # Will create undefined user nodes if a node in a friendship doesn't have full data
+PUBLISHED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../models/published_recommendation_models/')
 
 USERS_GAMES_SCHEMA = {
             'user_id': 'int64',
             'game_id': 'int64',
             'playtime_2weeks': 'int64',
             'playtime_forever': 'int64',
+            'source': 'string',
         }
 
 INTERACTIONS_SCHEMA = {
@@ -42,6 +25,7 @@ INTERACTIONS_SCHEMA = {
                   'game_id': 'int64',
                   'user_liked': 'bool',
                   'time_spent': 'float64',
+                  'source': 'string',
                  }
 
 GAME_SCHEMA = {
@@ -62,17 +46,19 @@ FRIENDS_SCHEMA = {
             'user2': 'int64',
         }
 
+LOCAL_DATA_SOURCE = 'local'
+EXTERNAL_DATA_SOURCE = 'external'
+
 DATA_FILES_DIRECTORY = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data_files/')
 USERS_FILENAME = 'users.csv'
 GAMES_FILENAME = 'games.csv'
 USERS_GAMES_FILENAME = 'users_games.csv'
 FRIENDS_FILENAME = 'friends.csv'
 
-def print_game_edges_for_user(network, user):
+def print_game_edges_for_user(data_loader, user):
+    assert data_loader.cache_local_dataset, 'Method requires full load.'
     print(f'Edges for user {user}:')
-    game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-    edges = nx.edge_boundary(network, [user], game_nodes, data=True)
-    pprint(list(edges))
+    print(data_loader.users_games_df[data_loader.users_games_df['user_id'] == user])
 
 def get_edges_between_types(network, node_type1, node_type2, data=False):
     nodes_type_1 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type1)
@@ -99,6 +85,7 @@ def add_node_embeddings(network, embedding_name, node_to_value_dict):
 def add_edge_embeddings(network, embedding_name, edge_to_value_dict):
     nx.set_edge_attributes(network, edge_to_value_dict, embedding_name)
 
+# TODO FIX THESE NEXT
 class Normalizer(ABC):
     @abstractmethod
     def normalize(self, network):
@@ -109,69 +96,53 @@ class LinearNormalizer(Normalizer):
         self.min_score = min_score
         self.max_score = max_score
     
-    def normalize(self, network):
-        min_max_score_per_user = {}
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        for node, data in network.nodes(data=True):
-            if data['node_type'] != NodeType.USER:
-                continue
-            edges = nx.edge_boundary(network, [node], game_nodes, data=True)
-            scores = [data['score'] for user, game, data in edges]
-            min_max_score_per_user[node] = (min(scores), max(scores))
-
-        for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
-            user = edge[0]
-            network.edges[edge]['score'] = linear_transformation(network.edges[edge]['score'], *min_max_score_per_user[user], self.min_score, self.max_score)
+    def normalize(self, df):
+        df['score'] = df.groupby('user_id')['score'].transform(lambda scores: linear_transformation(scores, scores.min(), scores.max(), self.min_score, self.max_score))
 
 class GaussianNormalizer(Normalizer):
     def __init__(self, new_mean, new_std):
         self.new_mean = new_mean
         self.new_std = new_std
     
-    def normalize(self, network):
-        mean_stddev_score_per_user = {}
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        for node, data in network.nodes(data=True):
-            if data['node_type'] != NodeType.USER:
-                continue
-            edges = nx.edge_boundary(network, [node], game_nodes, data=True)
-            scores = [data['score'] for user, game, data in edges]
-            if len(scores) > 0:
-                mean_stddev_score_per_user[node] = (np.mean(scores), np.std(scores))
-
-        for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
-            user = edge[0]
-            network.edges[edge]['score'] = gaussian_transformation(network.edges[edge]['score'], *mean_stddev_score_per_user[user], self.new_mean, self.new_std)
+    def normalize(self, df):
+        df['score'] = df.groupby('user_id')['score'].transform(lambda scores: gaussian_transformation(scores, scores.mean(), scores.std(), self.new_mean, self.new_std))
 
 class PercentileNormalizer(Normalizer):
-    def normalize(self, network):
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        for node, data in network.nodes(data=True):
-            if data['node_type'] != NodeType.USER:
-                continue
-            edges = list(nx.edge_boundary(network, [node], game_nodes, data=True))
-            scores = np.array([data['score'] for user, game, data in edges])
-            for user, game, data in edges:
-                network.edges[(user, game)]['score'] = (scores <= data['score']).mean()
+    def normalize(self, df):
+        df['score'] = df.groupby('user_id')['score'].transform(lambda scores: (scores.rank(pct=True)))
 
-def constant_edge_scoring_function(edge_data):
+def constant_users_games_edge_scoring_function(users_games_row):
     return 1
 
-def playtime_forever_edge_scoring_function(edge_data):
-    return edge_data['playtime_forever']
+def playtime_forever_users_games_edge_scoring_function(users_games_row):
+    return users_games_row['playtime_forever']
 
-def never_remove_edge(edge_data):
+def liked_interactions_edge_scoring_function(interaction_row):
+    return 1 if interaction_row['user_liked'] else -1
+
+def never_remove_edge(users_games_row):
     return False
 
-def remove_zero_playtime_edge(edge_data):
-    return edge_data['playtime_forever'] == 0
+def remove_zero_playtime_edge(users_games_row):
+    return users_games_row['playtime_forever'] == 0
+
+def add_categorical_embedding(df, category_base_name, nested_values):
+    categories = set([value for lst in nested_values for value in lst])
+    new_columns = []
+    for category in categories:
+        new_column = nested_values.apply(lambda row_values: 1.0 if category in row_values else 0.0)
+        new_columns.append(new_column)
+    new_df = pd.concat(new_columns, axis=1)
+    new_df.columns = [category_base_name + category for category in categories]
+    df = pd.concat([df, new_df], axis=1)
+    return df
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader():
-    def __init__(self, friendship_edge_encoding = FriendEdgeEncoding.NONE, edge_scoring_function = constant_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_edge_function = never_remove_edge, cache_local_dataset = False, app = None, get_local = True, get_external_database = False):
+    def __init__(self, users_games_edge_scoring_function = constant_users_games_edge_scoring_function, interactions_edge_scoring_function = liked_interactions_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_users_games_edges_function = never_remove_edge, cache_local_dataset = False, app = None, get_local = True, get_external_database = False):
         super().__init__()
-        self.friendship_edge_encoding = friendship_edge_encoding
-        self.edge_scoring_function = edge_scoring_function
+        self.users_games_edge_scoring_function = users_games_edge_scoring_function
+        self.interactions_edge_scoring_function = interactions_edge_scoring_function
         self.score_normalizers = score_normalizers
         self.user_embeddings = user_embeddings
         self.game_embeddings = game_embeddings
@@ -180,7 +151,7 @@ class DataLoader():
         self.snowball_ids = snowballs_ids
         self.num_users_to_load_per_snowball = num_users_to_load_per_snowball
 
-        self.remove_edge_function = remove_edge_function
+        self.remove_users_games_edges_function = remove_users_games_edges_function
 
         self.cache_local_dataset = cache_local_dataset
         if self.cache_local_dataset:
@@ -196,24 +167,30 @@ class DataLoader():
         database.close()
         return result
 
-    def get_users_games_df_for_user(self, user_id, get_local=True, get_external_database=True):
+    def get_users_games_df_for_user(self, user_id, get_local=True, get_external_database=True, preprocess=False):
         df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
         if self.get_local and get_local:
             if self.cache_local_dataset:
                 df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
             else:
                 query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
-                df = pd.concat([df, self.run_local_database_query(query)])
+                new_df = self.run_local_database_query(query)
+                new_df['source'] = LOCAL_DATA_SOURCE
+                df = pd.concat([df, new_df])
         
         if self.get_external_database and get_external_database:
             db_data = self.app.users_games_ref.document(str(user_id)).get()
             if db_data.exists:
                 db_data = db_data.to_dict()["games"]
-                df = pd.concat([pd.DataFrame(db_data), df])
-        df.drop_duplicates(subset=["game_id"], keep="first", inplace=True) # TODO remove if its too inefficient.
+                db_data = pd.DataFrame(db_data)
+                db_data['source'] = EXTERNAL_DATA_SOURCE
+                df = pd.concat([db_data, df])
+        df.drop_duplicates(subset=["game_id"], keep="first", inplace=True)
+        if preprocess:
+            df = self.preprocess_users_games_df(df)
         return df
     
-    def get_interactions_df_for_user(self, user_id, get_local=True, get_external_database=True):
+    def get_interactions_df_for_user(self, user_id, get_local=True, get_external_database=True, preprocess=False):
         df = pd.DataFrame(columns=INTERACTIONS_SCHEMA.keys()).astype(INTERACTIONS_SCHEMA)
         if self.get_local and get_local:
             if self.cache_local_dataset:
@@ -231,8 +208,11 @@ class DataLoader():
             if recommendation_interactions:
                 interactions = [interaction_document.to_dict() for interaction_document in recommendation_interactions]
                 db_data = pd.DataFrame(interactions)
+                db_data['source'] = EXTERNAL_DATA_SOURCE
                 df = pd.concat([db_data, df])
         df.drop_duplicates(subset=["game_id"], keep="first", inplace=True)
+        if preprocess:
+            df = self.preprocess_interactions_df(df)
         return df
     
     def get_all_game_ids_for_user(self, user_id):
@@ -281,26 +261,10 @@ class DataLoader():
     def get_all_node_ids(self):
         assert self.cache_local_dataset, 'Method requires full load.'
         return self.get_user_node_ids() + self.get_game_node_ids()
-
-    def get_user_game_adjacency_matrix(self, users_games_df_view):
-        assert self.cache_local_dataset, 'Method requires full load.'
-
-        all_node_ids = self.get_all_node_ids()
-        node_to_index = {node_id: index for index, node_id in enumerate(all_node_ids)}
-        user_indices = [node_to_index[user_id] for user_id in users_games_df_view['user_id']]
-        game_indices = [node_to_index[game_id] for game_id in users_games_df_view['game_id']]
-        rows = user_indices + game_indices
-        cols = game_indices + user_indices
-        data = [1] * (len(users_games_df_view) * 2)
-
-        sparse_matrix = coo_matrix((data, (rows, cols)), shape=(len(all_node_ids), len(all_node_ids)))
-        sparse_matrix_csr = sparse_matrix.tocsr()
-        return sparse_matrix_csr
     
     def load_random_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
-
         train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed)
         self.users_games_df['train_split'] = None
         self.users_games_df.loc[train_edges, 'train_split'] = True
@@ -310,44 +274,47 @@ class DataLoader():
         assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
 
-        # If any nodes have 1 or 0 edges - remap them to an "other" stratification grouping.
-        node_strat_classes = {user_id: user_id if len(self.users_games_df[self.users_games_df['user_id'] == user_id]) > 1 else -1 for user_id in self.get_user_node_ids()}
+        user_counts = self.users_games_df['user_id'].value_counts()
+        valid_users = user_counts[user_counts > 1].index
+        strat_classes = self.users_games_df.apply(lambda row: row['user_id'] if row['user_id'] in valid_users else -1, axis=1)
 
-        train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[node_strat_classes[user_node] for user_node in self.users_games_df['user_id']])
+        train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=strat_classes)
         self.users_games_df['train_split'] = None
         self.users_games_df.loc[train_edges, 'train_split'] = True
         self.users_games_df.loc[test_edges, 'train_split'] = False
 
     @classmethod
-    def load_from_file(cls, file_name):
-        with open(SAVED_DATA_LOADER_PATH + file_name + '.pkl', 'rb') as file:
+    def load_from_file(cls, file_name, load_live_data_loader=False):
+        folder_path = PUBLISHED_MODELS_PATH if load_live_data_loader else SAVED_DATA_LOADER_PATH
+        with open(folder_path + file_name + '.pkl', 'rb') as file:
             parameter_dictionary = pickle.load(file)
-            return cls(parameter_dictionary['friendship_edge_encoding'],
-                parameter_dictionary['edge_scoring_function'],
-                parameter_dictionary['score_normalizers'],
-                parameter_dictionary['user_embeddings'],
-                parameter_dictionary['game_embeddings'],
-                parameter_dictionary['user_game_edge_embeddings'],
-                parameter_dictionary['friend_friend_edge_embeddings'],
-                parameter_dictionary['snowballs_ids'],
-                parameter_dictionary['num_users_to_load_per_snowball'],
-                parameter_dictionary['remove_edge_function'],
-                parameter_dictionary['cache_local_dataset'],
-                parameter_dictionary['get_local'],
-                parameter_dictionary['get_external_database'])
+            return cls(
+                users_games_edge_scoring_function = parameter_dictionary['users_games_edge_scoring_function'],
+                interactions_edge_scoring_function = parameter_dictionary['interactions_edge_scoring_function'],
+                score_normalizers = parameter_dictionary['score_normalizers'],
+                user_embeddings = parameter_dictionary['user_embeddings'],
+                game_embeddings = parameter_dictionary['game_embeddings'],
+                user_game_edge_embeddings = parameter_dictionary['user_game_edge_embeddings'],
+                friend_friend_edge_embeddings = parameter_dictionary['friend_friend_edge_embeddings'],
+                snowballs_ids = parameter_dictionary['snowballs_ids'],
+                num_users_to_load_per_snowball = parameter_dictionary['num_users_to_load_per_snowball'],
+                remove_users_games_edges_function = parameter_dictionary['remove_users_games_edges_function'],
+                cache_local_dataset = parameter_dictionary['cache_local_dataset'] and not load_live_data_loader,
+                get_local = parameter_dictionary['get_local'] or load_live_data_loader,
+                get_external_database = parameter_dictionary['get_external_database'] or load_live_data_loader)
     
     def get_data_loader_parameters(self):
         return {
-            'friendship_edge_encoding': self.friendship_edge_encoding,
-            'edge_scoring_function': self.edge_scoring_function,
+            'users_games_edge_scoring_function': self.users_games_edge_scoring_function,
+            'interactions_edge_scoring_function': self.interactions_edge_scoring_function,
             'score_normalizers': self.score_normalizers,
             'user_embeddings': self.user_embeddings,
             'game_embeddings': self.game_embeddings,
             'user_game_edge_embeddings': self.user_game_edge_embeddings,
             'friend_friend_edge_embeddings': self.friend_friend_edge_embeddings,
-            'snowballs_ids': self.snowballs_ids,
+            'snowballs_ids': self.snowball_ids,
             'num_users_to_load_per_snowball': self.num_users_to_load_per_snowball,
-            'remove_edge_function': self.remove_edge_function,
+            'remove_users_games_edges_function': self.remove_users_games_edges_function,
             'cache_local_dataset': self.cache_local_dataset,
             'get_local': self.get_local,
             'get_external_database': self.get_external_database,
@@ -368,11 +335,11 @@ class DataLoader():
         global_friends_df = pd.read_csv(DATA_FILES_DIRECTORY + FRIENDS_FILENAME, dtype=FRIENDS_SCHEMA)
 
         if len(self.snowball_ids) == 0 and self.num_users_to_load_per_snowball is None:
-            self.users_df = global_users_df
-            self.games_df = global_games_df
-            self.users_games_df = global_users_games_df
-            self.friends_df = global_friends_df
-        else:       
+            full_users_df = global_users_df
+            full_games_df = global_games_df
+            full_users_games_df = global_users_games_df
+            full_friends_df = global_friends_df
+        else:
             users_dfs = []
             games_dfs = []
             for snowball_id in self.snowball_ids:
@@ -390,199 +357,103 @@ class DataLoader():
             users_df = pd.concat(users_dfs, ignore_index=True)
             games_df = pd.concat(games_dfs, ignore_index=True)
 
-            self.users_df = global_users_df[global_users_df['id'].isin(users_df['id'])]
-            self.games_df = global_games_df[global_games_df['id'].isin(games_df['id'])]
-            self.users_games_df = global_users_games_df[
+            full_users_df = global_users_df[global_users_df['id'].isin(users_df['id'])]
+            full_games_df = global_games_df[global_games_df['id'].isin(games_df['id'])]
+            full_users_games_df = global_users_games_df[
                 (global_users_games_df['user_id'].isin(users_df['id'])) &
                 (global_users_games_df['game_id'].isin(games_df['id']))
             ]
-            self.friends_df = global_friends_df[
+            full_friends_df = global_friends_df[
                 (global_friends_df['user1'].isin(users_df['id'])) |
                 (global_friends_df['user2'].isin(users_df['id']))
             ]
+            
+        self.users_df = self.add_user_embeddings(full_users_df, self.user_embeddings)
+        self.games_df = self.add_game_embeddings(full_games_df, self.game_embeddings)
+        self.users_games_df = self.add_user_game_edge_embeddings(full_users_games_df, self.user_game_edge_embeddings)
+        self.users_games_df['source'] = LOCAL_DATA_SOURCE
+        self.friends_df = self.add_friend_friend_edge_embeddings(full_friends_df, self.friend_friend_edge_embeddings)
+
+        self.users_games_df = self.preprocess_users_games_df(self.users_games_df)
+
+    def preprocess_users_games_df(self, users_games_df):
+        if self.remove_users_games_edges_function != never_remove_edge:
+            users_games_df = self.remove_users_games_edges(users_games_df)
+            
+        self.score_users_games_edges(users_games_df)
         
-        # self.add_embeddings()
+        for normalizer in self.score_normalizers:
+            normalizer.normalize(users_games_df)
+        
+        return users_games_df
+    
+    def preprocess_interactions_df(self, interactions_df):
+        self.score_interactions_edges(interactions_df)
 
-        # self.remove_edges()
+        for normalizer in self.score_normalizers:
+            normalizer.normalize(interactions_df)
+        
+        return interactions_df
 
-        # self.score_edges()
-
-    def handle_identity_embedding_command(self, network, embedding_command):
-        embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], embedding_command['args'][0])))
-
-    def handle_sum_embedding_command(self, network, embedding_command):
-        embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'], dict(zip(embedding_command['key'], [sum(x) for x in zip(*embedding_command['args'])])))
-
-    def handle_categorical_embedding_command(self, network, embedding_command):
-        categories = set([value for lst in embedding_command['args'][0] for value in lst])
-        for category in categories:
-            embedding_command['add_embedding_fn'](network, embedding_command['embedding_name_base'] + ': ' + category, dict(zip(embedding_command['key'], embedding_command['args'][0].apply(lambda lst: 1.0 if category in lst else 0.0))))
-
-    def dispatch_embedding_command(self, network, embedding_command):
-        match embedding_command['embedding_type']:
-            case EmbeddingType.IDENTITY:
-                self.handle_identity_embedding_command(network, embedding_command)
-            case EmbeddingType.CATEGORICAL:
-                self.handle_categorical_embedding_command(network, embedding_command)
-            case EmbeddingType.ONE_HOT:
-                pass
-            case EmbeddingType.SUM:
-                self.handle_sum_embedding_command(network, embedding_command)
-            case _:
-                raise NotImplementedError(f'Have embedding type that cannot be handled: {embedding_command["embedding_type"]}')
-
-    def run_user_embedding_commands(self, network, user_embeddings):
+    def add_user_embeddings(self, full_users_df, user_embeddings):
+        base_users_df = pd.DataFrame()
+        base_users_df['id'] = full_users_df['id']
         for user_embedding in user_embeddings:
             match user_embedding:
                 case _:
                     raise NotImplementedError(f'Cannot recognize embedding: {user_embedding}')
-            self.dispatch_embedding_command(network, command)
+        return base_users_df
     
-    def run_game_embedding_commands(self, network, game_embeddings):
+    def add_game_embeddings(self, full_games_df, game_embeddings):
+        base_games_df = pd.DataFrame()
+        base_games_df['id'] = full_games_df['id']
         for game_embedding in game_embeddings:
             match game_embedding:
                 case 'name':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'name', 'key': self.games_df['id'], 'args': [self.games_df['name']]}
+                    base_games_df['name'] = full_games_df['name']
                 case 'numReviews':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_reviews', 'key': self.games_df['id'], 'args': [self.games_df['numReviews']]}
+                    base_games_df['num_reviews'] = full_games_df['numReviews']
                 case 'avgReviewScore':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'avg_review_score', 'key': self.games_df['id'], 'args': [self.games_df['avgReviewScore']]}
+                    base_games_df['avg_review_score'] = full_games_df['avgReviewScore']
                 case 'price':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'price', 'key': self.games_df['id'], 'args': [self.games_df['price']]}
+                    base_games_df['price'] = full_games_df['price']
                 case 'genres':
-                    command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Genre', 'key': self.games_df['id'], 'args': [self.games_df['genres']]}
+                    base_games_df = add_categorical_embedding(base_games_df, 'genre: ', full_games_df['genres'])
                 case 'tags':
-                    command = {'embedding_type': EmbeddingType.CATEGORICAL, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'Tag', 'key': self.games_df['id'], 'args': [self.games_df['tags']]}
+                    base_games_df = add_categorical_embedding(base_games_df, 'tag: ', full_games_df['tags'])
                 case 'numFollowers':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_node_embeddings, 'embedding_name_base': 'num_followers', 'key': self.games_df['id'], 'args': [self.games_df['numFollowers']]}
+                    base_games_df['num_followers'] = full_games_df['numFollowers']
                 case _:
                     raise NotImplementedError(f'Cannot recognize embedding: {game_embedding}')
-            self.dispatch_embedding_command(network, command)
+        return base_games_df
 
-    def run_user_game_edge_embedding_commands(self, network, user_game_edge_embeddings):
+    def add_user_game_edge_embeddings(self, full_users_games_df, user_game_edge_embeddings):
+        base_users_games_df = pd.DataFrame()
+        base_users_games_df[['user_id', 'game_id']] = full_users_games_df[['user_id', 'game_id']]
         for user_game_edge_embedding in user_game_edge_embeddings:
             match user_game_edge_embedding:
-                case 'example_sum_user_id_game_id_playtime_forever':
-                    command = {'embedding_type': EmbeddingType.SUM, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'example_sum_user_id_game_id_playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['user_id'], self.users_games_df['game_id'], self.users_games_df['playtime_forever']]}
                 case 'playtime_forever':
-                    command = {'embedding_type': EmbeddingType.IDENTITY, 'add_embedding_fn': add_edge_embeddings, 'embedding_name_base': 'playtime_forever', 'key': ((u, g) for u, g in zip(self.users_games_df['user_id'], self.users_games_df['game_id'])), 'args': [self.users_games_df['playtime_forever']]}
+                    base_users_games_df['playtime_forever'] = full_users_games_df['playtime_forever']
                 case _:
                     raise NotImplementedError(f'Cannot recognize embedding: {user_game_edge_embedding}')
-            self.dispatch_embedding_command(network, command)
+        return base_users_games_df
 
-    def run_friend_friend_edge_embedding_commands(self, network, friend_friend_edge_embeddings):
+    def add_friend_friend_edge_embeddings(self, full_friends_df, friend_friend_edge_embeddings):
+        base_friends_df = pd.DataFrame()
+        base_friends_df[['user1', 'user2']] = full_friends_df[['user1', 'user2']]
         for friend_friend_edge_embedding in friend_friend_edge_embeddings:
             match friend_friend_edge_embedding:
                 case _:
                     raise NotImplementedError(f'Cannot recognize embedding: {friend_friend_edge_embedding}')
-            self.dispatch_embedding_command(network, command)
+        return base_friends_df
 
-    def remove_edges(self, network):
-        edges_to_remove = [edge for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME) if self.remove_edge_function(network.edges[edge])]
-        network.remove_edges_from(edges_to_remove)
+    def remove_users_games_edges(self, users_games_df):
+        return users_games_df[~users_games_df.apply(self.remove_users_games_edges_function, axis=1)].copy()
 
-    def score_edges(self, network):
-        for edge in get_edges_between_types(network, NodeType.USER, NodeType.GAME):
-            edge_data = network.edges[edge]
-            score = self.edge_scoring_function(edge_data)
-            network.edges[edge]['score'] = score
+    def score_users_games_edges(self, users_games_df):
+        users_games_df['score'] = users_games_df.apply(self.users_games_edge_scoring_function, axis=1)
+        users_games_df['score'] = users_games_df['score'].astype('float64')
 
-    def add_embeddings(self, network):
-        self.run_user_embedding_commands(network, self.user_embeddings)
-        self.run_game_embedding_commands(network, self.game_embeddings)
-        self.run_user_game_edge_embedding_commands(network, self.user_game_edge_embeddings)
-        self.run_friend_friend_edge_embedding_commands(network, self.friend_friend_edge_embeddings)
-
-    def get_full_network(self):
-        assert self.full_load, 'Method requires full load.'
-        network = nx.Graph()
-        network.add_nodes_from(self.users_df.id, node_type=NodeType.USER)                
-        network.add_nodes_from(self.games_df.id, node_type=NodeType.GAME)
-
-        for user_game in self.users_games_df.itertuples(index=False):
-            if user_game.game_id in network and user_game.user_id in network:
-                network.add_edge(user_game.user_id, user_game.game_id)
-            else:
-                continue
-                print(f'Something is broken. {user_game.game_id} {user_game.user_id}') # TODO Add this back in after Akash fixes gamalytic data missing.
-
-        isolated_nodes = list(nx.isolates(network))
-        network.remove_nodes_from(isolated_nodes)
-
-        if self.friendship_edge_encoding == FriendEdgeEncoding.NONE:
-            pass
-        elif self.friendship_edge_encoding == FriendEdgeEncoding.BETWEEN_USERS:
-            for friends in self.friends_df.itertuples(index=False):
-                if friends.user1 in network.nodes() and friends.user2 in network.nodes():
-                    network.add_edge(friends.user1, friends.user2)
-        elif self.friendship_edge_encoding == FriendEdgeEncoding.ALL_FRIENDSHIPS:
-            for friends in self.friends_df.itertuples(index=False):
-                if friends.user1 not in network.nodes():
-                    network.add_node(friends.user1, node_type=NodeType.UNDEFINED_USER)
-                if friends.user2 not in network.nodes():
-                    network.add_node(friends.user2, node_type=NodeType.UNDEFINED_USER)
-                network.add_edge(friends.user1, friends.user2)
-            
-        self.add_embeddings(network)
-
-        self.remove_edges(network)
-
-        self.score_edges(network)
-
-        for normalizer in self.score_normalizers:
-            normalizer.normalize(network)
-
-        return network
-    
-    def load_random_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert train_percentage + test_percentage <= 1
-
-        if network is None:
-            network = self.get_full_network()
-        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
-
-        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed)
-        user_game_edges_set = set(user_game_edges)
-        train_network = copy.deepcopy(network)
-        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        test_network = copy.deepcopy(network)
-        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
-
-        return train_network, test_network
-
-    def load_stratified_user_degree_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert train_percentage + test_percentage <= 1
-
-        if network is None:
-            network = self.get_full_network()
-        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        game_degrees = {node: len(list(nx.edge_boundary(network, [node], game_nodes, data=True))) for node, data in network.nodes(data=True) if data['node_type'] == NodeType.USER}
-        
-        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[game_degrees[user_node] for user_node, game_node in user_game_edges])
-        user_game_edges_set = set(user_game_edges)
-        train_network = copy.deepcopy(network)
-        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        test_network = copy.deepcopy(network)
-        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
-
-        return train_network, test_network
-    
-    def load_stratified_user_train_test_network(self, network=None, train_percentage=0.9, test_percentage=0.1, seed=0):
-        assert train_percentage + test_percentage <= 1
-
-        if network is None:
-            network = self.get_full_network()
-        user_game_edges = get_edges_between_types(network, NodeType.USER, NodeType.GAME)
-        # If any nodes have 1 or 0 edges - remap them to an "other" stratification grouping.
-        game_nodes = [node for node, data in network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        node_strat_classes = {node: node if len(list(nx.edge_boundary(network, [node], game_nodes, data=True))) > 1 else -1 for node, data in network.nodes(data=True) if data['node_type'] == NodeType.USER}
-
-        train_edges, test_edges = train_test_split(user_game_edges, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=[node_strat_classes[user_node] for user_node, game_node in user_game_edges])
-        user_game_edges_set = set(user_game_edges)
-        train_network = copy.deepcopy(network)
-        train_network.remove_edges_from(user_game_edges_set - set(train_edges))
-        test_network = copy.deepcopy(network)
-        test_network.remove_edges_from(user_game_edges_set - set(test_edges))
-
-        return train_network, test_network
+    def score_interactions_edges(self, interactions_df):
+        interactions_df['score'] = interactions_df.apply(self.interactions_edge_scoring_function, axis=1)
+        interactions_df['score'] = interactions_df['score'].astype('float64')
