@@ -36,22 +36,22 @@ def load_user(user_id):
 
 @steam_login.route("/login", methods=["GET"])
 def auth_with_steam():
-    # if len(request.args) == 0:
-    #     params = {
-    #         "openid.ns": "http://specs.openid.net/auth/2.0",
-    #         "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
-    #         "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
-    #         "openid.mode": "checkid_setup",
-    #         "openid.return_to": f"{current_app.config['BACKEND_URL']}/login",
-    #         "openid.realm": current_app.config["BACKEND_URL"],
-    #     }
-    #     auth_url = f"https://steamcommunity.com/openid/login?{urlencode(params)}"
-    #     return redirect(auth_url)
+    if len(request.args) == 0:
+        params = {
+            "openid.ns": "http://specs.openid.net/auth/2.0",
+            "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
+            "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
+            "openid.mode": "checkid_setup",
+            "openid.return_to": f"{current_app.config['BACKEND_URL']}/login",
+            "openid.realm": current_app.config["BACKEND_URL"],
+        }
+        auth_url = f"https://steamcommunity.com/openid/login?{urlencode(params)}"
+        return redirect(auth_url)
 
-    # user_url = request.args.get("openid.identity")
-    # if user_url is None:
-    #     return Response("Login failed", status=401)
-    id = 76561198103368250#user_url[user_url.rfind("/") + 1:]
+    user_url = request.args.get("openid.identity")
+    if user_url is None:
+        return Response("Login failed", status=401)
+    id = user_url[user_url.rfind("/") + 1:]
     assert login_user(User(id))
     resp = redirect(current_app.config["FRONTEND_URL"])
     return resp
