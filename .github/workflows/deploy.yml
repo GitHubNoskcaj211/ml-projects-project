@@ -21,10 +21,8 @@ jobs:
 
       - name: Clone LFS Submodules
         run: |
-          git -C dataset/data_files lfs fetch
-          git -C dataset/data_files checkout 653f5036e4c69e5de6f5d94fb21917e338d4a180
-          git -C models/published_recommendation_models lfs fetch
-          git -C models/published_recommendation_models checkout a4d21124f56f1a6555008c1c6d3c7829642403ef
+          git -C dataset/data_files lfs fetch origin 653f5036e4c69e5de6f5d94fb21917e338d4a180
+          git -C models/published_recommendation_models lfs fetch origin fb70c5cba8bb79b9218053432f0861ad85536e4d
 
       - name: 'Google auth'
         id: 'auth'

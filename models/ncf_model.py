@@ -32,22 +32,25 @@ class NCFModel(BaseGameRecommendationModel):
     def name(self):
         return f'neural_collborative_filtering_{self.model_type}'
     
-    def train(self, train_network, debug = False):
-        self.game_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.GAME]
-        self.user_nodes = [node for node, data in train_network.nodes(data=True) if data['node_type'] == NodeType.USER]
+    def train(self, debug = False):
+        # TODO train on downloaded interactions
+        assert self.data_loader.full_load, 'Method requires full load.'
+        self.game_nodes = self.data_loader.get_game_node_ids()
+        self.user_nodes = self.data_loader.get_user_node_ids()
         self.game_to_index = {game: ii for ii, game in enumerate(self.game_nodes)}
         self.user_to_index = {user: ii for ii, user in enumerate(self.user_nodes)}
+        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
         
         def normalize_column(column):
             normalized_column = gaussian_transformation(column, column.mean(), column.std(), 0.0, min(column.std(), 1.0))
             # normalized_column = linear_transformation(column, column.min(), column.max(), -0.1, 0.1)
             return normalized_column
 
-        game_data_df = get_numeric_dataframe_columns(pd.DataFrame([train_network.nodes[game_node] for game_node in self.game_nodes]))
+        game_data_df = get_numeric_dataframe_columns(self.data_loader.games_df)
         game_data_df = game_data_df.apply(normalize_column, axis=0)
         # known_game_embeddings = game_data_df.to_numpy()
         
-        user_data_df = get_numeric_dataframe_columns(pd.DataFrame([train_network.nodes[user_node] for user_node in self.user_nodes]))
+        user_data_df = get_numeric_dataframe_columns(self.data_loader.users_df)
         user_data_df = user_data_df.apply(normalize_column, axis=0)
         # known_user_embeddings = user_data_df.to_numpy()
         
@@ -73,6 +76,10 @@ class NCFModel(BaseGameRecommendationModel):
         user_game_scores_tensor = torch.tensor(user_game_scores)
         user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
         self.ncf.train(user_indices, game_indices, user_game_scores_tensor, debug)
+
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
+        # TODO implement
+        pass
 
     def get_score_between_user_and_game(self, user, game):
         user_ii = self.user_to_index[user]
