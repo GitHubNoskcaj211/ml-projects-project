@@ -3,4 +3,5 @@ __pycache__
 models/saved_models
 models/saved_nns
 dataset/saved_data_loader_parameters
+serviceAccountKey.json
 .DS_Store

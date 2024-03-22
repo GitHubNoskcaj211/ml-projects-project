@@ -9,6 +9,7 @@ if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env
 firebase_app = firebase_admin.initialize_app()
 db = firestore.client()
 
+
 class DatabaseClient:
     def __init__(self):
         self.games_ref = db.collection("games")
