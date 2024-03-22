@@ -12,7 +12,7 @@ import shutil
 import traceback
 from urllib.parse import urlencode
 
-from dataset.scrape.get_data import CACHE, ENVIRONMENT, FILE_MANAGER, get_single_user
+from dataset.scrape.get_data import ENVIRONMENT, FILE_MANAGER, get_single_user
 
 steam_login = Blueprint(name="steam_login", import_name=__name__)
 login_manager = LoginManager()
@@ -86,13 +86,14 @@ def init_user():
 
     friends = pd.read_csv(os.path.join(user_data_dir, "friends.csv"))
     assert (friends["user1"] == int(current_user.id)).all()
-    friends = {"friends": friends.to_dict("records")}
+    friends = {"friends": friends.to_dict("records"), "synced": False}
 
     user_games = pd.read_csv(os.path.join(user_data_dir, "users_games.csv"))
     assert (user_games["user_id"] == int(current_user.id)).all()
-    user_games = {"games": user_games.to_dict("records")}
+    user_games = {"games": user_games.to_dict("records"), "synced": False}
 
     for game in games:
+        game["synced"] = False
         current_app.database_client.games_ref.document(str(game["id"])).set(game, merge=True)
     current_app.database_client.friends_ref.document(current_user.id).set(friends, merge=True)
     current_app.database_client.users_games_ref.document(current_user.id).set(user_games, merge=True)
