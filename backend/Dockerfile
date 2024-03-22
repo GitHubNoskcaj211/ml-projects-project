@@ -45,6 +45,7 @@ COPY models/random_model.py ./models/
 
 COPY utils/__init__.py ./utils/
 COPY utils/utils.py ./utils/
+COPY utils/firestore.py ./utils/
 
 COPY backend/ ./
 
