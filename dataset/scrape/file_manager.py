@@ -103,6 +103,8 @@ def get_invalids():
 
 def get_parsed_games():
     if os.path.exists(ENVIRONMENT.ALL_GAMES_FILENAME):
+        print(ENVIRONMENT.ALL_GAMES_FILENAME)
+        print(pd.read_csv(ENVIRONMENT.ALL_GAMES_FILENAME))
         all_games = set(pd.read_csv(ENVIRONMENT.ALL_GAMES_FILENAME)["id"])
     else:
         all_games = set()
