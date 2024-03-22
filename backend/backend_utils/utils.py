@@ -14,7 +14,7 @@ class ModelWrapper:
 
 def load_and_get_data_loader(app):
     if app.default_data_loader is None:
-        app.default_data_loader = DataLoader(app=app, get_external_database=True)
+        app.default_data_loader = DataLoader(get_external_database=True)
     return app.default_data_loader
 
 
@@ -26,6 +26,5 @@ def load_and_get_random_model_wrapper(app):
             selected_model_wrapper.model_save_file_name, load_published_model=True
         )
         model_data_loader = DataLoader.load_from_file(selected_model_wrapper.data_loader_save_file_name, load_live_data_loader=True)
-        model_data_loader.app = app
         selected_model_wrapper.model.set_data_loader(model_data_loader)
     return selected_model_wrapper

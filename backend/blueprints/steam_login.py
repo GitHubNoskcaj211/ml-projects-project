@@ -60,7 +60,7 @@ def auth_with_steam():
 @steam_login.route("/init_user", methods=["GET"])
 @login_required
 def init_user():
-    if current_app.users_games_ref.document(current_user.id).get().exists:
+    if current_app.database_client.users_games_ref.document(current_user.id).get().exists:
         return jsonify(id=current_user.id)
     try:
         ENVIRONMENT.initialize_environment(
@@ -93,9 +93,9 @@ def init_user():
     user_games = {"games": user_games.to_dict("records")}
 
     for game in games:
-        current_app.games_ref.document(str(game["id"])).set(game, merge=True)
-    current_app.friends_ref.document(current_user.id).set(friends, merge=True)
-    current_app.users_games_ref.document(current_user.id).set(user_games, merge=True)
+        current_app.database_client.games_ref.document(str(game["id"])).set(game, merge=True)
+    current_app.database_client.friends_ref.document(current_user.id).set(friends, merge=True)
+    current_app.database_client.users_games_ref.document(current_user.id).set(user_games, merge=True)
 
     return jsonify(id=current_user.id)
 

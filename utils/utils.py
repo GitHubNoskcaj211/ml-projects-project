@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pprint import pprint
 
 def linear_transformation(numbers, start_domain, end_domain, start_range, end_range):
     if (end_domain - start_domain) == 0:
@@ -33,9 +34,10 @@ def get_numeric_dataframe_columns(df, columns_to_remove=[]):
     numeric_columns = list(set(numeric_columns) - set(columns_to_remove))
     return df[numeric_columns]
 
-def print_game_name_and_scores(games_df, scores):
+def get_game_name_and_scores(data_loader, scores):
     game_ids = [game_id for game_id, score in scores]
     score_values = [score for game_id, score in scores]
-    selected_games = games_df[games_df['id'].isin(game_ids)].copy()
+    selected_games = [data_loader.get_game_information(game_id)[0] for game_id in game_ids]
+    selected_games = pd.DataFrame(selected_games)[['id', 'name']]
     selected_games = selected_games.assign(score=score_values)
-    print(selected_games)
+    return selected_games

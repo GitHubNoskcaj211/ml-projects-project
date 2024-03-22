@@ -25,30 +25,30 @@ model_wrappers = [
         "test_common_neighbors_playtime_scored_gaussian_normalized_data_loader",
         None,
     ),
-    ModelWrapper(
-        NCFModel,
-        "test_cf_model",
-        "test_ncf_data_loader",
-        None,
-    ),
-    ModelWrapper(
-        NCFModel,
-        "test_gcf_model",
-        "test_ncf_data_loader",
-        None,
-    ),
-    ModelWrapper(
-        NCFModel,
-        "test_mlp_model",
-        "test_ncf_data_loader",
-        None,
-    ),
-    ModelWrapper(
-        NCFModel,
-        "test_ncf_model",
-        "test_ncf_data_loader",
-        None,
-    ),
+    # ModelWrapper(
+    #     NCFModel,
+    #     "test_cf_model",
+    #     "test_ncf_data_loader",
+    #     None,
+    # ),
+    # ModelWrapper(
+    #     NCFModel,
+    #     "test_gcf_model",
+    #     "test_ncf_data_loader",
+    #     None,
+    # ),
+    # ModelWrapper(
+    #     NCFModel,
+    #     "test_mlp_model",
+    #     "test_ncf_data_loader",
+    #     None,
+    # ),
+    # ModelWrapper(
+    #     NCFModel,
+    #     "test_ncf_model",
+    #     "test_ncf_data_loader",
+    #     None,
+    # ),
 ]
 
 
@@ -94,5 +94,5 @@ class Interaction(BaseModel, extra="forbid"):
 def add_interaction(body: Interaction):
     interaction = body.model_dump()
     interaction["user_id"] = int(current_user.id)
-    current_app.interactions_ref.document("data").collection(str(current_user.id)).document(str(interaction["game_id"])).set(interaction)
+    current_app.database_client.interactions_ref.document("data").collection(str(current_user.id)).document(str(interaction["game_id"])).set(interaction)
     return jsonify({"success": 1})

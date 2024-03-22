@@ -7,6 +7,7 @@ import os
 import pickle
 from ast import literal_eval
 from utils.utils import linear_transformation, gaussian_transformation
+from utils.firestore import DatabaseClient
 import sqlite3
 
 SAVED_DATA_LOADER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_data_loader_parameters/')
@@ -139,7 +140,7 @@ def add_categorical_embedding(df, category_base_name, nested_values):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader():
-    def __init__(self, users_games_edge_scoring_function = constant_users_games_edge_scoring_function, interactions_edge_scoring_function = liked_interactions_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_users_games_edges_function = never_remove_edge, cache_local_dataset = False, app = None, get_local = True, get_external_database = False):
+    def __init__(self, users_games_edge_scoring_function = constant_users_games_edge_scoring_function, interactions_edge_scoring_function = liked_interactions_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_users_games_edges_function = never_remove_edge, cache_local_dataset = False, get_local = True, get_external_database = False):
         super().__init__()
         self.users_games_edge_scoring_function = users_games_edge_scoring_function
         self.interactions_edge_scoring_function = interactions_edge_scoring_function
@@ -157,9 +158,10 @@ class DataLoader():
         if self.cache_local_dataset:
             self.load_local_dataset()
 
-        self.app = app
         self.get_local = get_local
         self.get_external_database = get_external_database
+        if self.get_external_database:
+            self.database_client = DatabaseClient()
 
     def run_local_database_query(self, query):
         database = sqlite3.connect(f'{DATA_FILES_DIRECTORY}global_database.db')
@@ -171,7 +173,6 @@ class DataLoader():
         df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
         if self.get_local and get_local:
             if self.cache_local_dataset:
-                print(self.users_games_df[self.users_games_df['user_id'] == user_id])
                 df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
             else:
                 query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
@@ -180,7 +181,7 @@ class DataLoader():
                 df = pd.concat([df, new_df])
         
         if self.get_external_database and get_external_database:
-            db_data = self.app.users_games_ref.document(str(user_id)).get()
+            db_data = self.database_client.users_games_ref.document(str(user_id)).get()
             if db_data.exists:
                 db_data = db_data.to_dict()["games"]
                 db_data = pd.DataFrame(db_data)
@@ -206,7 +207,7 @@ class DataLoader():
                 # df = pd.concat([df, self.run_local_database_query(query)])
         
         if self.get_external_database and get_external_database:
-            recommendation_interactions = self.app.interactions_ref.document('data').collection(str(user_id)).get()
+            recommendation_interactions = self.database_client.interactions_ref.document('data').collection(str(user_id)).get()
             if recommendation_interactions:
                 interactions = [interaction_document.to_dict() for interaction_document in recommendation_interactions]
                 db_data = pd.DataFrame(interactions)
@@ -232,7 +233,7 @@ class DataLoader():
                 query = f"SELECT * FROM games WHERE id = {game_id}"
                 df = self.run_local_database_query(query)
         if self.get_external_database:
-            info = self.app.games_ref.document(str(game_id)).get()
+            info = self.database_client.games_ref.document(str(game_id)).get()
             if info.exists:
                 info = info.to_dict()
                 df = pd.concat([pd.DataFrame([info]), df])
@@ -249,7 +250,7 @@ class DataLoader():
                 if not self.run_local_database_query(query).empty:
                     return True
         if self.get_external_database:
-            if self.app.users_games_ref.document(str(user_id)).get().exists:
+            if self.database_client.users_games_ref.document(str(user_id)).get().exists:
                 return True
         return False
     

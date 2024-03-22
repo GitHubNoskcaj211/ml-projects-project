@@ -78,6 +78,8 @@ class NCFModel(BaseGameRecommendationModel):
 
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
+        # print(new_user_games_df)
+        # print(new_interactions_df)
         if new_user_games_df.empty and new_interactions_df.empty:
             return
         if not user_id in self.user_to_index:
@@ -92,8 +94,7 @@ class NCFModel(BaseGameRecommendationModel):
         scores_tensor = torch.tensor(scores.values)
         scores_tensor = scores_tensor.type(torch.FloatTensor)
         scores_tensor = torch.reshape(scores_tensor, (-1, 1))
-        # TODO Maybe train on some random local data to prevent forgetting.
-        self.ncf.fine_tune(user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=False)
+        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, self.fine_tune_batch_percent, debug=True)
             
 
     def get_score_between_user_and_game(self, user, game):

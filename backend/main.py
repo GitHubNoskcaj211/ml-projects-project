@@ -18,8 +18,7 @@ from flask_cors import CORS
 import uuid
 from urllib.parse import urlparse, urlunparse
 
-import firebase_admin
-from firebase_admin import firestore
+from utils.firestore import DatabaseClient
 
 # from blueprints.activities import activities
 from blueprints.errors import errors
@@ -92,13 +91,7 @@ cors = CORS(app, origins=[origin], supports_credentials=True)
 
 login_manager.init_app(app)
 
-
-app.firebase_app = firebase_admin.initialize_app()
-app.db = firestore.client()
-app.games_ref = app.db.collection("games")
-app.friends_ref = app.db.collection("friends")
-app.users_games_ref = app.db.collection("users_games")
-app.interactions_ref = app.db.collection("interactions")
+app.database_client = DatabaseClient()
 
 if __name__ == "__main__":
     print("Starting app...")

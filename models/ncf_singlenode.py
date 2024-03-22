@@ -42,8 +42,6 @@ class NCF(nn.Module):
 
         self._create_model()
 
-        print('Total Learnable Parameters:', sum(p.numel() for p in self.parameters() if p.requires_grad))
-
     def _create_model(self):
         if self.gcf or self.cf:
             self.embedding_gcf_user = nn.Embedding(self.num_users, self.embedding_size)
@@ -105,7 +103,10 @@ class NCF(nn.Module):
     def train(self, user_indices, game_indices, labels, debug=False):
         super(NCF, self).train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        for p in self.parameters():
+            p.requires_grad_(True)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.learning_rate, weight_decay=self.weight_decay)
+        print('Total Learnable Parameters:', sum(p.numel() for p in self.parameters() if p.requires_grad))
         batch_size = int(len(user_indices) * self.batch_percent) + 1
 
         train_loss = []
@@ -134,29 +135,47 @@ class NCF(nn.Module):
             plt.title('Mean Abs Error vs Epoch')
 
     def add_new_user(self):
-        self.num_users += 1
-        
+        # Init with average user embedding + normal random around it?
+        import random
         if self.gcf or self.cf:
-            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
+            new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
+            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.mean(self.embedding_gcf_user.weight, dim=0, keepdim=True)])
+            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_gcf_user = nn.Embedding.from_pretrained(new_weight)
         if self.mlp:
-            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
+            new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
+            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.mean(self.embedding_mlp_user.weight, dim=0, keepdim=True)])
+            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
+        self.num_users += 1
 
-    def fine_tune(self, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False):
+    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, batch_size, debug=False):
         super(NCF, self).train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
-        optimizer = optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        for p in self.parameters():
+            p.requires_grad_(False)
+        if self.gcf or self.cf:
+            self.embedding_gcf_user.weight.requires_grad = True
+        if self.mlp:
+            self.embedding_mlp_user.weight.requires_grad = True
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=weight_decay)
         train_loss = []
+        # user_zero_indices = torch.LongTensor(list(set(range(self.num_users)) - {user_index}))
         for epoch_count in range(num_epochs):
             predictions = self.forward(user_indices, game_indices)
             loss = self.loss_fn(predictions, labels)
             optimizer.zero_grad()
             loss.backward()
+            # Zero embeddings gradients that are not for this user.
+            # with torch.no_grad():
+            #     if self.gcf or self.cf:
+            #         self.embedding_gcf_user.weight[user_zero_indices] = 0
+            #     if self.mlp:
+            #         self.embedding_mlp_user.weight[user_zero_indices] = 0
             optimizer.step()
             train_loss.append(loss.item())
         if debug:
-            plt.plot(range(self.num_epochs), train_loss)
+            plt.plot(range(num_epochs), train_loss)
             plt.title('Mean Abs Error vs Epoch')
 
     def test_loss(self, user_indices, game_indices, labels):
