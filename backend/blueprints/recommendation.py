@@ -3,6 +3,7 @@ from flask_login import current_user, login_required
 from flask_pydantic import validate
 from pydantic import BaseModel
 from models.common_neighbors_model import CommonNeighbors
+from models.ncf_model import NCFModel
 from backend_utils.utils import (
     load_and_get_data_loader,
     load_and_get_random_model_wrapper,
@@ -24,6 +25,30 @@ model_wrappers = [
         "test_common_neighbors_playtime_scored_gaussian_normalized_data_loader",
         None,
     ),
+    ModelWrapper(
+        NCFModel,
+        "test_cf_model",
+        "test_ncf_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_gcf_model",
+        "test_ncf_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_mlp_model",
+        "test_ncf_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_ncf_model",
+        "test_ncf_data_loader",
+        None,
+    ),
 ]
 
 
@@ -38,7 +63,7 @@ def get_recommendations(query: GetRecommendationFilterInput):
     data_loader = load_and_get_data_loader(current_app)
     model_wrapper = load_and_get_random_model_wrapper(current_app)
     model = model_wrapper.model
-    user_id = current_user.id
+    user_id = int(current_user.id)
     if not data_loader.user_exists(user_id):
         return jsonify({"error": f"User with user_id {user_id} not found"}), 404
     model.fine_tune(user_id)

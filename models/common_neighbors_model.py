@@ -40,8 +40,6 @@ class CommonNeighbors(BaseGameRecommendationModel):
         self.matrix = self.get_user_game_adjacency_matrix(train_users_games_df)
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
-        print(new_user_games_df['score'])
-        print(new_interactions_df['score'])
         if not user_id in self.node_to_index:
             user_connections = np.full((self.matrix.shape[0]), 0)
         else:
@@ -88,8 +86,8 @@ class CommonNeighbors(BaseGameRecommendationModel):
                 'game_nodes': self.game_nodes,
             }, file)
 
-    def _load(self, file_path):
-        with open(file_path + '.pkl', 'rb') as file:
+    def _load(self, folder_path, file_name):
+        with open(folder_path + file_name + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
             self.path_length_2_weight = loaded_obj['path_length_2_weight']
             self.path_length_3_weight = loaded_obj['path_length_3_weight']

@@ -12,7 +12,6 @@ start_time = time.perf_counter()
 print("Importing")
 from dataset.data_loader import DataLoader
 
-from models.collaborative_filtering_model import CollaborativeFiltering  # noqa: F401
 from models.common_neighbors_model import CommonNeighbors   # noqa: F401
 from models.ncf_model import NCFModel    # noqa: F401
 from models.popularity_model import GamePopularityModel    # noqa: F401
@@ -20,6 +19,7 @@ from models.popularity_model import GamePopularityModel    # noqa: F401
 model_dispatcher = {
     'common_neighbors': CommonNeighbors,
     'game_popularity': GamePopularityModel,
+    'ncf': NCFModel,
 }
  
 parser = argparse.ArgumentParser()

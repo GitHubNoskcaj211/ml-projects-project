@@ -44,8 +44,8 @@ class GamePopularityModel(BaseGameRecommendationModel):
                 'game_to_score_index': self.game_to_score_index,
             }, file)
 
-    def _load(self, file_path):
-        with open(file_path + '.pkl', 'rb') as file:
+    def _load(self, folder_path, file_name):
+        with open(folder_path + file_name + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
             self.scores = loaded_obj['scores']
             self.game_to_score_index = loaded_obj['game_to_score_index']

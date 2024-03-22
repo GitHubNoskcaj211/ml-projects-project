@@ -6,7 +6,7 @@ import pandas as pd
 from dataset.data_loader import EXTERNAL_DATA_SOURCE
 
 SAVED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models/')
-SAVED_NN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_nns/')
+SAVED_NN_PATH = 'saved_nns/'
 PUBLISHED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'published_recommendation_models/')
 
 class BaseGameRecommendationModel(ABC):
@@ -58,7 +58,7 @@ class BaseGameRecommendationModel(ABC):
             return merged_df[merged_df['_merge'] == 'left_only'].drop(columns='_merge')
         new_user_games_df = get_new_df(user_games_df)
         new_interactions_df = get_new_df(interactions_df)
-
+        
         self._fine_tune(user_id, new_user_games_df, new_interactions_df)
         self.users_games_interactions_fine_tuned = pd.concat([self.users_games_interactions_fine_tuned, new_user_games_df[['user_id', 'game_id']], new_interactions_df[['user_id', 'game_id']]])
 
@@ -98,4 +98,4 @@ class BaseGameRecommendationModel(ABC):
 
     def load(self, file_name, load_published_model=False):
         folder_path = PUBLISHED_MODELS_PATH if load_published_model else SAVED_MODELS_PATH
-        self._load(folder_path + file_name)
+        self._load(folder_path, file_name)

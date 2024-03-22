@@ -4,23 +4,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
-from models.base_model import SAVED_NN_PATH
+from models.base_model import SAVED_MODELS_PATH, SAVED_NN_PATH
 from matplotlib import pyplot as plt
 
 # In depth explanation here: https://github.com/recommenders-team/recommenders/blob/main/examples/02_model_collaborative_filtering/ncf_deep_dive.ipynb
 class NCF(nn.Module):
-    def __init__(
-        self,
-        num_users,
-        num_games,
-        model_type="ncf",
-        embedding_size=100,
-        mlp_hidden_layer_sizes=[16, 8, 4],
-        num_epochs=50,
-        batch_percent=0.1,
-        learning_rate=5e-3,
-        seed=None,
-    ):
+    def __init__(self, num_users, num_games, model_type="ncf", embedding_size=100, mlp_hidden_layer_sizes=[16, 8, 4], num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
         super(NCF, self).__init__()
 
         torch.manual_seed(seed)
@@ -35,27 +24,28 @@ class NCF(nn.Module):
         self.num_epochs = num_epochs
         self.batch_percent = batch_percent
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
 
         # generalized collaborative filter, multi layer perceptron, neural collaborative filter
-        model_options = ["gcf", "mlp", "ncf"]
+        model_options = ["cf", "gcf", "mlp", "ncf"]
         if self.model_type not in model_options:
             raise ValueError(
                 "Wrong model type, please select one of this list: {}".format(
                     model_options
                 )
             )
-        
+
+        self.cf = self.model_type == 'cf'
         self.gcf = self.model_type == 'gcf' or self.model_type == 'ncf'
         self.mlp = self.model_type == 'mlp' or self.model_type == 'ncf'
         self.ncf = self.model_type == 'ncf'
 
         self._create_model()
-        self.optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-1)
 
         print('Total Learnable Parameters:', sum(p.numel() for p in self.parameters() if p.requires_grad))
 
     def _create_model(self):
-        if self.gcf:
+        if self.gcf or self.cf:
             self.embedding_gcf_user = nn.Embedding(self.num_users, self.embedding_size)
             self.embedding_gcf_game = nn.Embedding(self.num_games, self.embedding_size)
 
@@ -71,24 +61,23 @@ class NCF(nn.Module):
             self.ncf_fc = nn.Linear(self.embedding_size + self.mlp_hidden_layer_sizes[-1], 1)
         elif self.gcf:
             self.ncf_fc = nn.Linear(self.embedding_size, 1)
-            # with torch.no_grad(): # Initialize to pass through
-            #     self.ncf_fc.weight.fill_(1)
-            #     self.ncf_fc.bias.fill_(0)
         elif self.mlp:
             self.ncf_fc = nn.Linear(self.mlp_hidden_layer_sizes[-1], 1)
         
         self.dropout = nn.Dropout(0.2)
         self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU()
         # self.loss_fn = nn.MSELoss()
-        # self.loss_fn = nn.L1Loss()
-        self.loss_fn = nn.BCELoss()
+        self.loss_fn = nn.L1Loss()
+        # self.loss_fn = nn.BCELoss()
 
     def forward(self, user_index, game_index):
-        if self.gcf:
+        if self.cf or self.gcf:
             gcf_user = self.embedding_gcf_user(user_index)
             gcf_game = self.embedding_gcf_game(game_index)
             gcf_vector = gcf_user * gcf_game
-            # gcf_vector = self.dropout(gcf_vector)
+            if self.gcf:
+                gcf_vector = self.relu(gcf_vector)
 
         if self.mlp:
             mlp_user = self.embedding_mlp_user(user_index)
@@ -99,18 +88,24 @@ class NCF(nn.Module):
 
         if self.ncf:
             ncf_vector = torch.cat([gcf_vector, mlp_vector], dim=1)
+        elif self.cf:
+            ncf_vector = gcf_vector
         elif self.gcf:
             ncf_vector = gcf_vector
         elif self.mlp:
             ncf_vector = mlp_vector
 
-        ncf_vector = self.dropout(ncf_vector)
-        output = self.ncf_fc(ncf_vector)
-        output = self.sigmoid(output)
+        if self.cf:
+            output = torch.sum(ncf_vector, dim=-1, keepdim=True)
+        else:
+            ncf_vector = self.dropout(ncf_vector)
+            output = self.ncf_fc(ncf_vector)
         return output
 
     def train(self, user_indices, game_indices, labels, debug=False):
+        super(NCF, self).train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         batch_size = int(len(user_indices) * self.batch_percent) + 1
 
         train_loss = []
@@ -125,41 +120,60 @@ class NCF(nn.Module):
                 batched_games = game_indices[batch_indices]
                 batched_labels = labels[batch_indices]
                 predictions = self.forward(batched_users, batched_games)
-                # print(predictions[:10], batched_labels[:10])
                 loss = self.loss_fn(predictions, batched_labels)
 
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 loss.backward()
-                self.optimizer.step()
+                optimizer.step()
 
                 epoch_loss.append(loss.item())
             average_epoch_loss = sum((value for value in epoch_loss)) / len(epoch_loss)
             train_loss.append(average_epoch_loss)
-            # if debug:
-            #     print(epoch_count, average_epoch_loss)
         if debug:
             plt.plot(range(self.num_epochs), train_loss)
             plt.title('Mean Abs Error vs Epoch')
 
-    def save(self, file_name, overwrite=False):
-        assert not os.path.isfile(SAVED_NN_PATH + file_name + '.pth') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
-        torch.save(self.state_dict(), os.path.join(SAVED_NN_PATH, file_name + '.pth'))
+    def add_new_user(self):
+        self.num_users += 1
+        
+        if self.gcf or self.cf:
+            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
+            self.embedding_gcf_user = nn.Embedding.from_pretrained(new_weight)
+        if self.mlp:
+            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
+            self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
 
-    def load(self, file_name):
-        self.load_state_dict(torch.load(os.path.join(SAVED_NN_PATH, file_name + '.pth')))
+    def fine_tune(self, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False):
+        super(NCF, self).train(True)
+        assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
+        optimizer = optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        train_loss = []
+        for epoch_count in range(num_epochs):
+            predictions = self.forward(user_indices, game_indices)
+            loss = self.loss_fn(predictions, labels)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            train_loss.append(loss.item())
+        if debug:
+            plt.plot(range(self.num_epochs), train_loss)
+            plt.title('Mean Abs Error vs Epoch')
+
+    def test_loss(self, user_indices, game_indices, labels):
+        super(NCF, self).train(False)
+        predictions = self.forward(user_indices, game_indices)
+        loss = self.loss_fn(predictions, labels)
+        return loss.item()
+
+    def save(self, file_name, overwrite=False):
+        assert not os.path.isfile(SAVED_MODELS_PATH + SAVED_NN_PATH + file_name + '.pth') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
+        torch.save(self.state_dict(), os.path.join(SAVED_MODELS_PATH, SAVED_NN_PATH, file_name + '.pth'))
+
+    def load(self, folder_path, file_name):
+        self.load_state_dict(torch.load(os.path.join(folder_path, SAVED_NN_PATH, file_name + '.pth')))
 
     def predict(self, user_index, game_index):
-        """Predict function of this trained model
-
-        Args:
-            user_index (list or element of list): user_id or user_id list
-            game_index (list or element of list): game_id or game_id list
-            is_list (bool): if true, the input is list type
-                noting that list-wise type prediction is faster than element-wise's.
-
-        Returns:
-            list or float: A list of predicted rating or predicted rating score.
-        """
+        super(NCF, self).train(False)
         with torch.no_grad():
             output = self.forward(user_index, game_index)
             return list(output.detach().numpy())

@@ -171,6 +171,7 @@ class DataLoader():
         df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
         if self.get_local and get_local:
             if self.cache_local_dataset:
+                print(self.users_games_df[self.users_games_df['user_id'] == user_id])
                 df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
             else:
                 query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
@@ -188,6 +189,7 @@ class DataLoader():
         df.drop_duplicates(subset=["game_id"], keep="first", inplace=True)
         if preprocess:
             df = self.preprocess_users_games_df(df)
+        df = df.astype(USERS_GAMES_SCHEMA)
         return df
     
     def get_interactions_df_for_user(self, user_id, get_local=True, get_external_database=True, preprocess=False):
@@ -213,6 +215,7 @@ class DataLoader():
         df.drop_duplicates(subset=["game_id"], keep="first", inplace=True)
         if preprocess:
             df = self.preprocess_interactions_df(df)
+        df = df.astype(INTERACTIONS_SCHEMA)
         return df
     
     def get_all_game_ids_for_user(self, user_id):

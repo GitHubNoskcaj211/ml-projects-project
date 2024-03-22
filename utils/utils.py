@@ -17,7 +17,7 @@ def linear_transformation(numbers, start_domain, end_domain, start_range, end_ra
     return transformed_numbers
 
 def gaussian_transformation(numbers, old_mean, old_std_dev, new_mean, new_std_dev):
-    if old_std_dev == 0:
+    if old_std_dev == 0 or old_std_dev == np.nan or pd.isna(old_std_dev):
         if isinstance(numbers, (int, float)):
             return new_mean
         elif isinstance(numbers, np.ndarray):
@@ -28,6 +28,14 @@ def gaussian_transformation(numbers, old_mean, old_std_dev, new_mean, new_std_de
             raise ValueError("Input must be a number or a numpy array.")
     return (numbers - old_mean) / old_std_dev * new_std_dev + new_mean
 
-def get_numeric_dataframe_columns(df):
+def get_numeric_dataframe_columns(df, columns_to_remove=[]):
     numeric_columns = df.select_dtypes(include='number').columns.tolist()
+    numeric_columns = list(set(numeric_columns) - set(columns_to_remove))
     return df[numeric_columns]
+
+def print_game_name_and_scores(games_df, scores):
+    game_ids = [game_id for game_id, score in scores]
+    score_values = [score for game_id, score in scores]
+    selected_games = games_df[games_df['id'].isin(game_ids)].copy()
+    selected_games = selected_games.assign(score=score_values)
+    print(selected_games)
