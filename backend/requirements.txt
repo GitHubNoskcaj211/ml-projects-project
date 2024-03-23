@@ -16,3 +16,4 @@ numpy==1.26.4
 quickselect==0.2.0
 tqdm==4.66.2
 torch==2.2.0
+matplotlib==3.8.3
