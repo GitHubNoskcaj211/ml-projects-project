@@ -22,8 +22,8 @@ export async function fetchGameInfo(gameID: string): Promise<GameInfo> {
     return {
       avgReviewScore: data.avgReviewScore,
       description: data.description,
-      genres: JSON.parse(data.genres.replace(/'/g, '"')),
-      tags: JSON.parse(data.tags.replace(/'/g, '"')),
+      genres: data.genres,
+      tags: data.tags,
       name: data.name,
       numFollowers: data.numFollowers,
       numReviews: data.numReviews,

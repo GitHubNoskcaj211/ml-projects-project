@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import ast
 from sklearn.model_selection import train_test_split
 from enum import Enum
 import networkx as nx
@@ -251,6 +252,8 @@ class DataLoader():
             else:
                 query = f"SELECT * FROM games WHERE id = {game_id}"
                 df = self.run_local_database_query(query)
+            df["genres"] = df["genres"].apply(ast.literal_eval)
+            df["tags"] = df["tags"].apply(ast.literal_eval)
         if self.get_external_database:
             info = self.database_client.games_ref.document(str(game_id)).get()
             if info.exists:
