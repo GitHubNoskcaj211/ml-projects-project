@@ -19,6 +19,7 @@ def load_and_get_data_loader(app):
 
 
 def load_and_get_random_model_wrapper(app):
+    random.seed(None)
     selected_model_wrapper = random.choice(app.model_wrappers)
     if selected_model_wrapper.model is None:
         selected_model_wrapper.model = selected_model_wrapper.definition()

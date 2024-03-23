@@ -6,15 +6,14 @@ import torch.optim as optim
 from tqdm import tqdm
 from models.base_model import SAVED_MODELS_PATH, SAVED_NN_PATH
 from matplotlib import pyplot as plt
+import random
 
 # In depth explanation here: https://github.com/recommenders-team/recommenders/blob/main/examples/02_model_collaborative_filtering/ncf_deep_dive.ipynb
 class NCF(nn.Module):
     def __init__(self, num_users, num_games, model_type="ncf", embedding_size=100, mlp_hidden_layer_sizes=[16, 8, 4], num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
         super(NCF, self).__init__()
 
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        self.seed = seed
+        self.new_seed(seed)
 
         self.num_users = num_users
         self.num_games = num_games
@@ -41,6 +40,14 @@ class NCF(nn.Module):
         self.ncf = self.model_type == 'ncf'
 
         self._create_model()
+
+    def new_seed(self, seed=None):
+        if seed is None:
+            torch.seed()
+        else:
+            torch.manual_seed(seed)
+        np.random.seed(seed)
+        self.seed = seed
 
     def _create_model(self):
         if self.gcf or self.cf:
@@ -136,42 +143,42 @@ class NCF(nn.Module):
 
     def add_new_user(self):
         # Init with average user embedding + normal random around it?
-        import random
         if self.gcf or self.cf:
-            new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
+            # new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[similar_user_index].reshape(1, -1)])
+            # new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
             # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.mean(self.embedding_gcf_user.weight, dim=0, keepdim=True)])
-            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
+            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_gcf_user = nn.Embedding.from_pretrained(new_weight)
         if self.mlp:
-            new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
+            # new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[similar_user_index].reshape(1, -1)])
+            # new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
             # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.mean(self.embedding_mlp_user.weight, dim=0, keepdim=True)])
-            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
+            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
         self.num_users += 1
 
-    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, batch_size, debug=False):
+    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False):
         super(NCF, self).train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
             p.requires_grad_(False)
         if self.gcf or self.cf:
-            self.embedding_gcf_user.weight.requires_grad = True
+            self.embedding_gcf_user.weight.requires_grad_(True)
         if self.mlp:
-            self.embedding_mlp_user.weight.requires_grad = True
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=weight_decay)
+            self.embedding_mlp_user.weight.requires_grad_(True)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=0)
         train_loss = []
-        # user_zero_indices = torch.LongTensor(list(set(range(self.num_users)) - {user_index}))
+        weight_decay_indices = torch.LongTensor([user_index])
         for epoch_count in range(num_epochs):
             predictions = self.forward(user_indices, game_indices)
             loss = self.loss_fn(predictions, labels)
             optimizer.zero_grad()
             loss.backward()
-            # Zero embeddings gradients that are not for this user.
-            # with torch.no_grad():
-            #     if self.gcf or self.cf:
-            #         self.embedding_gcf_user.weight[user_zero_indices] = 0
-            #     if self.mlp:
-            #         self.embedding_mlp_user.weight[user_zero_indices] = 0
+            with torch.no_grad():
+                if self.gcf or self.cf:
+                    self.embedding_gcf_user.weight[user_index] = self.embedding_gcf_user.weight[user_index] - weight_decay * self.embedding_gcf_user(weight_decay_indices)
+                if self.mlp:
+                    self.embedding_mlp_user.weight[user_index] = self.embedding_mlp_user.weight[user_index] - weight_decay * self.embedding_mlp_user(weight_decay_indices)
             optimizer.step()
             train_loss.append(loss.item())
         if debug:

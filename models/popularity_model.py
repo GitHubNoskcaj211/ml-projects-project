@@ -25,7 +25,7 @@ class GamePopularityModel(BaseGameRecommendationModel):
     def get_score_between_user_and_game(self, user, game):
         return self.scores[self.game_to_score_index[game]][1]
     
-    def _fine_tune(self, user_id):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         pass
         # TODO
 

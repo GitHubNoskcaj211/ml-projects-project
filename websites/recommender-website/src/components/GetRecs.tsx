@@ -21,6 +21,11 @@ export async function fetchGameRecommendations(): Promise<string[]> {
     const gameIds = response.data.recommendations.map(
       (recommendation) => recommendation.game_id
     );
+    console.log(`model_name: ${response.data.model_name}`);
+    console.log(`model_save_path: ${response.data.model_save_path}`);
+    console.log(`time_request: ${response.data.time_request}`);
+    console.log(`execution_time_ms: ${response.data.execution_time_ms}`);
+    console.log(`version: ${response.data.version}`);
     console.log(gameIds);
     return gameIds;
   } catch (error) {

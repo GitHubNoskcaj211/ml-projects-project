@@ -39,7 +39,7 @@ class CommonNeighbors(BaseGameRecommendationModel):
         train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
         self.matrix = self.get_user_game_adjacency_matrix(train_users_games_df)
 
-    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         if not user_id in self.node_to_index:
             user_connections = np.full((self.matrix.shape[0]), 0)
         else:

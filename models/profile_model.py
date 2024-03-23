@@ -14,20 +14,23 @@ from dataset.data_loader import DataLoader
 
 from models.common_neighbors_model import CommonNeighbors   # noqa: F401
 from models.ncf_model import NCFModel    # noqa: F401
+from models.random_model import RandomModel    # noqa: F401
 from models.popularity_model import GamePopularityModel    # noqa: F401
 
 model_dispatcher = {
     'common_neighbors': CommonNeighbors,
     'game_popularity': GamePopularityModel,
     'ncf': NCFModel,
+    'random': RandomModel,
 }
  
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--model", help = "Model name to use", choices=list(model_dispatcher.keys()), required=True)
 parser.add_argument("-f", "--load_file_name", help = "Model save to load in", type=str, required=True)
+parser.add_argument("-d", "--data_loader_file_name", help = "Data loader parameters to use", type=str, required=True)
 parser.add_argument("-N", "--num_games_to_recommend", help = "Num games to recommend", type=int, default=50)
 args = parser.parse_args()
-test_user_id = 76561198835352289 # 76561198103368250
+test_user_id = 76561198103368250 # 76561198835352289 # 
 
 import tracemalloc
 import time
@@ -37,7 +40,7 @@ file_name = args.load_file_name
 N = args.num_games_to_recommend
 
 print("Initializing Data Loader")
-data_loader = DataLoader() # get_external_database=True
+data_loader = DataLoader.load_from_file(args.data_loader_file_name, load_live_data_loader=True) # 
 model.set_data_loader(data_loader)
 print('Loading Model')
 model.load(file_name)
@@ -49,14 +52,12 @@ preds = model.recommend_n_games_for_user(test_user_id, N)
 end_time = time.perf_counter()
 size, peak = tracemalloc.get_traced_memory()
 
-
 def get_human_readable(num):
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if num < 1000:
             return f"{num:.3f} {unit}"
         num /= 1000
     assert False
-
 
 print()
 print("Current Memory Usage:", get_human_readable(size))

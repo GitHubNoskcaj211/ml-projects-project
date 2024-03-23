@@ -48,22 +48,22 @@ class BaseGameRecommendationModel(ABC):
         pass
 
     def fine_tune(self, user_id):
-        user_games_df = self.data_loader.get_users_games_df_for_user(user_id, preprocess=True)
-        interactions_df = self.data_loader.get_interactions_df_for_user(user_id, preprocess=True)
+        all_user_games_df = self.data_loader.get_users_games_df_for_user(user_id, preprocess=True)
+        all_interactions_df = self.data_loader.get_interactions_df_for_user(user_id, preprocess=True)
         # Get all then filter to do score normalization on all data but only do modifications on external data.
-        user_games_df = user_games_df[user_games_df['source'] == EXTERNAL_DATA_SOURCE]
-        interactions_df = interactions_df[interactions_df['source'] == EXTERNAL_DATA_SOURCE]
+        external_user_games_df = all_user_games_df[all_user_games_df['source'] == EXTERNAL_DATA_SOURCE]
+        external_interactions_df = all_interactions_df[all_interactions_df['source'] == EXTERNAL_DATA_SOURCE]
         def get_new_df(df):
             merged_df = pd.merge(df, self.users_games_interactions_fine_tuned, on=['user_id', 'game_id'], how='left', indicator=True)
             return merged_df[merged_df['_merge'] == 'left_only'].drop(columns='_merge')
-        new_user_games_df = get_new_df(user_games_df)
-        new_interactions_df = get_new_df(interactions_df)
+        new_user_games_df = get_new_df(external_user_games_df)
+        new_interactions_df = get_new_df(external_interactions_df)
         
-        self._fine_tune(user_id, new_user_games_df, new_interactions_df)
+        self._fine_tune(user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df)
         self.users_games_interactions_fine_tuned = pd.concat([self.users_games_interactions_fine_tuned, new_user_games_df[['user_id', 'game_id']], new_interactions_df[['user_id', 'game_id']]])
 
     @abstractmethod
-    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         pass
 
     @abstractmethod

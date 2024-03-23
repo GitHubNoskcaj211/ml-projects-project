@@ -76,16 +76,14 @@ class NCFModel(BaseGameRecommendationModel):
         user_game_scores_tensor = torch.reshape(user_game_scores_tensor, (-1, 1))
         return self.ncf.test_loss(user_indices, game_indices, user_game_scores_tensor)
 
-
-    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df):
-        # print(new_user_games_df)
-        # print(new_interactions_df)
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         if new_user_games_df.empty and new_interactions_df.empty:
             return
         if not user_id in self.user_to_index:
             self.ncf.add_new_user()
             self.user_to_index[user_id] = len(self.user_nodes)
             self.user_nodes.append(user_id)
+        # TODO use all new ones and sample some already trained ones.
         user_indices = pd.concat([new_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), new_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])
         user_indices = torch.tensor(user_indices.values)
         game_indices = pd.concat([new_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), new_interactions_df['game_id'].apply(lambda id: self.game_to_index[id])])
@@ -94,7 +92,11 @@ class NCFModel(BaseGameRecommendationModel):
         scores_tensor = torch.tensor(scores.values)
         scores_tensor = scores_tensor.type(torch.FloatTensor)
         scores_tensor = torch.reshape(scores_tensor, (-1, 1))
-        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, self.fine_tune_batch_percent, debug=True)
+        # TODO parameterize these later.
+        self.fine_tune_num_epochs = 40
+        self.fine_tune_weight_decay = 1e-1#1e-3
+        self.fine_tune_learning_rate = 1e-1
+        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=False)
             
 
     def get_score_between_user_and_game(self, user, game):
@@ -125,6 +127,9 @@ class NCFModel(BaseGameRecommendationModel):
     #     for user, scores in tqdm(all_predictions_and_scores_per_user.items(), desc='User Predictions'):
     #         all_predictions_and_scores_per_user[user] = self.select_scores(scores, N)
     #     return all_predictions_and_scores_per_user
+
+    def new_seed(self, seed=None):
+        self.ncf.new_seed(seed)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

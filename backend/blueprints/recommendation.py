@@ -3,6 +3,8 @@ from flask_login import current_user, login_required
 from flask_pydantic import validate
 from pydantic import BaseModel
 from models.common_neighbors_model import CommonNeighbors
+from models.popularity_model import GamePopularityModel
+from models.random_model import RandomModel
 from models.ncf_model import NCFModel
 from backend_utils.utils import (
     load_and_get_data_loader,
@@ -25,30 +27,42 @@ model_wrappers = [
         "test_common_neighbors_playtime_scored_gaussian_normalized_data_loader",
         None,
     ),
-    # ModelWrapper(
-    #     NCFModel,
-    #     "test_cf_model",
-    #     "test_ncf_data_loader",
-    #     None,
-    # ),
-    # ModelWrapper(
-    #     NCFModel,
-    #     "test_gcf_model",
-    #     "test_ncf_data_loader",
-    #     None,
-    # ),
-    # ModelWrapper(
-    #     NCFModel,
-    #     "test_mlp_model",
-    #     "test_ncf_data_loader",
-    #     None,
-    # ),
-    # ModelWrapper(
-    #     NCFModel,
-    #     "test_ncf_model",
-    #     "test_ncf_data_loader",
-    #     None,
-    # ),
+    ModelWrapper(
+        GamePopularityModel,
+        "test_popularity_model",
+        "test_popularity_model_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        RandomModel,
+        "test_random_model",
+        "test_random_model_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_cf_model",
+        "test_ncf_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_gcf_model",
+        "test_ncf_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_mlp_model",
+        "test_ncf_data_loader",
+        None,
+    ),
+    ModelWrapper(
+        NCFModel,
+        "test_ncf_model",
+        "test_ncf_data_loader",
+        None,
+    ),
 ]
 
 
