@@ -4,11 +4,12 @@ import RecCircle from "./components/RecCircle";
 import PopUpBox from "./components/PopUpBox";
 import { fetchGameRecommendations } from "./components/GetRecs";
 import { fetchGameInfo } from "./components/GetGameDetails";
+import { makeBackendURL } from "./util";
 
 interface Game {
   userID: string;
   gameID?: string;
-  userSelection?: number;
+  userSelection?: boolean;
   timeSpent?: number;
 }
 
@@ -44,14 +45,14 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   }, [details.userID]);
 
   useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
+    const handleKeyPress = async (event: KeyboardEvent) => {
       if (loading) return;
 
       if (
         startTime &&
         (event.key === "ArrowRight" || event.key === "ArrowLeft")
       ) {
-        const selection = event.key === "ArrowRight" ? 1 : 0;
+        const selection = event.key === "ArrowRight";
         const updatedGames = [...finalGames];
         const timeSpentCurrent = (Date.now() - startTime) / 1000;
 
@@ -62,6 +63,18 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
             userSelection: selection,
             timeSpent: timeSpentCurrent,
           };
+          // TODO: Arjun, make better
+          await fetch(makeBackendURL("add_interaction"), {
+            "method": "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              game_id: allGameInfos[currentIndex].id,
+              user_liked: selection,
+              time_spent: timeSpentCurrent,
+            })
+          })
           setFinalGames(updatedGames);
         }
 
