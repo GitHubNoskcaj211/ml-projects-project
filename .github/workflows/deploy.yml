@@ -26,6 +26,7 @@ jobs:
         run: |
           git -C dataset/data_files lfs pull origin 653f5036e4c69e5de6f5d94fb21917e338d4a180
           git -C models/published_recommendation_models lfs pull origin f30eb2f656cd829e539700c3af384e1bc7a1bc5a
+          ls models/published_recommendation_models
 
       - name: 'Google auth'
         id: 'auth'
