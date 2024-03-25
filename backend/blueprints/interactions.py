@@ -28,8 +28,6 @@ def add_interaction(body: Interaction):
     current_app.database_client.interactions_ref \
         .document("data") \
         .collection(str(current_user.id)) \
-        .document(interaction["rec_model_name"]) \
-        .collection(interaction["rec_model_save_path"]) \
         .document(str(interaction["game_id"])) \
         .set(interaction)
     return jsonify({"success": 1})
