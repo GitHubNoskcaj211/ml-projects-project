@@ -94,19 +94,3 @@ def get_recommendations(query: GetRecommendationFilterInput):
         "model_save_path": model_wrapper.model_save_file_name,
     }
     return jsonify(output)
-
-
-class Interaction(BaseModel, extra="forbid"):
-    game_id: int
-    user_liked: bool
-    time_spent: float
-
-
-@recommendation.route("/add_interaction", methods=["POST"])
-@login_required
-@validate()
-def add_interaction(body: Interaction):
-    interaction = body.model_dump()
-    interaction["user_id"] = int(current_user.id)
-    current_app.database_client.interactions_ref.document("data").collection(str(current_user.id)).document(str(interaction["game_id"])).set(interaction)
-    return jsonify({"success": 1})

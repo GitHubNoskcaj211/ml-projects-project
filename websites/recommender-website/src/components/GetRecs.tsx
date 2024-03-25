@@ -1,7 +1,7 @@
 import axios from "axios";
 import { makeBackendURL } from "../util";
 
-interface ApiResponse {
+export interface Recommendations {
   model_name: string;
   model_save_path: string;
   recommendations: Array<{ game_id: string; recommendation_score: number }>;
@@ -10,9 +10,9 @@ interface ApiResponse {
   version: string;
 }
 
-export async function fetchGameRecommendations(): Promise<string[]> {
+export async function fetchGameRecommendations(): Promise<Recommendations | null> {
   try {
-    const response = await axios.get<ApiResponse>(
+    const response = await axios.get<Recommendations>(
       makeBackendURL(`get_N_recommendations_for_user?N=10`),
       {
         withCredentials: true,
@@ -27,9 +27,9 @@ export async function fetchGameRecommendations(): Promise<string[]> {
     console.log(`execution_time_ms: ${response.data.execution_time_ms}`);
     console.log(`version: ${response.data.version}`);
     console.log(gameIds);
-    return gameIds;
+    return response.data;
   } catch (error) {
     console.error("Error fetching game recommendations:", error);
-    return [];
+    return null;
   }
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "./GameRating.css"; // Import the CSS file
 import RecCircle from "./components/RecCircle";
 import PopUpBox from "./components/PopUpBox";
-import { fetchGameRecommendations } from "./components/GetRecs";
+import { fetchGameRecommendations, Recommendations } from "./components/GetRecs";
 import { fetchGameInfo } from "./components/GetGameDetails";
 import { makeBackendURL } from "./util";
 
@@ -25,13 +25,19 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [allGameInfos, setAllGameInfos] = useState<Array<any>>([]);
+  const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
   let gameIDs: Array<string> = [];
 
   useEffect(() => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     async function runGamesProcess() {
       try {
-        gameIDs = await fetchGameRecommendations();
+        const new_recs = await fetchGameRecommendations();
+        setRecommendations(new_recs);
+        if (new_recs === null) {
+          throw new Error("Error fetching game recommendations");
+        }
+        gameIDs = new_recs.recommendations.map(rec => rec.game_id);
         const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
         const gamesInfo = await Promise.all(fetchPromises);
         setAllGameInfos(gamesInfo);
@@ -71,6 +77,8 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
+              rec_model_name: recommendations!.model_name,
+              rec_model_save_path: recommendations!.model_save_path,
               game_id: allGameInfos[currentIndex].id,
               user_liked: selection,
               time_spent: timeSpentCurrent,
