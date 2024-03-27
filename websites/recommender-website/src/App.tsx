@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import GameRating from "./GameRating";
+import GamesList from "./GamesList";
 import PublicDirectionsBox from "./components/publicDirections";
 
 import { makeBackendURL } from "./util";
@@ -7,10 +8,12 @@ import { makeBackendURL } from "./util";
 const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
   const [showPopup, setShowPopup] = useState(false);
+  const [currentView, setCurrentView] = useState<
+    "LandingPage" | "FindNewGames" | "LikedGames"
+  >("LandingPage");
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      
       if (showPopup && event.key === "Escape") {
         closePopup();
       }
@@ -22,7 +25,6 @@ const App: React.FC = () => {
     };
   }, [showPopup]);
 
-
   useEffect(() => {
     (async () => {
       const res = await fetch(makeBackendURL("init_user"), {
@@ -31,8 +33,9 @@ const App: React.FC = () => {
       });
       if (res.status === 401) {
         setUserID(null);
-        const attempts = parseInt(localStorage.getItem('loginAttempts') || '0') + 1;
-        localStorage.setItem('loginAttempts', attempts.toString());
+        const attempts =
+          parseInt(localStorage.getItem("loginAttempts") || "0") + 1;
+        localStorage.setItem("loginAttempts", attempts.toString());
         if (attempts > 2) {
           setShowPopup(true);
         }
@@ -44,7 +47,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const attempts = parseInt(localStorage.getItem('loginAttempts') || '0');
+    const attempts = parseInt(localStorage.getItem("loginAttempts") || "0");
     if (attempts > 2) {
       setShowPopup(true);
     }
@@ -64,14 +67,24 @@ const App: React.FC = () => {
         {
           /* Popup Directions Box*/
           showPopup && (
-            <PublicDirectionsBox
-              isOpen={showPopup}
-              onClose={closePopup}
-            />
+            <PublicDirectionsBox isOpen={showPopup} onClose={closePopup} />
           )
         }
-        <button onClick={() => (location.href = makeBackendURL("/login"))} >
+        <button onClick={() => (location.href = makeBackendURL("/login"))}>
           Sign in through Steam
+        </button>
+      </div>
+    );
+  }
+
+  if (currentView === "LandingPage") {
+    return (
+      <div className="landingPage">
+        <button onClick={() => setCurrentView("FindNewGames")}>
+          Find New Games
+        </button>
+        <button onClick={() => setCurrentView("LikedGames")}>
+          Liked Games
         </button>
       </div>
     );
@@ -79,8 +92,10 @@ const App: React.FC = () => {
 
   return (
     <div>
-      {userID !== undefined && userID !== null && (
-        <GameRating details={{ userID }} />
+      {currentView === "FindNewGames" ? (
+        <GameRating details={{ userID }} setCurrentView={setCurrentView} />
+      ) : (
+        <GamesList userID={userID} setCurrentView={setCurrentView} />
       )}
     </div>
   );

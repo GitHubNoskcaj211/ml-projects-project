@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
-import "./GameRating.css"; // Import the CSS file
+import React, { useState, useEffect, useCallback } from "react";
+import "./GameRating.css";
 import RecCircle from "./components/RecCircle";
 import PopUpBox from "./components/PopUpBox";
-import { fetchGameRecommendations, Recommendations } from "./components/GetRecs";
+import {
+  fetchGameRecommendations,
+  Recommendations,
+} from "./components/GetRecs";
 import { fetchGameInfo } from "./components/GetGameDetails";
 import { makeBackendURL } from "./util";
 
@@ -15,9 +18,12 @@ interface Game {
 
 interface GameRatingProps {
   details: Game;
+  setCurrentView: React.Dispatch<
+    React.SetStateAction<"LandingPage" | "FindNewGames" | "LikedGames">
+  >;
 }
 
-const GameRating: React.FC<GameRatingProps> = ({ details }) => {
+const GameRating: React.FC<GameRatingProps> = ({ details, setCurrentView }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [finalGames, setFinalGames] = useState<Game[]>([]);
@@ -25,30 +31,38 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [allGameInfos, setAllGameInfos] = useState<Array<any>>([]);
-  const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
-  let gameIDs: Array<string> = [];
+  const [recommendations, setRecommendations] =
+    useState<Recommendations | null>(null);
+  const [refetch, setRefetch] = useState(false);
+
+  const runGamesProcess = useCallback(async () => {
+    console.log("Effect for fetchGameRecommendations running", details.userID);
+    try {
+      const new_recs = await fetchGameRecommendations();
+      setRecommendations(new_recs);
+      if (new_recs === null) {
+        throw new Error("Error fetching game recommendations");
+      }
+      let gameIDs = new_recs.recommendations.map((rec) => rec.game_id);
+      const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
+      const gamesInfo = await Promise.all(fetchPromises);
+      setAllGameInfos(gamesInfo);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching games or game info:", error);
+    }
+  }, [details.userID]);
 
   useEffect(() => {
-    console.log("Effect for fetchGameRecommendations running", details.userID);
-    async function runGamesProcess() {
-      try {
-        const new_recs = await fetchGameRecommendations();
-        setRecommendations(new_recs);
-        if (new_recs === null) {
-          throw new Error("Error fetching game recommendations");
-        }
-        gameIDs = new_recs.recommendations.map(rec => rec.game_id);
-        const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
-        const gamesInfo = await Promise.all(fetchPromises);
-        setAllGameInfos(gamesInfo);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching games or game info:", error);
-      }
-    }
-
     runGamesProcess();
-  }, [details.userID]);
+  }, [runGamesProcess]);
+
+  useEffect(() => {
+    if (refetch) {
+      runGamesProcess();
+      setRefetch(false);
+    }
+  }, [refetch, runGamesProcess]);
 
   useEffect(() => {
     const handleKeyPress = async (event: KeyboardEvent) => {
@@ -71,10 +85,10 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           };
           // TODO: Arjun, make better
           await fetch(makeBackendURL("add_interaction"), {
-            "method": "POST",
-            "mode": "cors",
+            method: "POST",
+            mode: "cors",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               rec_model_name: recommendations!.model_name,
@@ -82,16 +96,15 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
               game_id: allGameInfos[currentIndex].id,
               user_liked: selection,
               time_spent: timeSpentCurrent,
-            })
-          })
+            }),
+          });
           setFinalGames(updatedGames);
         }
 
         setHistory((prev) => [...prev, currentIndex]);
         setCurrentIndex(currentIndex + 1);
         setStartTime(Date.now());
-      }
-      else if (event.key === "Escape") {
+      } else if (event.key === "Escape") {
         closePopup();
       }
     };
@@ -124,11 +137,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       {
         /* Popup Directions Box*/
         showPopup && currentIndex === 0 && (
-          <PopUpBox
-            isOpen={showPopup}
-            onClose={closePopup}
-          />
-
+          <PopUpBox isOpen={showPopup} onClose={closePopup} />
         )
       }
 
@@ -200,7 +209,26 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       ) : (
         <div className="finalPage">
           <h1>Thank you!</h1>
-          <pre>{JSON.stringify(finalGames, null, 2)}</pre>
+          <button onClick={() => setCurrentView("LandingPage")}>
+            Landing Page
+          </button>
+          <button
+            onClick={() => {
+              setRefetch(true);
+              setCurrentIndex(0);
+              console.log("index " + currentIndex);
+              setCurrentView("FindNewGames");
+            }}
+          >
+            Find New Games
+          </button>
+          <button
+            onClick={() => {
+              setCurrentView("LikedGames");
+            }}
+          >
+            Liked Games
+          </button>
         </div>
       )}
     </div>
