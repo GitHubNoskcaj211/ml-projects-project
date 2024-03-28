@@ -69,7 +69,7 @@ def init_user():
         shutil.rmtree(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         os.mkdir(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         FILE_MANAGER.open_files()
-        success = get_single_user(current_user.id)
+        success = get_single_user(int(current_user.id))
         FILE_MANAGER.close_files()
     except Exception as e:
         print(e)
@@ -105,4 +105,5 @@ def init_user():
 @login_required
 def logout():
     logout_user()
-    return redirect(current_app.config["FRONTEND_URL"])
+    resp = redirect(current_app.config["FRONTEND_URL"])
+    return resp

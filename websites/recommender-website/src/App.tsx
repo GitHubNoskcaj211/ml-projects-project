@@ -8,14 +8,14 @@ import { makeBackendURL } from "./util";
 
 const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
-  const [showPopup, setShowPopup] = useState(false);
-  const [currentView, setCurrentView] = useState<"FindNewGames" | "LikedGames">(
-    "FindNewGames"
-  );
+  const [showPublicProfileWarning, setShowPublicProfileWarning] = useState(false);
+  const [currentView, setCurrentView] = useState<
+    "LandingPage" | "FindNewGames" | "LikedGames"
+  >("LandingPage");
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (showPopup && event.key === "Escape") {
+      if (showPublicProfileWarning && event.key === "Escape") {
         closePopup();
       }
     };
@@ -24,7 +24,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [showPopup]);
+  }, [showPublicProfileWarning]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -35,12 +35,11 @@ const App: React.FC = () => {
       });
       if (res.status === 401) {
         setUserID(null);
-        const attempts =
-          parseInt(localStorage.getItem("loginAttempts") || "0") + 1;
-        localStorage.setItem("loginAttempts", attempts.toString());
-        if (attempts > 2) {
-          setShowPopup(true);
-        }
+        setShowPublicProfileWarning(false);
+        return;
+      } else if (res.status === 500) {
+        setUserID(null);
+        setShowPublicProfileWarning(true);
         return;
       }
       const data = await res.json();
@@ -51,15 +50,8 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const attempts = parseInt(localStorage.getItem("loginAttempts") || "0");
-    if (attempts > 2) {
-      setShowPopup(true);
-    }
-  }, []);
-
   const closePopup = () => {
-    setShowPopup(false);
+    setShowPublicProfileWarning(false);
   };
 
   if (userID === undefined) {
@@ -71,13 +63,44 @@ const App: React.FC = () => {
       <div className="container signInContainer">
         {
           /* Popup Directions Box*/
-          showPopup && (
-            <PublicDirectionsBox isOpen={showPopup} onClose={closePopup} />
+          showPublicProfileWarning && (
+            <PublicDirectionsBox isOpen={showPublicProfileWarning} onClose={closePopup} />
           )
         }
         <button onClick={() => (location.href = makeBackendURL("/login"))}>
           Sign in through Steam
         </button>
+      </div>
+    );
+  }
+
+  if (currentView === "LandingPage") {
+    return (
+      <div className="landingPage">
+        <button onClick={() => setCurrentView("FindNewGames")}>
+          Find New Games
+        </button>
+        <button onClick={() => setCurrentView("LikedGames")}>
+          Liked Games
+        </button>
+        <button onClick={() => {
+          fetch(makeBackendURL("logout"), {
+              mode: "cors",
+              credentials: "include",
+          })
+          .then(response => {
+            if (response.ok) {
+              location.href = response.url;
+            } else {
+              console.error('Logout failed:', response.status);
+            }
+          })
+          .catch(error => {
+            console.error('Error during logout:', error);
+          });
+        }}>
+          Logout
+      </button>
       </div>
     );
   }
@@ -92,14 +115,11 @@ const App: React.FC = () => {
       <button
         className="changeViewBtn"
         onClick={() =>
-          setCurrentView(
-            currentView === "FindNewGames" ? "LikedGames" : "FindNewGames"
+          setCurrentView("LandingPage"
           )
         }
       >
-        {currentView === "FindNewGames"
-          ? "View Liked Games"
-          : "Get Game Recommendations"}
+        Landing Page
       </button>
     </div>
   );
