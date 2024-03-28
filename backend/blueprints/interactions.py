@@ -47,5 +47,6 @@ def get_recommendations():
     if not data_loader.user_exists(user_id):
         return jsonify({"error": f"User with user_id {user_id} not found"}), 404
     output = data_loader.get_interactions_df_for_user(user_id)
+    output = output.sort_values(by="timestamp", ascending=False)
     output = {"interactions": output.to_dict("records")}
     return jsonify(output)
