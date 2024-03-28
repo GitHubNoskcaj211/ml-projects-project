@@ -18,12 +18,9 @@ interface Game {
 
 interface GameRatingProps {
   details: Game;
-  setCurrentView: React.Dispatch<
-    React.SetStateAction<"LandingPage" | "FindNewGames" | "LikedGames">
-  >;
 }
 
-const GameRating: React.FC<GameRatingProps> = ({ details, setCurrentView }) => {
+const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [finalGames, setFinalGames] = useState<Game[]>([]);
@@ -213,26 +210,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details, setCurrentView }) => {
       ) : (
         <div className="finalPage">
           <h1>Thank you!</h1>
-          <button onClick={() => setCurrentView("LandingPage")}>
-            Landing Page
-          </button>
-          <button
-            onClick={() => {
-              setRefetch(true);
-              setCurrentIndex(0);
-              console.log("index " + currentIndex);
-              setCurrentView("FindNewGames");
-            }}
-          >
-            Find New Games
-          </button>
-          <button
-            onClick={() => {
-              setCurrentView("LikedGames");
-            }}
-          >
-            Liked Games
-          </button>
         </div>
       )}
     </div>

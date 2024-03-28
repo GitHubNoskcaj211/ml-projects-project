@@ -2,15 +2,16 @@ import React, { useEffect, useState } from "react";
 import GameRating from "./GameRating";
 import GamesList from "./GamesList";
 import PublicDirectionsBox from "./components/publicDirections";
+import "./App.css";
 
 import { makeBackendURL } from "./util";
 
 const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
   const [showPopup, setShowPopup] = useState(false);
-  const [currentView, setCurrentView] = useState<
-    "LandingPage" | "FindNewGames" | "LikedGames"
-  >("LandingPage");
+  const [currentView, setCurrentView] = useState<"FindNewGames" | "LikedGames">(
+    "FindNewGames"
+  );
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -77,26 +78,25 @@ const App: React.FC = () => {
     );
   }
 
-  if (currentView === "LandingPage") {
-    return (
-      <div className="landingPage">
-        <button onClick={() => setCurrentView("FindNewGames")}>
-          Find New Games
-        </button>
-        <button onClick={() => setCurrentView("LikedGames")}>
-          Liked Games
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div>
       {currentView === "FindNewGames" ? (
-        <GameRating details={{ userID }} setCurrentView={setCurrentView} />
+        <GameRating details={{ userID }} />
       ) : (
-        <GamesList userID={userID} setCurrentView={setCurrentView} />
+        <GamesList userID={userID} />
       )}
+      <button
+        className="changeViewBtn"
+        onClick={() =>
+          setCurrentView(
+            currentView === "FindNewGames" ? "LikedGames" : "FindNewGames"
+          )
+        }
+      >
+        {currentView === "FindNewGames"
+          ? "View Liked Games"
+          : "Get Game Recommendations"}
+      </button>
     </div>
   );
 };
