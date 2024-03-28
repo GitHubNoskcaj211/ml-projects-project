@@ -27,8 +27,10 @@ const App: React.FC = () => {
   }, [showPopup]);
 
   useEffect(() => {
+    const controller = new AbortController();
     (async () => {
       const res = await fetch(makeBackendURL("init_user"), {
+        signal: controller.signal,
         mode: "cors",
         credentials: "include",
       });
@@ -45,6 +47,9 @@ const App: React.FC = () => {
       const data = await res.json();
       setUserID(data.id);
     })();
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {

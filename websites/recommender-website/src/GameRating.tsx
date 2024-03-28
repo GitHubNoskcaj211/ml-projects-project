@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import "./GameRating.css";
 import RecCircle from "./components/RecCircle";
 import PopUpBox from "./components/PopUpBox";
@@ -20,6 +20,8 @@ interface GameRatingProps {
   details: Game;
 }
 
+const BATCH_SIZE = 5;
+
 const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
@@ -30,12 +32,11 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [allGameInfos, setAllGameInfos] = useState<Array<any>>([]);
   const [recommendations, setRecommendations] =
     useState<Recommendations | null>(null);
-  const [refetch, setRefetch] = useState(false);
 
-  const runGamesProcess = useCallback(async () => {
+  const runGamesProcess = async (signal: AbortSignal) => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     try {
-      const new_recs = await fetchGameRecommendations();
+      const new_recs = await fetchGameRecommendations(BATCH_SIZE, signal);
       setRecommendations(new_recs);
       if (new_recs === null) {
         throw new Error("Error fetching game recommendations");
@@ -43,23 +44,24 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       let gameIDs = new_recs.recommendations.map((rec) => rec.game_id);
       const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
       const gamesInfo = await Promise.all(fetchPromises);
+      setCurrentIndex(0);
       setAllGameInfos(gamesInfo);
       setLoading(false);
+      setStartTime(Date.now());
     } catch (error) {
       console.error("Error fetching games or game info:", error);
     }
-  }, [details.userID]);
+  };
 
   useEffect(() => {
-    runGamesProcess();
-  }, [runGamesProcess]);
-
-  useEffect(() => {
-    if (refetch) {
-      runGamesProcess();
-      setRefetch(false);
+    if (loading) {
+      const controller = new AbortController();
+      runGamesProcess(controller.signal);
+      return () => {
+        controller.abort();
+      };
     }
-  }, [refetch, runGamesProcess]);
+  }, [loading]);
 
   useEffect(() => {
     const handleKeyPress = async (event: KeyboardEvent) => {
@@ -80,7 +82,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
             userSelection: selection,
             timeSpent: timeSpentCurrent,
           };
-          // TODO: Arjun, make better
           await fetch(makeBackendURL("add_interaction"), {
             method: "POST",
             mode: "cors",
@@ -90,9 +91,11 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
             body: JSON.stringify({
               rec_model_name: recommendations!.model_name,
               rec_model_save_path: recommendations!.model_save_path,
-              num_game_interactions_local: recommendations!.num_game_interactions_local,
+              num_game_interactions_local:
+                recommendations!.num_game_interactions_local,
               num_game_owned_local: recommendations!.num_game_owned_local,
-              num_game_interactions_external: recommendations!.num_game_interactions_external,
+              num_game_interactions_external:
+                recommendations!.num_game_interactions_external,
               num_game_owned_external: recommendations!.num_game_owned_external,
               game_id: allGameInfos[currentIndex].id,
               user_liked: selection,
@@ -102,9 +105,13 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           setFinalGames(updatedGames);
         }
 
-        setHistory((prev) => [...prev, currentIndex]);
-        setCurrentIndex(currentIndex + 1);
-        setStartTime(Date.now());
+        if (currentIndex === allGameInfos.length - 1) {
+          setLoading(true);
+        } else {
+          setHistory((prev) => [...prev, currentIndex]);
+          setCurrentIndex(currentIndex + 1);
+          setStartTime(Date.now());
+        }
       } else if (event.key === "Escape") {
         closePopup();
       }
@@ -142,76 +149,68 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         )
       }
 
-      {currentIndex < 10 ? (
-        <div className="contentContainer">
-          {/* Game Title */}
-          <div className="title box">
-            <h1>{allGameInfos[currentIndex].name}</h1>
-          </div>
-          <div className="secondRow">
-            {/* Image */}
-            <div className="image box">
-              <img
-                src={`https://cdn.akamai.steamstatic.com/steam/apps/${allGameInfos[currentIndex].id}/header.jpg`}
-                alt={allGameInfos[currentIndex].name}
-              />
-            </div>
-
-            {/* RecCircle */}
-            <div className="rec box">
-              <RecCircle
-                value={allGameInfos[currentIndex].avgReviewScore || 0}
-              />
-            </div>
+      <div className="contentContainer">
+        {/* Game Title */}
+        <div className="title box">
+          <h1>{allGameInfos[currentIndex].name}</h1>
+        </div>
+        <div className="secondRow">
+          {/* Image */}
+          <div className="image box">
+            <img
+              src={`https://cdn.akamai.steamstatic.com/steam/apps/${allGameInfos[currentIndex].id}/header.jpg`}
+              alt={allGameInfos[currentIndex].name}
+            />
           </div>
 
-          {/* Game Description */}
-          <div className="game box">
-            <p>{allGameInfos[currentIndex].description}</p>
+          {/* RecCircle */}
+          <div className="rec box">
+            <RecCircle value={allGameInfos[currentIndex].avgReviewScore || 0} />
           </div>
+        </div>
 
-          {/* Genres */}
-          <div className="genre box">
-            <h2>Genres</h2>
-            <div className="genreButtons">
-              {allGameInfos[currentIndex].genres.map(
-                (genre: string, index: number) => (
-                  <button key={index} disabled>
-                    {genre}
-                  </button>
-                )
-              )}
-            </div>
-          </div>
+        {/* Game Description */}
+        <div className="game box">
+          <p>{allGameInfos[currentIndex].description}</p>
+        </div>
 
-          {/* Tags */}
-          <div className="tag box">
-            <h2>Tags</h2>
-            <div className="tagButtons">
-              {allGameInfos[currentIndex].tags.map(
-                (tag: string, index: number) => (
-                  <button key={index} disabled>
-                    {tag}
-                  </button>
-                )
-              )}
-            </div>
-          </div>
-
-          {/* Undo Button */}
-          <div className="undoContainer">
-            {history.length > 0 && (
-              <button className="undoButton" onClick={handleUndo}>
-                Go Back
-              </button>
+        {/* Genres */}
+        <div className="genre box">
+          <h2>Genres</h2>
+          <div className="genreButtons">
+            {allGameInfos[currentIndex].genres.map(
+              (genre: string, index: number) => (
+                <button key={index} disabled>
+                  {genre}
+                </button>
+              )
             )}
           </div>
         </div>
-      ) : (
-        <div className="finalPage">
-          <h1>Thank you!</h1>
+
+        {/* Tags */}
+        <div className="tag box">
+          <h2>Tags</h2>
+          <div className="tagButtons">
+            {allGameInfos[currentIndex].tags.map(
+              (tag: string, index: number) => (
+                <button key={index} disabled>
+                  {tag}
+                </button>
+              )
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Undo Button */}
+        <div className="undoContainer">
+          {history.length > 0 && (
+            <button className="undoButton" onClick={handleUndo}>
+              Go Back
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
