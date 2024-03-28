@@ -88,6 +88,7 @@ frontend_url_parsed = urlparse(app.config["FRONTEND_URL"])
 frontend_url_parsed = frontend_url_parsed._replace(path="", params="", query="", fragment="")
 origin = urlunparse(frontend_url_parsed)
 cors = CORS(app, origins=[origin], supports_credentials=True)
+app.config["REMEMBER_COOKIE_DOMAIN"] = frontend_url_parsed
 
 login_manager.init_app(app)
 
