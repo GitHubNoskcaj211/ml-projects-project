@@ -6,6 +6,7 @@ from models.common_neighbors_model import CommonNeighbors
 from models.popularity_model import GamePopularityModel
 from models.random_model import RandomModel
 from models.ncf_model import NCFModel
+from dataset.data_loader import EXTERNAL_DATA_SOURCE, LOCAL_DATA_SOURCE
 from backend_utils.utils import (
     load_and_get_data_loader,
     load_and_get_random_model_wrapper,
@@ -88,9 +89,17 @@ def get_recommendations(query: GetRecommendationFilterInput):
         {"game_id": int(game_id), "recommendation_score": float(score)}
         for game_id, score in recommendations
     ]
+
+    # NOTE: This method assumes that the model trained on only all local data that is in the docker container & fine tuned on only all external data in the database.
+    users_games_df = data_loader.get_users_games_df_for_user(user_id, preprocess=False)
+    interactions_df = data_loader.get_interactions_df_for_user(user_id, preprocess=False)
     output = {
         "recommendations": recommendations,
         "model_name": model.name(),
         "model_save_path": model_wrapper.model_save_file_name,
+        "num_game_interactions_local": len(interactions_df[interactions_df['source'] == LOCAL_DATA_SOURCE]),
+        "num_game_owned_local": len(users_games_df[users_games_df['source'] == LOCAL_DATA_SOURCE]),
+        "num_game_interactions_external": len(interactions_df[interactions_df['source'] == EXTERNAL_DATA_SOURCE]),
+        "num_game_owned_external": len(users_games_df[users_games_df['source'] == EXTERNAL_DATA_SOURCE]),
     }
     return jsonify(output)
