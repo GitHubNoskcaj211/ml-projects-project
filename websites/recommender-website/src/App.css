@@ -1,5 +1,6 @@
 .changeViewBtn {
-    position: absolute;
+    display: block;
+    margin-top: 10px;
     left: 10px;
     bottom: 10px;
 }

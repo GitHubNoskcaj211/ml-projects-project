@@ -1,7 +1,7 @@
 import axios from "axios";
 import { makeBackendURL } from "../util";
 
-interface GameInfo {
+export interface GameInfo {
   avgReviewScore: number;
   description: string;
   genres: string[];
@@ -13,7 +13,7 @@ interface GameInfo {
   id: string;
 }
 
-export async function fetchGameInfo(gameID: string): Promise<GameInfo> {
+export async function fetchGameInfo(gameID: number): Promise<GameInfo> {
   try {
     const response = await axios.get(makeBackendURL(`get_game_information?game_id=${gameID}`), {
       withCredentials: true,

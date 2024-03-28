@@ -2,7 +2,7 @@ import axios from "axios";
 import { makeBackendURL } from "../util";
 
 export interface Recommendations {
-  recommendations: Array<{ game_id: string; recommendation_score: number }>;
+  recommendations: Array<{ game_id: number; recommendation_score: number }>;
   model_name: string;
   model_save_path: string;
   num_game_interactions_local: number;
