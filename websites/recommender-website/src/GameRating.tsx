@@ -84,7 +84,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           };
           await fetch(makeBackendURL("add_interaction"), {
             method: "POST",
-            mode: "cors",
             headers: {
               "Content-Type": "application/json",
             },

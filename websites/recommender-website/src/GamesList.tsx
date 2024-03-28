@@ -22,7 +22,6 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
         makeBackendURL("get_all_interactions_for_user"),
         {
           signal: controller.signal,
-          mode: "cors",
         }
       );
       const data = await resp.json();
@@ -56,12 +55,14 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
         <tbody>
           {gamesLikedInfo.map((gameInfo) => (
             <tr key={gameInfo.id}>
-              <td><a
+              <td>
+                <a
                   href={`https://store.steampowered.com/app/${gameInfo.id}`}
                   target="_blank"
                 >
                   {gameInfo.name}
-                </a></td>
+                </a>
+              </td>
               <td>{gameInfo.price}</td>
             </tr>
           ))}

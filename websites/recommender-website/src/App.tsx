@@ -31,8 +31,6 @@ const App: React.FC = () => {
     (async () => {
       const res = await fetch(makeBackendURL("init_user"), {
         signal: controller.signal,
-        mode: "cors",
-        credentials: "include",
       });
       if (res.status === 401) {
         setUserID(null);

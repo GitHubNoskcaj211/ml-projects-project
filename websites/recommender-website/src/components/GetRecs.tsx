@@ -14,13 +14,15 @@ export interface Recommendations {
   version: string;
 }
 
-export async function fetchGameRecommendations(num_games: number, signal: AbortSignal): Promise<Recommendations | null> {
+export async function fetchGameRecommendations(
+  num_games: number,
+  signal: AbortSignal
+): Promise<Recommendations | null> {
   try {
     const response = await axios.get<Recommendations>(
       makeBackendURL(`get_N_recommendations_for_user?N=${num_games}`),
       {
         signal,
-        withCredentials: true,
       }
     );
     const gameIds = response.data.recommendations.map(
