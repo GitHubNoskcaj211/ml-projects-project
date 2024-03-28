@@ -22,6 +22,7 @@ export async function fetchGameRecommendations(
     const response = await axios.get<Recommendations>(
       makeBackendURL(`get_N_recommendations_for_user?N=${num_games}`),
       {
+        withCredentials: true,
         signal,
       }
     );

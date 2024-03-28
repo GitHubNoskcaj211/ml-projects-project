@@ -83,6 +83,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
             timeSpent: timeSpentCurrent,
           };
           await fetch(makeBackendURL("add_interaction"), {
+            credentials: "include",
             method: "POST",
             headers: {
               "Content-Type": "application/json",

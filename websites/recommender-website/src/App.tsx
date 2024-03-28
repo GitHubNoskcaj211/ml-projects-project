@@ -30,6 +30,7 @@ const App: React.FC = () => {
     const controller = new AbortController();
     (async () => {
       const res = await fetch(makeBackendURL("init_user"), {
+        credentials: "include",
         signal: controller.signal,
       });
       if (res.status === 401) {

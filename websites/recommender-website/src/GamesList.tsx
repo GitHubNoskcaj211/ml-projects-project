@@ -21,6 +21,7 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
       const resp = await fetch(
         makeBackendURL("get_all_interactions_for_user"),
         {
+          credentials: "include",
           signal: controller.signal,
         }
       );
