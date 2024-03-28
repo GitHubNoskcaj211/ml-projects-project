@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from backend_utils.utils import (
     load_and_get_data_loader,
 )
+import time
 
 interactions = Blueprint(name="interactions", import_name=__name__)
 
@@ -29,6 +30,7 @@ class Interaction(BaseModel, extra="forbid"):
 def add_interaction(body: Interaction):
     interaction = body.model_dump()
     interaction["user_id"] = int(current_user.id)
+    interaction["timestamp"] = time.time()
     current_app.database_client.interactions_ref \
         .document("data") \
         .collection(str(current_user.id)) \
