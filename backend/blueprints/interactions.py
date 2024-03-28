@@ -13,6 +13,10 @@ class Interaction(BaseModel, extra="forbid"):
     # Model Params
     rec_model_name: str
     rec_model_save_path: str
+    num_game_interactions_local: int
+    num_game_owned_local: int
+    num_game_interactions_external: int
+    num_game_owned_external: int
     # Interaction Params
     game_id: int
     user_liked: bool

@@ -93,6 +93,10 @@ const GameRating: React.FC<GameRatingProps> = ({ details, setCurrentView }) => {
             body: JSON.stringify({
               rec_model_name: recommendations!.model_name,
               rec_model_save_path: recommendations!.model_save_path,
+              num_game_interactions_local: recommendations!.num_game_interactions_local,
+              num_game_owned_local: recommendations!.num_game_owned_local,
+              num_game_interactions_external: recommendations!.num_game_interactions_external,
+              num_game_owned_external: recommendations!.num_game_owned_external,
               game_id: allGameInfos[currentIndex].id,
               user_liked: selection,
               time_spent: timeSpentCurrent,
