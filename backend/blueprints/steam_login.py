@@ -64,7 +64,7 @@ def init_user():
         return jsonify(id=current_user.id)
     try:
         ENVIRONMENT.initialize_environment(
-            current_app.config["STEAM_WEB_API_KEY"], int(current_user.id), None
+            current_app.config["STEAM_WEB_API_KEY"], current_user.id, None
         )
         shutil.rmtree(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         os.mkdir(ENVIRONMENT.SNOWBALL_ROOT_DIR)
