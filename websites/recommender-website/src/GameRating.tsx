@@ -4,9 +4,9 @@ import RecCircle from "./components/RecCircle";
 import PopUpBox from "./components/PopUpBox";
 import {
   fetchGameRecommendations,
-  Recommendations,
+  RecommendationsResponse,
 } from "./components/GetRecs";
-import { fetchGameInfo } from "./components/GetGameDetails";
+import { fetchGameInfo, GameInfo } from "./components/GetGameDetails";
 import { makeBackendURL } from "./util";
 
 interface Game {
@@ -16,119 +16,147 @@ interface Game {
   timeSpent?: number;
 }
 
+interface Recommendation {
+  gameInfo: GameInfo;
+  resp: RecommendationsResponse;
+}
+
 interface GameRatingProps {
   details: Game;
 }
 
 const BATCH_SIZE = 5;
+const HISTORY_MAX_SIZE = 100;
 
 const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [history, setHistory] = useState<number[]>([]);
-  const [finalGames, setFinalGames] = useState<Game[]>([]);
   const [showPopup, setShowPopup] = useState(true);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [allGameInfos, setAllGameInfos] = useState<Array<any>>([]);
-  const [recommendations, setRecommendations] =
-    useState<Recommendations | null>(null);
+  const [fetchingGames, setFetchingGames] = useState(false);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
 
   const runGamesProcess = async (signal: AbortSignal) => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     try {
-      const new_recs = await fetchGameRecommendations(BATCH_SIZE, signal);
-      setRecommendations(new_recs);
-      if (new_recs === null) {
-        throw new Error("Error fetching game recommendations");
-      }
-      let gameIDs = new_recs.recommendations.map((rec) => rec.game_id);
-      const fetchPromises = gameIDs.map((id) => fetchGameInfo(id));
-      const gamesInfo = await Promise.all(fetchPromises);
-      setCurrentIndex(0);
-      setAllGameInfos(gamesInfo);
+      const resp = await fetchGameRecommendations(BATCH_SIZE, signal);
+      const promises = resp.recommendations.map(async (rec) => {
+        const gameInfo = await fetchGameInfo(rec.game_id);
+        return {
+          gameInfo,
+          resp,
+        };
+      });
+      const recommendations = await Promise.all(promises);
+      setRecommendations((prev) => {
+        const prevRecommend = new Set(prev.map((rec) => rec.gameInfo.id));
+        let addedRecs = recommendations.filter(
+          (game) => !prevRecommend.has(game.gameInfo.id)
+        );
+        let result = prev.concat(addedRecs);
+        if (result.length > HISTORY_MAX_SIZE) {
+          const numExtra = result.length - HISTORY_MAX_SIZE;
+          result = result.slice(-numExtra);
+          setCurrentIndex((prev) => prev - numExtra);
+        }
+        return result;
+      });
+      setFetchingGames(false);
       setLoading(false);
-      setStartTime(Date.now());
     } catch (error) {
       console.error("Error fetching games or game info:", error);
     }
   };
 
   useEffect(() => {
-    if (loading) {
-      const controller = new AbortController();
-      runGamesProcess(controller.signal);
-      return () => {
-        controller.abort();
-      };
+    if (!fetchingGames) {
+      return;
     }
-  }, [loading]);
+    const controller = new AbortController();
+    runGamesProcess(controller.signal);
+    return () => {
+      controller.abort();
+    };
+  }, [fetchingGames]);
 
   useEffect(() => {
-    const handleKeyPress = async (event: KeyboardEvent) => {
+    if (showPopup) {
+      const handleKeyPress = (event: KeyboardEvent) => {
+        if (event.key === "Escape") {
+          closePopup();
+        }
+      }
+      window.addEventListener("keydown", handleKeyPress);
+      return () => {
+        window.removeEventListener("keydown", handleKeyPress);
+      };
+      return;
+    }
+
+    const handleKeyPress = (event: KeyboardEvent) => {
       if (loading) return;
 
-      if (
-        startTime &&
-        (event.key === "ArrowRight" || event.key === "ArrowLeft")
-      ) {
-        const selection = event.key === "ArrowRight";
-        const updatedGames = [...finalGames];
-        const timeSpentCurrent = (Date.now() - startTime) / 1000;
-
-        if (currentIndex < allGameInfos.length) {
-          updatedGames[currentIndex] = {
-            ...updatedGames[currentIndex],
-            gameID: allGameInfos[currentIndex].id,
-            userSelection: selection,
-            timeSpent: timeSpentCurrent,
-          };
-          await fetch(makeBackendURL("add_interaction"), {
-            credentials: "include",
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              rec_model_name: recommendations!.model_name,
-              rec_model_save_path: recommendations!.model_save_path,
-              num_game_interactions_local:
-                recommendations!.num_game_interactions_local,
-              num_game_owned_local: recommendations!.num_game_owned_local,
-              num_game_interactions_external:
-                recommendations!.num_game_interactions_external,
-              num_game_owned_external: recommendations!.num_game_owned_external,
-              game_id: allGameInfos[currentIndex].id,
-              user_liked: selection,
-              time_spent: timeSpentCurrent,
-            }),
-          });
-          setFinalGames(updatedGames);
-        }
-
-        if (currentIndex === allGameInfos.length - 1) {
-          setLoading(true);
-        } else {
-          setHistory((prev) => [...prev, currentIndex]);
-          setCurrentIndex(currentIndex + 1);
-          setStartTime(Date.now());
-        }
-      } else if (event.key === "Escape") {
-        closePopup();
+      if (startTime === null) {
+        throw Error("startTime is null");
       }
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+        return;
+      }
+      const userLiked = event.key === "ArrowRight";
+      const timeSpent = (Date.now() - startTime) / 1000;
+
+      console.assert(currentIndex < recommendations.length);
+      const rec = recommendations[currentIndex];
+      // No await to make user experience faster
+      fetch(makeBackendURL("add_interaction"), {
+        credentials: "include",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rec_model_name: rec.resp.model_name,
+          rec_model_save_path: rec.resp.model_save_path,
+          num_game_interactions_local: rec.resp.num_game_interactions_local,
+          num_game_owned_local: rec.resp.num_game_owned_local,
+          num_game_interactions_external:
+            rec.resp.num_game_interactions_external,
+          num_game_owned_external: rec.resp.num_game_owned_external,
+          game_id: rec.gameInfo.id,
+          user_liked: userLiked,
+          time_spent: timeSpent,
+        }),
+      });
+      const newIndex = currentIndex + 1;
+      if (newIndex >= recommendations.length) {
+        setLoading(true);
+      }
+      setCurrentIndex(newIndex);
+      setStartTime(Date.now());
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [currentIndex, finalGames, allGameInfos.length, startTime, loading]);
+  }, [showPopup, loading, startTime, currentIndex, recommendations.length]);
+
+  useEffect(() => {
+    const numLeft = recommendations.length - currentIndex;
+    if (numLeft <= BATCH_SIZE) {
+      setFetchingGames(true);
+    }
+    if (numLeft === 0) {
+      setStartTime(null);
+    } else {
+      setStartTime((prev) => (prev ? prev : Date.now()));
+    }
+  }, [currentIndex, recommendations]);
 
   const handleUndo = () => {
-    if (history.length > 0 && !loading) {
-      const previousIndex = history.pop()!;
-      setHistory([...history]);
-      setCurrentIndex(previousIndex);
-    }
+    console.assert(currentIndex > 0);
+    setCurrentIndex((prev) => prev - 1);
+    setStartTime(Date.now());
   };
 
   const closePopup = () => {
@@ -152,33 +180,35 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       <div className="contentContainer">
         {/* Game Title */}
         <div className="title box">
-          <h1>{allGameInfos[currentIndex].name}</h1>
+          <h1>{recommendations[currentIndex].gameInfo.name}</h1>
         </div>
         <div className="secondRow">
           {/* Image */}
           <div className="image box">
             <img
-              src={`https://cdn.akamai.steamstatic.com/steam/apps/${allGameInfos[currentIndex].id}/header.jpg`}
-              alt={allGameInfos[currentIndex].name}
+              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].gameInfo.id}/header.jpg`}
+              alt={recommendations[currentIndex].gameInfo.name}
             />
           </div>
 
           {/* RecCircle */}
           <div className="rec box">
-            <RecCircle value={allGameInfos[currentIndex].avgReviewScore || 0} />
+            <RecCircle
+              value={recommendations[currentIndex].gameInfo.avgReviewScore || 0}
+            />
           </div>
         </div>
 
         {/* Game Description */}
         <div className="game box">
-          <p>{allGameInfos[currentIndex].description}</p>
+          <p>{recommendations[currentIndex].gameInfo.description}</p>
         </div>
 
         {/* Genres */}
         <div className="genre box">
           <h2>Genres</h2>
           <div className="genreButtons">
-            {allGameInfos[currentIndex].genres.map(
+            {recommendations[currentIndex].gameInfo.genres.map(
               (genre: string, index: number) => (
                 <button key={index} disabled>
                   {genre}
@@ -192,7 +222,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         <div className="tag box">
           <h2>Tags</h2>
           <div className="tagButtons">
-            {allGameInfos[currentIndex].tags.map(
+            {recommendations[currentIndex].gameInfo.tags.map(
               (tag: string, index: number) => (
                 <button key={index} disabled>
                   {tag}
@@ -204,7 +234,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
         {/* Undo Button */}
         <div className="undoContainer">
-          {history.length > 0 && (
+          {currentIndex > 0 && (
             <button className="undoButton" onClick={handleUndo}>
               Go Back
             </button>
