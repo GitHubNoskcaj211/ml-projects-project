@@ -12,7 +12,7 @@ import shutil
 import traceback
 from urllib.parse import urlencode
 
-from dataset.scrape.get_data import ENVIRONMENT, FILE_MANAGER, get_single_user
+from dataset.scrape.get_data import CACHE, ENVIRONMENT, FILE_MANAGER, get_single_user
 
 steam_login = Blueprint(name="steam_login", import_name=__name__)
 login_manager = LoginManager()
@@ -69,7 +69,10 @@ def init_user():
         shutil.rmtree(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         os.mkdir(ENVIRONMENT.SNOWBALL_ROOT_DIR)
         FILE_MANAGER.open_files()
-        success = get_single_user(int(current_user.id))
+        user_id = int(current_user.id)
+        CACHE.visited_valid.discard(user_id)
+        CACHE.invalid_users.discard(user_id)
+        success = get_single_user(user_id)
         FILE_MANAGER.close_files()
     except Exception as e:
         print(e)
