@@ -85,7 +85,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       };
     }
 
-    const handleKeyPress = (event: KeyboardEvent) => {
+    const handleKeyPress = async (event: KeyboardEvent) => {
       if (loading) return;
 
       if (startTime === null) {
@@ -99,8 +99,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
       console.assert(currentIndex < recommendations.length);
       const rec = recommendations[currentIndex];
-      // No await to make user experience faster
-      fetch(makeBackendURL("add_interaction"), {
+      await fetch(makeBackendURL("add_interaction"), {
         credentials: "include",
         method: "POST",
         headers: {
