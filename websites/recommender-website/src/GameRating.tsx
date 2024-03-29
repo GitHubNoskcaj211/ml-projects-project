@@ -90,7 +90,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       return () => {
         window.removeEventListener("keydown", handleKeyPress);
       };
-      return;
     }
 
     const handleKeyPress = (event: KeyboardEvent) => {
