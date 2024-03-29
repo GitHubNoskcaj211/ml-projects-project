@@ -1,4 +1,3 @@
-import axios from "axios";
 import { makeBackendURL } from "../util";
 
 export interface RecommendationsResponse {

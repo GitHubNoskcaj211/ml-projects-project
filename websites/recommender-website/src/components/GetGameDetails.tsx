@@ -1,4 +1,3 @@
-import axios from "axios";
 import { makeBackendURL } from "../util";
 
 export interface GameInfo {
@@ -15,24 +14,13 @@ export interface GameInfo {
 
 export async function fetchGameInfo(gameID: number): Promise<GameInfo> {
   try {
-    const response = await axios.get(
+    const response = await fetch(
       makeBackendURL(`get_game_information?game_id=${gameID}`),
       {
-        withCredentials: true,
+        credentials: "include",
       }
     );
-    const data = response.data;
-    return {
-      avgReviewScore: data.avgReviewScore,
-      description: data.description,
-      genres: data.genres,
-      tags: data.tags,
-      name: data.name,
-      numFollowers: data.numFollowers,
-      numReviews: data.numReviews,
-      price: data.price,
-      id: data.id,
-    };
+    return await response.json();
   } catch (error) {
     console.error("There was a problem with the Axios operation:", error);
     throw error;
