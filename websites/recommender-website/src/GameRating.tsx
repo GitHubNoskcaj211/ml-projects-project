@@ -85,7 +85,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         if (event.key === "Escape") {
           closePopup();
         }
-      }
+      };
       window.addEventListener("keydown", handleKeyPress);
       return () => {
         window.removeEventListener("keydown", handleKeyPress);

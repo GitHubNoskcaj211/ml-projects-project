@@ -17,9 +17,12 @@ export async function fetchGameRecommendations(
   num_games: number,
   signal: AbortSignal
 ): Promise<RecommendationsResponse> {
-  const resp = await fetch(makeBackendURL(`get_N_recommendations_for_user?N=${num_games}`), {
-    signal,
-    credentials: "include",
-  });
+  const resp = await fetch(
+    makeBackendURL(`get_N_recommendations_for_user?N=${num_games}`),
+    {
+      signal,
+      credentials: "include",
+    }
+  );
   return resp.json();
 }
