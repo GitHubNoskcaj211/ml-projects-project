@@ -26,7 +26,6 @@ interface GameRatingProps {
 }
 
 const BATCH_SIZE = 5;
-const HISTORY_MAX_SIZE = 100;
 
 const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -53,13 +52,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         let addedRecs = recommendations.filter(
           (game) => !prevRecommend.has(game.gameInfo.id)
         );
-        let result = prev.concat(addedRecs);
-        if (result.length > HISTORY_MAX_SIZE) {
-          const numExtra = result.length - HISTORY_MAX_SIZE;
-          result = result.slice(-numExtra);
-          setCurrentIndex((prev) => prev - numExtra);
-        }
-        return result;
+        return prev.concat(addedRecs);
       });
       setFetchingGames(false);
       setLoading(false);
