@@ -25,20 +25,21 @@ interface GameRatingProps {
   details: Game;
 }
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 10;
+const BATCH_BUFFER = 20;
 
 const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPopup, setShowPopup] = useState(true);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fetchingGames, setFetchingGames] = useState(false);
+  const [expectedRecommendationLength, setExpectedRecommendationLength] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
 
   const runGamesProcess = async (signal: AbortSignal) => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     try {
-      const resp = await fetchGameRecommendations(BATCH_SIZE, signal);
+      const resp = await fetchGameRecommendations(BATCH_SIZE + BATCH_BUFFER, signal);
       const promises = resp.recommendations.map(async (rec) => {
         const gameInfo = await fetchGameInfo(rec.game_id);
         return {
@@ -46,31 +47,21 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           resp,
         };
       });
-      const recommendations = await Promise.all(promises);
+      const new_recommendations = await Promise.all(promises);
       setRecommendations((prev) => {
         const prevRecommend = new Set(prev.map((rec) => rec.gameInfo.id));
-        let addedRecs = recommendations.filter(
+        let addedRecs = new_recommendations.filter(
           (game) => !prevRecommend.has(game.gameInfo.id)
         );
+        addedRecs = addedRecs.slice(0, BATCH_SIZE)
         return prev.concat(addedRecs);
       });
-      setFetchingGames(false);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching games or game info:", error);
+      setExpectedRecommendationLength((prev) => prev - BATCH_SIZE);
     }
   };
-
-  useEffect(() => {
-    if (!fetchingGames) {
-      return;
-    }
-    const controller = new AbortController();
-    runGamesProcess(controller.signal);
-    return () => {
-      controller.abort();
-    };
-  }, [fetchingGames]);
 
   useEffect(() => {
     if (showPopup) {
@@ -99,6 +90,10 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
       console.assert(currentIndex < recommendations.length);
       const rec = recommendations[currentIndex];
+      const newIndex = currentIndex + 1;
+      if (newIndex >= recommendations.length) {
+        setLoading(true);
+      }
       await fetch(makeBackendURL("add_interaction"), {
         credentials: "include",
         method: "POST",
@@ -111,17 +106,13 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           num_game_interactions_local: rec.resp.num_game_interactions_local,
           num_game_owned_local: rec.resp.num_game_owned_local,
           num_game_interactions_external:
-            rec.resp.num_game_interactions_external,
+          rec.resp.num_game_interactions_external,
           num_game_owned_external: rec.resp.num_game_owned_external,
           game_id: rec.gameInfo.id,
           user_liked: userLiked,
           time_spent: timeSpent,
         }),
       });
-      const newIndex = currentIndex + 1;
-      if (newIndex >= recommendations.length) {
-        setLoading(true);
-      }
       setCurrentIndex(newIndex);
       setStartTime(Date.now());
     };
@@ -133,16 +124,28 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   }, [showPopup, loading, startTime, currentIndex, recommendations.length]);
 
   useEffect(() => {
-    const numLeft = recommendations.length - currentIndex;
-    if (numLeft <= BATCH_SIZE) {
-      setFetchingGames(true);
+    const expectedNumLeft = expectedRecommendationLength - currentIndex;
+    console.log(expectedRecommendationLength)
+    console.log(expectedNumLeft)
+    console.log(currentIndex)
+    console.log(recommendations)
+    const controller = new AbortController();
+    if (expectedNumLeft < BATCH_BUFFER) {
+      const num_batches_to_get = Math.ceil((BATCH_BUFFER - expectedNumLeft) / BATCH_SIZE)
+      setExpectedRecommendationLength((prev) => prev + num_batches_to_get * BATCH_SIZE);
+      for (let ii = 0; ii < num_batches_to_get; ii++) {
+        runGamesProcess(controller.signal);
+      }
     }
-    if (numLeft === 0) {
+    if (recommendations.length - currentIndex === 0) {
       setStartTime(null);
     } else {
       setStartTime((prev) => (prev ? prev : Date.now()));
     }
-  }, [currentIndex, recommendations]);
+    return () => {
+      controller.abort();
+    };
+  }, [currentIndex, recommendations.length, expectedRecommendationLength]);
 
   const handleUndo = () => {
     console.assert(currentIndex > 0);
