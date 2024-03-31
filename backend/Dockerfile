@@ -49,4 +49,4 @@ COPY utils/firestore.py ./utils/
 
 COPY backend/ ./
 
-CMD exec gunicorn --bind :$PORT --worker-class gevent --workers 17 --timeout 0 main:app
+CMD exec gunicorn --bind :$PORT --worker-class gevent --workers 2 --timeout 0 main:app
