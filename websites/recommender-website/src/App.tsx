@@ -87,20 +87,7 @@ const App: React.FC = () => {
           Feedback
         </button>
         <button onClick={() => {
-          fetch(makeBackendURL("logout"), {
-              mode: "cors",
-              credentials: "include",
-          })
-          .then(response => {
-            if (response.ok) {
-              location.href = response.url;
-            } else {
-              console.error('Logout failed:', response.status);
-            }
-          })
-          .catch(error => {
-            console.error('Error during logout:', error);
-          });
+          window.location.replace(makeBackendURL("logout"))
         }}>
           Logout
       </button>
