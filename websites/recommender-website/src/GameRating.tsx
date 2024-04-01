@@ -37,13 +37,12 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
 
-  const runGamesProcess = async (signal: AbortSignal) => {
+  const runGamesProcess = async () => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     while (true) {
       try {
         const resp = await fetchGameRecommendations(
           REQ_BATCH_SIZE + BUFFER_SIZE,
-          signal
         );
         const promises = resp.recommendations.map(async (rec) => {
           const gameInfo = await fetchGameInfo(rec.game_id);
@@ -62,10 +61,8 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           return prev.concat(addedRecs);
         });
         setLoading(false);
+        return;
       } catch (e) {
-        if (signal.aborted) {
-          return;
-        }
         console.error("Error fetching games or game info. Trying again:", e);
       }
     }
@@ -138,16 +135,12 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     }
     let numBatches = 0;
     numBatches = Math.ceil((BUFFER_SIZE - expectedNumLeft) / REQ_BATCH_SIZE);
-    const controller = new AbortController();
     setExpectedRecommendationsLength(
       (prev) => prev + numBatches * REQ_BATCH_SIZE
     );
     for (let i = 0; i < numBatches; i++) {
-      runGamesProcess(controller.signal);
+      runGamesProcess();
     }
-    return () => {
-      controller.abort();
-    };
   }, [currentIndex]);
 
   useEffect(() => {
