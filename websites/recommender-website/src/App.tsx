@@ -83,6 +83,9 @@ const App: React.FC = () => {
         <button onClick={() => setCurrentView("LikedGames")}>
           Liked Games
         </button>
+        <button onClick={() => window.open("mailto:jackson.p.rusch@vanderbilt.edu", "_blank")}>
+          Feedback
+        </button>
         <button onClick={() => {
           fetch(makeBackendURL("logout"), {
               mode: "cors",

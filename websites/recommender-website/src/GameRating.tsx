@@ -26,7 +26,7 @@ interface GameRatingProps {
 }
 
 const REQ_BATCH_SIZE = 10;
-const BUFFER_SIZE = 20;
+const BUFFER_SIZE = 40;
 
 const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
