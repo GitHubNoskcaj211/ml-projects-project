@@ -3,9 +3,10 @@ import "./RecCircle.css";
 
 interface RecCircleProps {
   value: number;
+  num_reviewers: number;
 }
 
-const RecCircle: React.FC<RecCircleProps> = ({ value }) => {
+const RecCircle: React.FC<RecCircleProps> = ({ value, num_reviewers }) => {
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const percentage = value;
@@ -40,7 +41,7 @@ const RecCircle: React.FC<RecCircleProps> = ({ value }) => {
         />
         <text
           x="50%"
-          y="50%"
+          y="40%"
           dominantBaseline="middle"
           textAnchor="middle"
           className="progressCircle-text"
@@ -49,6 +50,18 @@ const RecCircle: React.FC<RecCircleProps> = ({ value }) => {
           }}
         >
           {`${percentage.toFixed(1)}%`}
+        </text>
+        <text
+          x="50%"
+          y="60%"
+          dominantBaseline="middle"
+          textAnchor="middle"
+          className="progressCircle-text"
+          style={{
+            stroke: color,
+          }}
+        >
+          {`(${num_reviewers})`}
         </text>
       </svg>
     </div>

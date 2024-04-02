@@ -196,6 +196,10 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
             <h1>{recommendations[currentIndex].gameInfo.name}</h1>
           </a>
         </div>
+        {/* Price */}
+        <div className="price box">
+          <h2>Price: ${recommendations[currentIndex].gameInfo.price}</h2>
+        </div>
         <div className="secondRow">
           {/* Image */}
           <div className="image box">
@@ -209,6 +213,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           <div className="rec box">
             <RecCircle
               value={recommendations[currentIndex].gameInfo.avgReviewScore || 0}
+              num_reviewers={recommendations[currentIndex].gameInfo.numReviews || 0}
             />
           </div>
         </div>
