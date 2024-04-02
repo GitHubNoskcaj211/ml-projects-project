@@ -33,6 +33,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [showPopup, setShowPopup] = useState(true);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [interactionAttempts, setInteractionAttempts] = useState(0);
   const [expectedRecommendationsLength, setExpectedRecommendationsLength] =
     useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -90,15 +91,17 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
         return;
       }
+
+      setInteractionAttempts((prev) => prev + 1);
+      if (interactionAttempts > 1) {
+        return;
+      }
       const userLiked = event.key === "ArrowRight";
       const timeSpent = (Date.now() - startTime) / 1000;
 
       console.assert(currentIndex < recommendations.length);
       const rec = recommendations[currentIndex];
       const newIndex = currentIndex + 1;
-      if (newIndex >= recommendations.length) {
-        setLoading(true);
-      }
       await fetch(makeBackendURL("add_interaction"), {
         credentials: "include",
         method: "POST",
@@ -111,13 +114,17 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           num_game_interactions_local: rec.resp.num_game_interactions_local,
           num_game_owned_local: rec.resp.num_game_owned_local,
           num_game_interactions_external:
-            rec.resp.num_game_interactions_external,
+          rec.resp.num_game_interactions_external,
           num_game_owned_external: rec.resp.num_game_owned_external,
           game_id: rec.gameInfo.id,
           user_liked: userLiked,
           time_spent: timeSpent,
         }),
       });
+      if (newIndex >= recommendations.length) {
+        setLoading(true);
+      }
+      setInteractionAttempts(0);
       setCurrentIndex(newIndex);
       setStartTime(Date.now());
     };
@@ -162,7 +169,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     setStartTime(Date.now());
   };
 
-  if (loading) {
+  if (loading || interactionAttempts > 1) {
     return <div>Loading...</div>;
   }
 
@@ -178,7 +185,9 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       <div className="contentContainer">
         {/* Game Title */}
         <div className="title box">
-          <h1>{recommendations[currentIndex].gameInfo.name}</h1>
+          <a href={`https://store.steampowered.com/app/${recommendations[currentIndex].gameInfo.id}`} target="_blank" rel="noopener noreferrer">
+            <h1>{recommendations[currentIndex].gameInfo.name}</h1>
+          </a>
         </div>
         <div className="secondRow">
           {/* Image */}

@@ -109,7 +109,7 @@ const App: React.FC = () => {
           )
         }
       >
-        Landing Page
+        Home Screen
       </button>
     </div>
   );
