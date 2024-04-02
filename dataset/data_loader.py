@@ -233,12 +233,17 @@ class DataLoader():
             if self.cache_local_dataset:
                 df = pd.concat([df, self.games_df[self.games_df['id'] == game_id]])
             else:
-                return deserialize_game(game_id)
+                query = f"SELECT * FROM games WHERE id = {game_id}"
+                df = self.run_local_database_query(query)
+                df["genres"] = df["genres"].apply(ast.literal_eval)
+                df["tags"] = df["tags"].apply(ast.literal_eval)
         if self.get_external_database:
             info = self.database_client.games_ref.document(str(game_id)).get()
             if info.exists:
-                return info.to_dict()
-        return None
+                info = info.to_dict()
+                df = pd.concat([pd.DataFrame([info]), df])
+        df.drop_duplicates(subset=["id"], keep="first", inplace=True)
+        return df.to_dict("records")
 
     def user_exists(self, user_id):
         if self.get_local:
