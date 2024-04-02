@@ -24,6 +24,7 @@ COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 COPY dataset/data_files/global_database.db ./dataset/data_files/
+COPY dataset/data_files/users_games.bin ./dataset/data_files/
 COPY dataset/data_files/games.csv ./dataset/data_files/
 COPY models/published_recommendation_models ./models/published_recommendation_models/
 
@@ -36,6 +37,7 @@ COPY dataset/scrape/file_manager.py ./dataset/scrape
 COPY dataset/scrape/get_data.py ./dataset/scrape
 COPY dataset/scrape/merge_all.py ./dataset/scrape
 COPY dataset/scrape/merge_data.py ./dataset/scrape
+COPY dataset/scrape/serialization.py ./dataset/scrape
 
 COPY models/__init__.py ./models/
 COPY models/base_model.py ./models/

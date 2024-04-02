@@ -24,6 +24,7 @@ import ujson
 from dataset.scrape.file_manager import *
 from dataset.scrape.merge_all import merge_all
 from dataset.scrape.convert_to_database import convert_all_to_database
+from dataset.scrape.serialization import serialize_users_games
 
 
 class Cache:
@@ -237,3 +238,6 @@ if __name__ == "__main__":
 
     print("Converting to database")
     convert_all_to_database()
+
+    print("Serializing")
+    serialize_users_games()
