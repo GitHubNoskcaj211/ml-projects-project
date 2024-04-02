@@ -2,6 +2,7 @@ import os
 
 if "K_SERVICE" in os.environ:
     import googlecloudprofiler
+    print("Starting profile", os.getpid())
     googlecloudprofiler.start(service="backend")
 
 if __name__ == "__main__":
