@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir -r ./requirements.txt
 
 COPY dataset/data_files/global_database.db ./dataset/data_files/
 COPY dataset/data_files/users_games.bin ./dataset/data_files/
-COPY dataset/data_files/games.csv ./dataset/data_files/
+COPY dataset/data_files/games.json ./dataset/data_files/
 COPY models/published_recommendation_models ./models/published_recommendation_models/
 
 COPY dataset/__init__.py ./dataset/

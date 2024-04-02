@@ -37,7 +37,7 @@ def get_numeric_dataframe_columns(df, columns_to_remove=[]):
 def get_game_name_and_scores(data_loader, scores):
     game_ids = [game_id for game_id, score in scores]
     score_values = [score for game_id, score in scores]
-    selected_games = [data_loader.get_game_information(game_id)[0] for game_id in game_ids]
+    selected_games = [data_loader.get_game_information(game_id) for game_id in game_ids]
     selected_games = pd.DataFrame(selected_games)[['id', 'name']]
     selected_games = selected_games.assign(score=score_values)
     return selected_games

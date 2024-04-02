@@ -24,7 +24,7 @@ jobs:
 
       - name: Clone LFS Submodules
         run: |
-          git -C dataset/data_files lfs pull origin 4f3bb4938927ed07fd11f37739c76d072b66c708
+          git -C dataset/data_files lfs pull origin 25c33684b916b328288582a4f8abbb070408f0ad
           git -C models/published_recommendation_models lfs pull origin f30eb2f656cd829e539700c3af384e1bc7a1bc5a
           ls models/published_recommendation_models
 
