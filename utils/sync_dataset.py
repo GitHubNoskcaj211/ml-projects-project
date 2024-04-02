@@ -1,11 +1,3 @@
-import gevent
-from gevent import monkey
-import socket
-monkey.patch_all()
-if socket.socket is gevent.socket.socket:
-    import grpc.experimental.gevent as grpc_gevent
-    grpc_gevent.init_gevent()
-
 if __name__ == "__main__":
     import os
     import sys

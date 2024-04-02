@@ -3,9 +3,21 @@ import os
 
 if __name__ == "__main__":
     sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
-import grequests
+    import grequests
+    import requests
+else:
+    import requests
+
+    class grequests:
+        @staticmethod
+        def get(url):
+            return url
+
+        def imap_enumerated(urls, size):
+            for i, url in enumerate(urls):
+                resp = requests.get(url)
+                yield i, resp
 import json
-import requests
 from tqdm import tqdm
 import traceback
 

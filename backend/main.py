@@ -1,22 +1,3 @@
-import os
-
-# Only runs in prod
-if "K_SERVICE" in os.environ:
-    import googlecloudprofiler
-
-    def profiler_start():
-        googlecloudprofiler.start(service="backend")
-    profiler_start()
-    os.register_at_fork(after_in_child=profiler_start)
-
-import gevent
-from gevent import monkey
-import socket
-monkey.patch_all()
-if socket.socket is gevent.socket.socket:
-    import grpc.experimental.gevent as grpc_gevent
-    grpc_gevent.init_gevent()
-
 if __name__ == "__main__":
     import sys
     import os
