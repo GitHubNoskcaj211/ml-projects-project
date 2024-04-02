@@ -31,11 +31,9 @@ def add_interaction(body: Interaction):
     interaction = body.model_dump()
     interaction["user_id"] = int(current_user.id)
     interaction["timestamp"] = time.time()
-    current_app.database_client.interactions_ref \
-        .document("data") \
-        .collection(str(current_user.id)) \
-        .document(str(interaction["game_id"])) \
-        .set(interaction)
+    current_app.database_client.interactions_ref.document("data").collection(
+        str(current_user.id)
+    ).document(str(interaction["game_id"])).set(interaction)
     return jsonify({"success": 1})
 
 
@@ -47,6 +45,9 @@ def get_recommendations():
     if not data_loader.user_exists(user_id):
         return jsonify({"error": f"User with user_id {user_id} not found"}), 404
     output = data_loader.get_interactions_df_for_user(user_id)
-    output = output.sort_values(by="timestamp", ascending=False)
-    output = {"interactions": output.to_dict("records")}
-    return jsonify(output)
+    if len(output) == 0:
+        output = []
+    else:
+        output = output.sort_values(by="timestamp", ascending=False)
+        output = output.to_dict("records")
+    return jsonify({"interactions": output})
