@@ -9,13 +9,13 @@ if __name__ == "__main__":
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import config
-import json
 import time
 import os
 from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 import uuid
 from urllib.parse import urlparse, urlunparse
+import ujson
 
 from utils.firestore import DatabaseClient
 
@@ -67,7 +67,7 @@ def create_app():
             data["time_request"] = int(time.time())
             data["execution_time_ms"] = int(time.time() * 1000 - g.start_time * 1000)
             data["version"] = config.VERSION
-            response.set_data(json.dumps(data))
+            response.set_data(ujson.dumps(data))
         return response
 
     app.config.from_prefixed_env()

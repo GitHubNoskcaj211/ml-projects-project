@@ -17,9 +17,9 @@ else:
             for i, url in enumerate(urls):
                 resp = requests.get(url)
                 yield i, resp
-import json
 from tqdm import tqdm
 import traceback
+import ujson
 
 from dataset.scrape.file_manager import *
 from dataset.scrape.merge_all import merge_all
@@ -118,7 +118,7 @@ def write_user_data(user_id):
                 continue
             assert resp.status_code == 200
 
-            resp = json.loads(resp.content)
+            resp = ujson.loads(resp.content)
             try:
                 game_data = Game(
                     id=game_id,
