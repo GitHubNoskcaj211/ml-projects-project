@@ -13,7 +13,7 @@ class GamePopularityModel(BaseGameRecommendationModel):
     def train(self):
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         game_nodes = self.data_loader.get_game_node_ids()
-        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
+        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
         user_degree_counts = train_users_games_df.groupby('game_id').size().reset_index(name='user_degree')
         degrees = {row['game_id']: row['user_degree'] for index, row in user_degree_counts.iterrows()}
         degrees = {game: degrees[game] if game in degrees else 0 for game in game_nodes}

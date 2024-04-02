@@ -1,14 +1,10 @@
 import os
-import sys
-import networkx as nx
 import numpy as np
 import pandas as pd
 from sklearn import metrics as skmetrics
 from matplotlib import pyplot as plt
-from collections import defaultdict
-
-from dataset.data_loader import NodeType, get_edges_between_types
 from utils.utils import linear_transformation
+from abc import ABC, abstractmethod
 
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
 
@@ -38,44 +34,85 @@ def get_percentile_figure(values, metric_title):
     axis.set_ylabel('Metric Value')
     return fig
 
-class Evaluator:
-    def __init__(self, test_network, top_N_games_to_eval):
-        self.test_network = test_network
-        self.top_N_games_to_eval = top_N_games_to_eval
 
-    def reset(self, model, debug=False):
-        if debug:
-            print(model.name())
+# TODO Add interactions to this.
+class Evaluator(ABC):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
+        self.data_loader = data_loader
+        assert self.data_loader.cache_local_dataset, 'Evaluator requires data fully loaded.'
+        self.top_N_games_to_eval = top_N_games_to_eval
+        self.num_users_to_eval = num_users_to_eval
+        if num_users_to_eval is not None:
+            self.users_to_eval = self.data_loader.users_df['id'].sample(n=num_users_to_eval, random_state=seed)
+        else:
+            self.users_to_eval = self.data_loader.users_df['id']
+        self.debug = debug
+
+    def create_load_prepare_save_model(self, network_initializer, network_save_file):
+        self.model = network_initializer()
+        self.model.set_data_loader(self.data_loader)
+        if self.model.model_file_exists(network_save_file):
+            if self.debug:
+                print('Loading model:', network_save_file)
+            self.model.load(network_save_file)
+            if self.debug:
+                print('Doen loading model.', network_save_file)
+        else:
+            if self.debug:
+                print('Preparing model.')
+            self.prepare_model()
+            self.model.save(network_save_file)
+            if self.debug:
+                print('Done preparing model.')
+
+    @abstractmethod
+    def prepare_model(self, model):
+        pass
+
+    def reset(self, network_initializer, network_save_file):
+        self.create_load_prepare_save_model(network_initializer, network_save_file)
         self.metrics = {}
         self.roc_curve = None
-        self.model = model
-        self.game_nodes = set(n for n, d in self.test_network.nodes(data=True) if d['node_type'] == NodeType.GAME)
-        self.all_predictions_and_scores_per_user = model.predict_for_all_users(N = self.top_N_games_to_eval, should_sort=False)
-        if debug:
+        self.positional_error_scores = None
+
+        if self.debug:
+            print('Getting predictions.')
+        self.all_predictions_and_scores_per_user = self.model.predict_for_all_users(N = self.top_N_games_to_eval, users_to_predict=self.users_to_eval, should_sort=False)
+        if self.debug:
             print('Done getting predictions.')
 
+        if self.debug:
+            print('Constructing top N dataframe.')
         edge_data = []
         for user, game_predictions in self.all_predictions_and_scores_per_user.items():
             for game, predicted_score in game_predictions:
-                expected_edge = game in self.test_network[user]
-                expected_score = self.test_network.get_edge_data(user, game)['score'] if expected_edge else None
+                row = self.data_loader.users_games_df.loc[(self.data_loader.users_games_df['user_id'] == user) & (self.data_loader.users_games_df['game_id'] == game)]
+                assert row.empty or (not row.iloc[0]['data_split'] == 'train' and not row.iloc[0]['data_split'] == 'tune'), 'Predicted an eval edge that was trained or tuned on.'
+                expected_edge = not row.empty
+                expected_score = row['score'] if not row.empty else None
                 edge_data.append({'user': user, 'game': game, 'expected_edge': expected_edge, 'predicted_score': predicted_score, 'expected_score': expected_score})
         self.top_N_edge_results = pd.DataFrame(edge_data)
-        
-        expected_missed_edge_data = []
-        for user, game, data in get_edges_between_types(self.test_network, NodeType.USER, NodeType.GAME, data=True):
-            if not self.top_N_edge_results[(self.top_N_edge_results['user'] == user) & (self.top_N_edge_results['game'] == game)].empty:
-                continue
-            expected_edge = game in self.test_network[user]
-            expected_missed_edge_data.append({'user': user, 'game': game, 'expected_edge': expected_edge, 'predicted_score': model.get_score_between_user_and_game(user, game), 'expected_score': data['score']})
-        
-        self.top_N_and_all_expected_edge_results = pd.concat([self.top_N_edge_results, pd.DataFrame(expected_missed_edge_data)], ignore_index = True) 
         self.top_N_edge_results['user_predicted_rank'] = self.top_N_edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1
-        self.top_N_and_all_expected_edge_results['user_predicted_rank'] = self.top_N_and_all_expected_edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1
+        
 
-        if debug:
+        if self.debug:
+            print('Constructing missed edge dataframe.')
+        test_data = self.data_loader.users_games_df[(self.data_loader.users_games_df['data_split'] == 'test') & (self.data_loader.users_games_df['user_id'].isin(self.users_to_eval))]
+        merged_data = pd.merge(self.top_N_edge_results, test_data, on=['user_id', 'game_id'], how='right', indicator=True)
+        missed_test_edges = test_data[merged_data['_merge'] == 'right_only']
+        expected_missed_edge_data = []
+        for row in missed_test_edges:
+            expected_missed_edge_data.append({'user': row['user_id'], 'game': row['game_id'], 'expected_edge': True, 'predicted_score': self.model.get_score_between_user_and_game(user, game), 'expected_score': row['score']})
+        
+        missed_expected_edge_results = pd.DataFrame(expected_missed_edge_data)
+
+        if self.debug:
+            print('Ranking.')
+        missed_expected_edge_results['user_predicted_rank'] = missed_expected_edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1 + self.top_N_games_to_eval
+        self.top_N_and_all_expected_edge_results = pd.concat([self.top_N_edge_results, missed_expected_edge_results], ignore_index=True)
+
+        if self.debug:
             print('Done getting edge results.')
-        self.positional_error_scores = None
 
     def compute_top_N_recall(self, N):
         assert N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'
@@ -88,13 +125,14 @@ class Evaluator:
         assert N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'
         filtered_rows = self.top_N_and_all_expected_edge_results[(self.top_N_and_all_expected_edge_results['user_predicted_rank'] < N)]
         user_top_N_recalls = filtered_rows.groupby('user')['expected_edge'].sum().reset_index(name='tps')
-        user_top_N_recalls['num_expected_games'] = user_top_N_recalls.apply(lambda row: len(list(nx.edge_boundary(self.test_network, [row['user']], self.game_nodes))), axis=1)
+        expected_edges_per_user = self.top_N_and_all_expected_edge_results[self.top_N_and_all_expected_edge_results['data_split'] == 'test'].groupby('user').size()
+        user_top_N_recalls['num_expected_games'] = user_top_N_recalls['user'].map(expected_edges_per_user)
         user_top_N_recalls['recall'] = user_top_N_recalls['tps'] / user_top_N_recalls['num_expected_games']
         return user_top_N_recalls
 
     def plot_top_N_recall_percentiles(self, N):
         user_top_N_recalls = self.get_top_N_recall_per_user(N)
-        self.metrics[f'top_{N}_recall_user_percentiles_figure'] = get_percentile_figure(user_top_N_recalls.loc[user_top_N_recalls['num_expected_games'] != 0, 'recall'].values, f'User Top {N} Hit Percentage Percentiles')
+        self.metrics[f'top_{N}_recall_user_percentiles_figure'] = get_percentile_figure(user_top_N_recalls.loc[user_top_N_recalls['num_expected_games'] != 0, 'recall'].values, f'User Top {N} Recall Percentage Percentiles')
     
     # Percentile is an integer 0-100.
     def compute_top_N_recall_at_user_percentile(self, N, percentile):
@@ -195,3 +233,10 @@ class Evaluator:
                 elif isinstance(value, plt.Figure):
                     value.savefig(f'{full_folder}{key}.png')
                     plt.close(value)
+    
+class TrainEvaluator(Evaluator):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+    
+    def prepare_model(self):
+        self.model.train()

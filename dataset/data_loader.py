@@ -59,15 +59,9 @@ GAMES_FILENAME = 'games.csv'
 USERS_GAMES_FILENAME = 'users_games.csv'
 FRIENDS_FILENAME = 'friends.csv'
 
-def print_game_edges_for_user(data_loader, user):
+def get_games_for_user(data_loader, user):
     assert data_loader.cache_local_dataset, 'Method requires full load.'
-    print(f'Edges for user {user}:')
-    print(data_loader.users_games_df[data_loader.users_games_df['user_id'] == user])
-
-def get_edges_between_types(network, node_type1, node_type2, data=False):
-    nodes_type_1 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type1)
-    nodes_type_2 = set(n for n, d in network.nodes(data=True) if d['node_type'] == node_type2)
-    return list(nx.edge_boundary(network, nodes_type_1, nodes_type_2, data=data))
+    return data_loader.users_games_df[data_loader.users_games_df['user_id'] == user]
 
 def read_log_file(file_path):
     result = []
@@ -115,20 +109,21 @@ class PercentileNormalizer(Normalizer):
     def normalize(self, df):
         df['score'] = df.groupby('user_id')['score'].transform(lambda scores: (scores.rank(pct=True)))
 
-def constant_users_games_edge_scoring_function(users_games_row):
-    return 1
+def constant_users_games_edge_scoring_function(users_games_df):
+    return pd.Series([1] * len(users_games_df))
 
-def playtime_forever_users_games_edge_scoring_function(users_games_row):
-    return users_games_row['playtime_forever']
+def playtime_forever_users_games_edge_scoring_function(users_games_df):
+    return users_games_df['playtime_forever']
 
-def liked_interactions_edge_scoring_function(interaction_row):
-    return 1 if interaction_row['user_liked'] else -1
+def liked_interactions_edge_scoring_function(interaction_df):
+    # 1 when liked and -1 when not liked
+    return interaction_df['user_liked'] * 2 - 1
 
-def never_remove_edge(users_games_row):
-    return False
+def never_remove_edge(users_games_df):
+    return pd.Series([False] * len(users_games_df))
 
-def remove_zero_playtime_edge(users_games_row):
-    return users_games_row['playtime_forever'] == 0
+def remove_zero_playtime_edge(users_games_df):
+    return users_games_df['playtime_forever'] == 0
 
 def add_categorical_embedding(df, category_base_name, nested_values):
     categories = set([value for lst in nested_values for value in lst])
@@ -193,7 +188,10 @@ class DataLoader():
         df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
         if self.get_local and get_local:
             if self.cache_local_dataset:
-                df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
+                if self.train_or_eval_mode:
+                    df = pd.concat([df, self.users_games_df[(self.users_games_df['user_id'] == user_id) & (self.users_games_df['data_split'] != 'test')]])
+                else:
+                    df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
             else:
                 query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
                 new_df = self.run_local_database_query(query)
@@ -252,8 +250,8 @@ class DataLoader():
             else:
                 query = f"SELECT * FROM games WHERE id = {game_id}"
                 df = self.run_local_database_query(query)
-            df["genres"] = df["genres"].apply(ast.literal_eval)
-            df["tags"] = df["tags"].apply(ast.literal_eval)
+                df["genres"] = df["genres"].apply(ast.literal_eval)
+                df["tags"] = df["tags"].apply(ast.literal_eval)
         if self.get_external_database:
             info = self.database_client.games_ref.document(str(game_id)).get()
             if info.exists:
@@ -292,26 +290,55 @@ class DataLoader():
         assert self.cache_local_dataset, 'Method requires full load.'
         return self.get_user_node_ids() + self.get_game_node_ids()
     
-    def load_random_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
+    def load_random_edge_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
+        self.train_or_eval_mode = True
+
         train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed)
-        self.users_games_df['train_split'] = None
-        self.users_games_df.loc[train_edges, 'train_split'] = True
-        self.users_games_df.loc[test_edges, 'train_split'] = False
+        self.users_games_df['data_split'] = 'none'
+        self.users_games_df.loc[train_edges, 'data_split'] = 'train'
+        self.users_games_df.loc[test_edges, 'data_split'] = 'test'
     
-    def load_stratified_user_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
+    def load_stratified_user_id_edge_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
+        self.train_or_eval_mode = True
 
         user_counts = self.users_games_df['user_id'].value_counts()
         valid_users = user_counts[user_counts > 1].index
         strat_classes = self.users_games_df.apply(lambda row: row['user_id'] if row['user_id'] in valid_users else -1, axis=1)
 
         train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage, random_state=seed, stratify=strat_classes)
-        self.users_games_df['train_split'] = None
-        self.users_games_df.loc[train_edges, 'train_split'] = True
-        self.users_games_df.loc[test_edges, 'train_split'] = False
+        self.users_games_df['data_split'] = 'none'
+        self.users_games_df.loc[train_edges, 'data_split'] = 'train'
+        self.users_games_df.loc[test_edges, 'data_split'] = 'test'
+
+    def load_random_edge_train_tune_test_split(self, train_percentage=0.8, fine_tune_percentage=0.1, test_percentage=0.1, seed=0):
+        assert self.cache_local_dataset, 'Method requires full load.'
+        assert train_percentage + fine_tune_percentage + test_percentage <= 1
+        self.train_or_eval_mode = True
+
+        train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage + fine_tune_percentage, random_state=seed)
+        sum_fine_tune_train_percentage = train_percentage + fine_tune_percentage
+        train_edges, fine_tune_edges = train_test_split(train_edges, test_size=fine_tune_percentage / sum_fine_tune_train_percentage, train_size=train_percentage / sum_fine_tune_train_percentage, random_state=seed)
+        self.users_games_df['data_split'] = 'none'
+        self.users_games_df.loc[train_edges, 'data_split'] = 'train'
+        self.users_games_df.loc[test_edges, 'data_split'] = 'test'
+        self.users_games_df.loc[fine_tune_edges, 'data_split'] = 'tune'
+
+    def load_random_user_train_tune_test_split(self, train_user_percentage=0.8, test_user_percentage=0.1, fine_tune_edge_percentage=0.5, test_edge_percentage=0.5, seed=0):
+        assert self.cache_local_dataset, 'Method requires full load.'
+        assert train_user_percentage + test_user_percentage <= 1
+        assert fine_tune_edge_percentage + test_edge_percentage <= 1
+        self.train_or_eval_mode = True
+        
+        train_users, test_users = train_test_split(self.users_df['id'], test_size=test_user_percentage, train_size=train_user_percentage, random_state=seed)
+        test_edges, fine_tune_edges = train_test_split(self.users_games_df[self.users_games_df['user_id'].isin(test_users)].index, test_size=test_edge_percentage, train_size=fine_tune_edge_percentage, random_state=seed)
+        self.users_games_df['data_split'] = 'none'
+        self.users_games_df.loc[self.users_games_df['user_id'].isin(train_users), 'data_split'] = 'train'
+        self.users_games_df.loc[test_edges, 'data_split'] = 'test'
+        self.users_games_df.loc[fine_tune_edges, 'data_split'] = 'tune'
 
     @classmethod
     def load_from_file(cls, file_name, load_live_data_loader=False):
@@ -478,12 +505,12 @@ class DataLoader():
         return base_friends_df
 
     def remove_users_games_edges(self, users_games_df):
-        return users_games_df[~users_games_df.apply(self.remove_users_games_edges_function, axis=1)].copy()
+        return users_games_df[~self.remove_users_games_edges_function(users_games_df)].copy()
 
     def score_users_games_edges(self, users_games_df):
-        users_games_df['score'] = users_games_df.apply(self.users_games_edge_scoring_function, axis=1)
+        users_games_df['score'] = self.users_games_edge_scoring_function(users_games_df)
         users_games_df['score'] = users_games_df['score'].astype('float64')
 
     def score_interactions_edges(self, interactions_df):
-        interactions_df['score'] = interactions_df.apply(self.interactions_edge_scoring_function, axis=1)
+        interactions_df['score'] = self.interactions_edge_scoring_function(interactions_df)
         interactions_df['score'] = interactions_df['score'].astype('float64')

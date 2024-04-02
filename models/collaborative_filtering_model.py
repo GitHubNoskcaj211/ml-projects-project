@@ -102,11 +102,10 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
         scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
         return self.select_scores(scores, N, should_sort)
     
-    def predict_for_all_users(self, N, should_sort=True):
+    def predict_for_all_users(self, N, users_to_predict, should_sort=True):
         predictions = self.user_embeddings @ self.game_embeddings.T + self.known_game_user_embeddings @ self.known_game_embeddings.T + self.known_user_embeddings @ self.known_user_game_embeddings.T
-        user_nodes = self.data_loader.users_df['id'].to_list()
-        all_predictions_and_scores_per_user = dict.fromkeys(user_nodes)
-        for node in tqdm(user_nodes, desc='User Predictions'):
+        all_predictions_and_scores_per_user = dict.fromkeys(users_to_predict)
+        for node in tqdm(users_to_predict, desc='User Predictions'):
             games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == node, 'game_id'].to_list()
             user_ii = self.user_to_index[node]
             scores = predictions[user_ii]

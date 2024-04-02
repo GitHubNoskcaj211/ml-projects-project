@@ -36,7 +36,7 @@ class CommonNeighbors(BaseGameRecommendationModel):
         self.node_to_index = {node: ii for ii, node in enumerate(self.index_to_node)}
         self.game_nodes = self.data_loader.get_game_node_ids()
 
-        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
+        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
         self.matrix = self.get_user_game_adjacency_matrix(train_users_games_df)
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):

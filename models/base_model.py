@@ -76,10 +76,9 @@ class BaseGameRecommendationModel(ABC):
         scores = self.score_and_predict_n_games_for_user(user, N, should_sort=should_sort)
         return [game for game, score in scores]
 
-    def predict_for_all_users(self, N, should_sort=True):
-        user_nodes = self.data_loader.users_df['id'].to_list()
-        all_predictions_and_scores_per_user = dict.fromkeys(user_nodes)
-        for node in tqdm(user_nodes, desc='User Predictions'):
+    def predict_for_all_users(self, N, users_to_predict, should_sort=True):
+        all_predictions_and_scores_per_user = dict.fromkeys(users_to_predict)
+        for node in tqdm(users_to_predict, desc='User Predictions'):
             all_predictions_and_scores_per_user[node] = self.score_and_predict_n_games_for_user(node, N=N, should_sort=should_sort)
         return all_predictions_and_scores_per_user
 
@@ -95,6 +94,10 @@ class BaseGameRecommendationModel(ABC):
     @abstractmethod
     def _load(self, file_path):
         pass
+    
+    # NOTE: Assumes save file extension is .pkl. Abstract that if it changes.
+    def model_file_exists(self, file_name):
+        return os.path.exists(os.path.join(SAVED_MODELS_PATH, file_name + '.pkl'))
 
     def load(self, file_name, load_published_model=False):
         folder_path = PUBLISHED_MODELS_PATH if load_published_model else SAVED_MODELS_PATH

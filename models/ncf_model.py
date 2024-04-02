@@ -36,7 +36,7 @@ class NCFModel(BaseGameRecommendationModel):
         self.user_nodes = self.data_loader.get_user_node_ids()
         self.game_to_index = {game: ii for ii, game in enumerate(self.game_nodes)}
         self.user_to_index = {user: ii for ii, user in enumerate(self.user_nodes)}
-        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split']]
+        train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
         
         def normalize_column(column):
             normalized_column = gaussian_transformation(column, column.mean(), column.std(), 0.0, min(column.std(), 1.0))
@@ -68,7 +68,7 @@ class NCFModel(BaseGameRecommendationModel):
         self.ncf.train(user_indices, game_indices, user_game_scores_tensor, debug)
 
     def test_loss(self):
-        test_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['train_split'] == False]
+        test_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'test']
         user_indices = torch.tensor(test_users_games_df['user_id'].apply(lambda id: self.user_to_index[id]).values)
         game_indices = torch.tensor(test_users_games_df['game_id'].apply(lambda id: self.game_to_index[id]).values)
         user_game_scores_tensor = torch.tensor(test_users_games_df['score'].values)
@@ -112,21 +112,6 @@ class NCFModel(BaseGameRecommendationModel):
         output = self.ncf.predict(torch.tensor([user_ii] * len(game_indices)), torch.tensor(game_indices))
         scores = [(self.game_nodes[game_ii], game_output[0]) for game_ii, game_output in zip(game_indices, output)]
         return self.select_scores(scores, N, should_sort)
-    
-    # TODO This runs out of memory figure out why
-    # def predict_for_all_users(self, N):
-    #     all_predictions_and_scores_per_user = defaultdict(list)
-    #     user_indices = [self.user_to_index[user] for user in self.user_nodes]
-    #     game_indices = [self.game_to_index[game] for game in self.game_nodes]
-    #     all_user_game_combinations = list(itertools.product(user_indices, game_indices))
-    #     output = self.ncf.predict(torch.tensor([user for user, game in all_user_game_combinations]), torch.tensor([game for user, game in all_user_game_combinations]), is_list=True)
-    #     for (user_ii, game_ii), user_game_output in zip(all_user_game_combinations, output):
-    #         if self.game_nodes[game_ii] in train_network[self.user_nodes[user_ii]]:
-    #             continue
-    #         all_predictions_and_scores_per_user[self.user_nodes[user_ii]].append((self.game_nodes[game_ii], {self.output_index_to_embedding_name[ii]: value for ii, value in enumerate(user_game_output)}))
-    #     for user, scores in tqdm(all_predictions_and_scores_per_user.items(), desc='User Predictions'):
-    #         all_predictions_and_scores_per_user[user] = self.select_scores(scores, N)
-    #     return all_predictions_and_scores_per_user
 
     def new_seed(self, seed=None):
         self.ncf.new_seed(seed)
