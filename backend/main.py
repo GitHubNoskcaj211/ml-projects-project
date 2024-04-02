@@ -1,6 +1,13 @@
-import googlecloudprofiler
+import os
 
-googlecloudprofiler.start(service="backend")
+# Only runs in prod
+if "K_SERVICE" in os.environ:
+    import googlecloudprofiler
+
+    def profiler_start():
+        googlecloudprofiler.start(service="backend")
+    profiler_start()
+    os.register_at_fork(after_in_child=profiler_start)
 
 import gevent
 from gevent import monkey
