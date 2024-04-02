@@ -1,3 +1,9 @@
+import os
+
+if "K_SERVICE" in os.environ:
+    import googlecloudprofiler
+    googlecloudprofiler.start(service="backend")
+
 if __name__ == "__main__":
     import sys
     import os
@@ -90,7 +96,3 @@ app.database_client = DatabaseClient()
 if __name__ == "__main__":
     print("Starting app...")
     app.run(host="0.0.0.0", port=3000)
-
-if "K_SERVICE" in os.environ:
-    import googlecloudprofiler
-    googlecloudprofiler.start(service="backend")
