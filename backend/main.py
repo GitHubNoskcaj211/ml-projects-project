@@ -5,6 +5,7 @@ if __name__ == "__main__":
 import config
 import json
 import time
+import os
 from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 import uuid
@@ -89,3 +90,7 @@ app.database_client = DatabaseClient()
 if __name__ == "__main__":
     print("Starting app...")
     app.run(host="0.0.0.0", port=3000)
+
+if "K_SERVICE" in os.environ:
+    import googlecloudprofiler
+    googlecloudprofiler.start(service="backend")
