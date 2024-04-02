@@ -17,6 +17,9 @@ ENV PORT 3000
 
 WORKDIR $APP_HOME
 
+RUN apt update && \
+    apt -y install gcc
+
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r ./requirements.txt
 
