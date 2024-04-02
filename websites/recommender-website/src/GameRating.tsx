@@ -37,6 +37,11 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [expectedRecommendationsLength, setExpectedRecommendationsLength] =
     useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [steamLinkClicked, setSteamLinkClicked] = useState(false);
+
+  const handleSteamLinkClicked = () => {
+    setSteamLinkClicked(true);
+  };
 
   const runGamesProcess = async () => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
@@ -119,6 +124,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           game_id: rec.gameInfo.id,
           user_liked: userLiked,
           time_spent: timeSpent,
+          steam_link_clicked: steamLinkClicked,
         }),
       });
       if (newIndex >= recommendations.length) {
@@ -127,13 +133,14 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       setInteractionAttempts(0);
       setCurrentIndex(newIndex);
       setStartTime(Date.now());
+      setSteamLinkClicked(false);
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [showPopup, loading, startTime, currentIndex, recommendations.length]);
+  }, [showPopup, loading, startTime, currentIndex, steamLinkClicked, interactionAttempts, recommendations.length]);
 
   useEffect(() => {
     const expectedNumLeft = expectedRecommendationsLength - currentIndex;
@@ -185,7 +192,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       <div className="contentContainer">
         {/* Game Title */}
         <div className="title box">
-          <a href={`https://store.steampowered.com/app/${recommendations[currentIndex].gameInfo.id}`} target="_blank" rel="noopener noreferrer">
+          <a href={`https://store.steampowered.com/app/${recommendations[currentIndex].gameInfo.id}`} target="_blank" rel="noopener noreferrer" onClick={handleSteamLinkClicked}>
             <h1>{recommendations[currentIndex].gameInfo.name}</h1>
           </a>
         </div>

@@ -22,6 +22,7 @@ class Interaction(BaseModel, extra="forbid"):
     game_id: int
     user_liked: bool
     time_spent: float
+    steam_link_clicked: bool
 
 
 @interactions.route("/add_interaction", methods=["POST"])
