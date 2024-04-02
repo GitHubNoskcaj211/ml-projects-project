@@ -1,3 +1,7 @@
+import googlecloudprofiler
+
+googlecloudprofiler.start(service="backend")
+
 import gevent
 from gevent import monkey
 import socket
