@@ -77,37 +77,35 @@ class Evaluator(ABC):
 
         if self.debug:
             print('Getting predictions.')
-        self.all_predictions_and_scores_per_user = self.model.predict_for_all_users(N = self.top_N_games_to_eval, users_to_predict=self.users_to_eval, should_sort=False)
+        self.top_N_edge_results = self.model.predict_for_all_users(N = self.top_N_games_to_eval, users_to_predict=self.users_to_eval)
         if self.debug:
             print('Done getting predictions.')
 
         if self.debug:
-            print('Constructing top N dataframe.')
-        edge_data = []
-        for user, game_predictions in self.all_predictions_and_scores_per_user.items():
-            for game, predicted_score in game_predictions:
-                row = self.data_loader.users_games_df.loc[(self.data_loader.users_games_df['user_id'] == user) & (self.data_loader.users_games_df['game_id'] == game)]
-                assert row.empty or (not row.iloc[0]['data_split'] == 'train' and not row.iloc[0]['data_split'] == 'tune'), 'Predicted an eval edge that was trained or tuned on.'
-                expected_edge = not row.empty
-                expected_score = row['score'] if not row.empty else None
-                edge_data.append({'user': user, 'game': game, 'expected_edge': expected_edge, 'predicted_score': predicted_score, 'expected_score': expected_score})
-        self.top_N_edge_results = pd.DataFrame(edge_data)
+            print('Appending dataframe information.')
+        merged_df = pd.merge(self.top_N_edge_results, self.data_loader.users_games_df, 
+                            left_on=['user', 'game'], right_on=['user_id', 'game_id'], 
+                            how='left', suffixes=('', '_y'))
+        merged_df['expected_edge'] = ~merged_df['user_id'].isnull()
+        merged_df['expected_score'] = merged_df['score'] if 'score' in merged_df.columns else None
+        assert merged_df.loc[merged_df['expected_edge'], 'data_split'].eq('test').all()
+        merged_df.drop(columns=self.data_loader.users_games_df.columns, inplace=True, errors='ignore')
+        self.top_N_edge_results = merged_df
+        if self.debug:
+            print('Ranking top N.')
         self.top_N_edge_results['user_predicted_rank'] = self.top_N_edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1
-        
 
         if self.debug:
             print('Constructing missed edge dataframe.')
         test_data = self.data_loader.users_games_df[(self.data_loader.users_games_df['data_split'] == 'test') & (self.data_loader.users_games_df['user_id'].isin(self.users_to_eval))]
-        merged_data = pd.merge(self.top_N_edge_results, test_data, on=['user_id', 'game_id'], how='right', indicator=True)
-        missed_test_edges = test_data[merged_data['_merge'] == 'right_only']
+        merged_data = pd.merge(self.top_N_edge_results, test_data, left_on=['user', 'game'], right_on=['user_id', 'game_id'], how='right', indicator=True)
+        missed_test_edges = merged_data[merged_data['_merge'] == 'right_only']
         expected_missed_edge_data = []
-        for row in missed_test_edges:
-            expected_missed_edge_data.append({'user': row['user_id'], 'game': row['game_id'], 'expected_edge': True, 'predicted_score': self.model.get_score_between_user_and_game(user, game), 'expected_score': row['score']})
-        
+        for index, row in missed_test_edges.iterrows():  # Iterate over rows, not just columns
+            expected_missed_edge_data.append({'user': row['user_id'], 'game': row['game_id'], 'expected_edge': True, 'predicted_score': self.model.get_score_between_user_and_game(row['user_id'], row['game_id']), 'expected_score': row['score']})
         missed_expected_edge_results = pd.DataFrame(expected_missed_edge_data)
-
         if self.debug:
-            print('Ranking.')
+            print('Ranking missed.')
         missed_expected_edge_results['user_predicted_rank'] = missed_expected_edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1 + self.top_N_games_to_eval
         self.top_N_and_all_expected_edge_results = pd.concat([self.top_N_edge_results, missed_expected_edge_results], ignore_index=True)
 
@@ -125,7 +123,7 @@ class Evaluator(ABC):
         assert N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'
         filtered_rows = self.top_N_and_all_expected_edge_results[(self.top_N_and_all_expected_edge_results['user_predicted_rank'] < N)]
         user_top_N_recalls = filtered_rows.groupby('user')['expected_edge'].sum().reset_index(name='tps')
-        expected_edges_per_user = self.top_N_and_all_expected_edge_results[self.top_N_and_all_expected_edge_results['data_split'] == 'test'].groupby('user').size()
+        expected_edges_per_user = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'test'].groupby('user_id').size()
         user_top_N_recalls['num_expected_games'] = user_top_N_recalls['user'].map(expected_edges_per_user)
         user_top_N_recalls['recall'] = user_top_N_recalls['tps'] / user_top_N_recalls['num_expected_games']
         return user_top_N_recalls

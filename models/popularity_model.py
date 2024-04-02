@@ -31,10 +31,14 @@ class GamePopularityModel(BaseGameRecommendationModel):
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
-        scores_for_user = [(game, embeddings) for game, embeddings in self.scores if game not in games_to_filter_out]
+        scores = [(game, embeddings) for game, embeddings in self.scores]
         if N is not None:
-            scores_for_user = scores_for_user[:N]
-        return scores_for_user
+            scores = scores[:N + len(games_to_filter_out)]
+        if len(games_to_filter_out) > 0:
+            scores = [(game, score) for game, score in scores if game not in games_to_filter_out]
+        if N is not None:
+            scores = scores[:N]
+        return scores
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

@@ -71,8 +71,8 @@ class CommonNeighbors(BaseGameRecommendationModel):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
         user_index = self.node_to_index[user]
         user_scores = (self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix) + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix)).todense()
-        scores = [(game, user_scores[0, self.node_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
-        return self.select_scores(scores, N, should_sort)
+        scores = [(game, user_scores[0, self.node_to_index[game]]) for game in self.game_nodes]
+        return self.select_scores(scores, N, should_sort, games_to_filter_out=games_to_filter_out)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

@@ -101,17 +101,6 @@ class CollaborativeFiltering(BaseGameRecommendationModel):
         scores = np.sum(self.game_embeddings * self.user_embeddings[user_ii], axis=1) + np.sum(self.known_game_embeddings * self.known_game_user_embeddings[user_ii], axis=1) + np.sum(self.known_user_game_embeddings * self.known_user_embeddings[user_ii], axis=1)
         scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
         return self.select_scores(scores, N, should_sort)
-    
-    def predict_for_all_users(self, N, users_to_predict, should_sort=True):
-        predictions = self.user_embeddings @ self.game_embeddings.T + self.known_game_user_embeddings @ self.known_game_embeddings.T + self.known_user_embeddings @ self.known_user_game_embeddings.T
-        all_predictions_and_scores_per_user = dict.fromkeys(users_to_predict)
-        for node in tqdm(users_to_predict, desc='User Predictions'):
-            games_to_filter_out = self.data_loader.users_games_df[self.data_loader.users_games_df['user_id'] == node, 'game_id'].to_list()
-            user_ii = self.user_to_index[node]
-            scores = predictions[user_ii]
-            scores = [(game, scores[self.game_to_index[game]]) for game in self.game_nodes if game not in games_to_filter_out]
-            all_predictions_and_scores_per_user[node] = self.select_scores(scores, N, should_sort)
-        return all_predictions_and_scores_per_user
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

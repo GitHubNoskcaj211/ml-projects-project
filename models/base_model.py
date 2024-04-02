@@ -36,8 +36,12 @@ class BaseGameRecommendationModel(ABC):
     #         scores = scores[:N]
     #     return scores
     
-    def select_scores(self, scores, N = None, should_sort=True):
+    def select_scores(self, scores, N = None, should_sort=True, games_to_filter_out=[]):
         scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        if N is not None:
+            scores = scores[:N + len(games_to_filter_out)]
+        if len(games_to_filter_out) > 0:
+            scores = [(game, score) for game, score in scores if game not in games_to_filter_out]
         if N is not None:
             scores = scores[:N]
         return scores
@@ -76,11 +80,21 @@ class BaseGameRecommendationModel(ABC):
         scores = self.score_and_predict_n_games_for_user(user, N, should_sort=should_sort)
         return [game for game, score in scores]
 
-    def predict_for_all_users(self, N, users_to_predict, should_sort=True):
-        all_predictions_and_scores_per_user = dict.fromkeys(users_to_predict)
+    def predict_for_all_users(self, N, users_to_predict):
+        user_ids = []
+        game_ids = []
+        predicted_scores = []
         for node in tqdm(users_to_predict, desc='User Predictions'):
-            all_predictions_and_scores_per_user[node] = self.score_and_predict_n_games_for_user(node, N=N, should_sort=should_sort)
-        return all_predictions_and_scores_per_user
+            predictions = self.score_and_predict_n_games_for_user(node, N=N, should_sort=False)
+            user_ids.extend([node] * len(predictions))
+            game_ids.extend([game_id for game_id, _ in predictions])
+            predicted_scores.extend([score for _, score in predictions])
+        df = pd.DataFrame({
+            'user': user_ids,
+            'game': game_ids,
+            'predicted_score': predicted_scores
+        })
+        return df
 
     # Output: List of top N scores (sorted) for new game recommendations for a user. Formatted as [(game_id, score)]
     @abstractmethod
