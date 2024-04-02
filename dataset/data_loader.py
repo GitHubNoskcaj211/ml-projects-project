@@ -168,23 +168,6 @@ class DataLoader():
         result = pd.read_sql_query(query, database)
         database.close()
         return result
-    
-    def get_most_similar_user_id(self, user_id, n_users_to_search):
-        users_games_df = self.get_users_games_df_for_user(user_id, preprocess=True)
-        users = self.get_user_node_ids()
-        random.shuffle(users)
-        best_user = None
-        best_score = None
-        for user in users[:n_users_to_search]:
-            proposed_users_games_df = self.get_users_games_df_for_user(user, preprocess=True)
-            merged_df = pd.merge(users_games_df, proposed_users_games_df, on='game_id', how='outer', suffixes=('_df1', '_df2'))
-            merged_df['score_df1'].fillna(0, inplace=True)
-            merged_df['score_df2'].fillna(0, inplace=True)
-            similarity_score = np.linalg.norm(merged_df['score_df1'] - merged_df['score_df2'])
-            if best_score is None or similarity_score < best_score:
-                best_score = similarity_score
-                best_user = user
-        return best_user
 
     def get_users_games_df_for_user(self, user_id, get_local=True, get_external_database=True, preprocess=False):
         df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
@@ -272,12 +255,8 @@ class DataLoader():
         return False
     
     def get_user_node_ids(self):
-        if self.cache_local_dataset:
-            return self.users_df['id'].unique().tolist()
-        else:
-            query = f"SELECT * FROM users"
-            df = self.run_local_database_query(query)
-            return df['id'].unique().tolist()
+        assert self.cache_local_dataset, 'Method requires full load.'
+        return self.users_df['id'].unique().tolist()
     
     def get_game_node_ids(self):
         assert self.cache_local_dataset, 'Method requires full load.'
