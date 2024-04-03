@@ -11,8 +11,6 @@ if __name__ == "__main__":
 
 from dataset.scrape.constants import *
 
-IN_PROD = "K_SERVICE" in os.environ
-
 
 def serialize_users_games():
     csv_file = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.csv")
@@ -55,8 +53,6 @@ def deserialize_users_games(user_id):
             offsets_len = int.from_bytes(f.read(8), "little")
             USERS_GAMES_OFFSETS = ujson.loads(f.read(offsets_len).decode("utf-8"))
             USERS_GAMES_DATA = bytearray(f.read())
-        if IN_PROD:
-            os.remove(filepath)
     user_id = str(user_id)
     ret = USERS_GAMES_OFFSETS.get(user_id, None)
     if ret is None:
@@ -99,8 +95,6 @@ def deserialize_game(game_id):
         filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "games.json")
         with open(filepath, "r") as f:
             GAMES = ujson.load(f)
-        if IN_PROD:
-            os.remove(filepath)
     return GAMES.get(str(game_id), None)
 
 
