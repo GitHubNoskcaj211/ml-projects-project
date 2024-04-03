@@ -88,6 +88,8 @@ def deserialize_game(game_id):
         filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "games.json")
         with open(filepath, "r") as f:
             GAMES = ujson.load(f)
+        if "K_SERVICE" in os.environ:
+            os.remove(filepath)
     return GAMES.get(str(game_id), None)
 
 
