@@ -36,15 +36,20 @@ class BaseGameRecommendationModel(ABC):
     #         scores = scores[:N]
     #     return scores
     
-    def select_scores(self, scores, N = None, should_sort=True, games_to_filter_out=[]):
-        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+    def select_scores(self, scores, N = None, should_sort=True, games_to_filter_out=[], games_to_include=[]):
+        sorted_scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        output_scores = sorted_scores
         if N is not None:
-            scores = scores[:N + len(games_to_filter_out)]
+            output_scores = output_scores[:N + len(games_to_filter_out)]
         if len(games_to_filter_out) > 0:
-            scores = [(game, score) for game, score in scores if game not in games_to_filter_out]
+            output_scores = [(game, score) for game, score in output_scores if game not in games_to_filter_out]
         if N is not None:
-            scores = scores[:N]
-        return scores
+            output_scores = output_scores[:N]
+        if len(games_to_include) > 0:
+            output_games = set([game for game, score in output_scores])
+            missed_games_to_include = set(games_to_include) - output_games
+            output_scores = output_scores + [(game, score) for game, score in sorted_scores if game in missed_games_to_include]
+        return output_scores
 
     # Train the model given the data loader.
     @abstractmethod
@@ -70,35 +75,19 @@ class BaseGameRecommendationModel(ABC):
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         pass
 
+    # TODO Phase out if not useful.
     @abstractmethod
     def get_score_between_user_and_game(self, user, game):
         pass
 
-    # Input: 
-    # Output: list of nodes 
-    def recommend_n_games_for_user(self, user, N=None, should_sort=True):
-        scores = self.score_and_predict_n_games_for_user(user, N, should_sort=should_sort)
-        return [game for game, score in scores]
-
-    def predict_for_all_users(self, N, users_to_predict):
-        user_ids = []
-        game_ids = []
-        predicted_scores = []
-        for node in tqdm(users_to_predict, desc='User Predictions'):
-            predictions = self.score_and_predict_n_games_for_user(node, N=N, should_sort=False)
-            user_ids.extend([node] * len(predictions))
-            game_ids.extend([game_id for game_id, _ in predictions])
-            predicted_scores.extend([score for _, score in predictions])
-        df = pd.DataFrame({
-            'user': user_ids,
-            'game': game_ids,
-            'predicted_score': predicted_scores
-        })
-        return df
+    # TODO Phase out if not useful.
+    @abstractmethod
+    def get_scores_between_users_and_games(self, users, games):
+        pass
 
     # Output: List of top N scores (sorted) for new game recommendations for a user. Formatted as [(game_id, score)]
     @abstractmethod
-    def score_and_predict_n_games_for_user(self, user, N, should_sort = True):
+    def score_and_predict_n_games_for_user(self, user, N, should_sort = True, games_to_include=[]):
         pass
 
     @abstractmethod

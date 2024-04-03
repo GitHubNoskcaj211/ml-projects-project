@@ -230,17 +230,18 @@ class DataLoader():
         return user_games_df['game_id'].to_list() + interactions_df['game_id'].to_list()
 
     def get_game_information(self, game_id):
-        df = pd.DataFrame()
+        output = None
         if self.get_local:
             if self.cache_local_dataset:
-                df = pd.concat([df, self.games_df[self.games_df['id'] == game_id]])
+                output = self.games_df[self.games_df['id'] == game_id].to_dict('records')
+                output = output[0] if len(output) > 0 else None
             else:
-                return deserialize_game(game_id)
-        if self.get_external_database:
+                output = deserialize_game(game_id)
+        if self.get_external_database and output is None:
             info = self.database_client.games_ref.document(str(game_id)).get()
             if info.exists:
-                return info.to_dict()
-        return None
+                output = info.to_dict()
+        return output
 
     def user_exists(self, user_id):
         if self.get_local:

@@ -103,15 +103,22 @@ class NCFModel(BaseGameRecommendationModel):
         user_ii = self.user_to_index[user]
         game_ii = self.game_to_index[game]
         output = self.ncf.predict(torch.tensor([user_ii]), torch.tensor([game_ii]))
-        return output[0][0]
+        return output[0]
+    
+    def get_scores_between_users_and_games(self, users, games):
+        assert len(users) == len(games), 'Inconsistent list lengths.'
+        users_ii = [self.user_to_index[user] for user in users]
+        games_ii = [self.game_to_index[game] for game in games]
+        output = self.ncf.predict(torch.tensor([users_ii]), torch.tensor([games_ii]))
+        return output
 
-    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True, games_to_include=[]):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
         user_ii = self.user_to_index[user]
         game_indices = [self.game_to_index[game] for game in self.game_nodes if game not in games_to_filter_out]
         output = self.ncf.predict(torch.tensor([user_ii] * len(game_indices)), torch.tensor(game_indices))
-        scores = [(self.game_nodes[game_ii], game_output[0]) for game_ii, game_output in zip(game_indices, output)]
-        return self.select_scores(scores, N, should_sort)
+        scores = [(self.game_nodes[game_ii], game_score) for game_ii, game_score in zip(game_indices, output)]
+        return self.select_scores(scores, N, should_sort, games_to_include=games_to_include)
 
     def new_seed(self, seed=None):
         self.ncf.new_seed(seed)

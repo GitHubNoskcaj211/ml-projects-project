@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 import itertools
 import pandas as pd
 from utils.firestore import DatabaseClient
+from tqdm import tqdm
 
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
 
@@ -275,40 +276,39 @@ class OfflineEvaluator(Evaluator):
 
         if self.debug:
             print('Getting predictions.')
-        self.top_N_results_df = self.model.predict_for_all_users(N = self.top_N_games_to_eval, users_to_predict=self.users_to_eval)
+
+        user_ids = []
+        game_ids = []
+        predicted_scores = []
+        for user in tqdm(self.users_to_eval, desc='User Predictions'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            predictions = self.model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
+            user_ids.extend([user] * len(predictions))
+            game_ids.extend([game_id for game_id, _ in predictions])
+            predicted_scores.extend([score for _, score in predictions])
+        self.results_df = pd.DataFrame({
+            'user': user_ids,
+            'game': game_ids,
+            'predicted_score': predicted_scores
+        })
+
         if self.debug:
             print('Done getting predictions.')
 
         if self.debug:
             print('Appending dataframe information.')
-        merged_df = pd.merge(self.top_N_results_df, self.data_loader.users_games_df, 
+        merged_df = pd.merge(self.results_df, self.data_loader.users_games_df, 
                             left_on=['user', 'game'], right_on=['user_id', 'game_id'], 
                             how='left', suffixes=('', '_y'))
         merged_df['expected_edge'] = ~merged_df['user_id'].isnull()
         merged_df['expected_score'] = merged_df['score'] if 'score' in merged_df.columns else None
         assert merged_df.loc[merged_df['expected_edge'], 'data_split'].eq('test').all()
         merged_df.drop(columns=self.data_loader.users_games_df.columns, inplace=True, errors='ignore')
-        self.top_N_results_df = merged_df
+        self.results_df = merged_df
         if self.debug:
             print('Ranking top N.')
-        self.top_N_results_df['user_predicted_rank'] = self.top_N_results_df.groupby('user')['predicted_score'].rank(ascending=False) - 1
-
-        if self.debug:
-            print('Constructing missed edge dataframe.')
-        test_data = self.data_loader.users_games_df[(self.data_loader.users_games_df['data_split'] == 'test') & (self.data_loader.users_games_df['user_id'].isin(self.users_to_eval))]
-        # TODO DEBUG
-        merged_data = pd.merge(self.top_N_results_df, test_data, left_on=['user', 'game'], right_on=['user_id', 'game_id'], how='right', indicator=True)
-        missed_test_edges = merged_data[merged_data['_merge'] == 'right_only']
-        expected_missed_edge_data = []
-        print('all test edges:', test_data.shape)
-        print('missed test edges:', missed_test_edges.shape)
-        for index, row in missed_test_edges.iterrows():  # Iterate over rows, not just columns
-            expected_missed_edge_data.append({'user': row['user_id'], 'game': row['game_id'], 'expected_edge': True, 'predicted_score': self.model.get_score_between_user_and_game(row['user_id'], row['game_id']), 'expected_score': row['score']})
-        missed_expected_edge_results = pd.DataFrame(expected_missed_edge_data)
-        if self.debug:
-            print('Ranking missed.')
-        missed_expected_edge_results['user_predicted_rank'] = missed_expected_edge_results.groupby('user')['predicted_score'].rank(ascending=False) - 1 + self.top_N_games_to_eval
-        self.results_df = pd.concat([self.top_N_results_df, missed_expected_edge_results], ignore_index=True)
+        self.results_df['user_predicted_rank'] = self.results_df.groupby('user')['predicted_score'].rank(ascending=False) - 1
+        self.top_N_results_df = self.results_df[self.results_df['user_predicted_rank'] < self.top_N_games_to_eval]
 
         if self.debug:
             print('Done getting edge results.')
@@ -319,3 +319,21 @@ class TrainEvaluator(OfflineEvaluator):
     
     def prepare_model(self):
         self.model.train()
+
+class WarmFineTuneEvaluator(OfflineEvaluator):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False, fine_tune_batch_size=10):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+        self.fine_tune_batch_size = fine_tune_batch_size
+    
+    def prepare_model(self):
+        self.model.train()
+        # TODO Add interactions.
+        for user in tqdm(self.users_to_eval, desc='Fine tuning'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            all_users_games_df = users_games_df[users_games_df['data_split'] != 'test']
+            fake_interactions = pd.DataFrame(columns=users_games_df.columns)
+            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
+            new_users_games_df_shuffled = new_users_games_df.sample(frac=1).reset_index(drop=True)
+            for i in range(0, len(new_users_games_df_shuffled), self.fine_tune_batch_size):
+                users_games_batch_size = new_users_games_df_shuffled.iloc[i:i+self.fine_tune_batch_size]
+                self.model._fine_tune(user, users_games_batch_size, fake_interactions, all_users_games_df, fake_interactions)

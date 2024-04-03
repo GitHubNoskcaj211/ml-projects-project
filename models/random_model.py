@@ -24,13 +24,18 @@ class RandomModel(BaseGameRecommendationModel):
     def get_score_between_user_and_game(self, user, game):
         # NOTE: Score between user and game will be inconsistent with score and predict n games for user. This will lead to slight inaccuracies when both are used together for example during eval.
         return random.random()
+    
+    def get_scores_between_users_and_games(self, users, games):
+        assert len(users) == len(games), 'Inconsistent list lengths.'
+        # NOTE: Score between user and game will be inconsistent with score and predict n games for user. This will lead to slight inaccuracies when both are used together for example during eval.
+        return np.random.rand(len(users)).tolist()
 
-    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True, games_to_include=[]):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
         np.random.seed(self.user_to_seed[user])
         scores = np.random.rand(len(self.game_nodes))
         scores = list(zip(self.game_nodes, scores))
-        return self.select_scores(scores, N, should_sort, games_to_filter_out=games_to_filter_out)
+        return self.select_scores(scores, N, should_sort, games_to_filter_out=games_to_filter_out, games_to_include=games_to_include)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

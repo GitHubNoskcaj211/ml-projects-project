@@ -67,12 +67,21 @@ class CommonNeighbors(BaseGameRecommendationModel):
         game_index = self.node_to_index[game]
         return self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix[:, game_index])[0, 0] + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix[:, game_index])[0, 0]
 
-    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
+    def get_scores_between_users_and_games(self, users, games):
+        assert len(users) == len(games), 'Inconsistent list lengths.'
+        users_index = [self.node_to_index[user] for user in users]
+        games_index = [self.node_to_index[game] for game in games]
+        users_index_to_result_index = {user_index: ii for ii, user_index in enumerate(sorted(list(set(users_index))))}
+        games_index_to_result_index = {game_index: ii for ii, game_index in enumerate(sorted(list(set(games_index))))}
+        result = self.path_length_2_weight * (self.matrix[users_index, :] @ self.matrix[:, games_index]) + self.path_length_3_weight * (self.matrix[users_index, :] @ self.matrix @ self.matrix[:, games_index])
+        return [result[users_index_to_result_index[user_index], games_index_to_result_index[game_index]] for user_index, game_index in zip(users_index, games_index)]
+
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True, games_to_include=[]):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
         user_index = self.node_to_index[user]
         user_scores = (self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix) + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix)).todense()
         scores = [(game, user_scores[0, self.node_to_index[game]]) for game in self.game_nodes]
-        return self.select_scores(scores, N, should_sort, games_to_filter_out=games_to_filter_out)
+        return self.select_scores(scores, N, should_sort, games_to_filter_out=games_to_filter_out, games_to_include=games_to_include)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

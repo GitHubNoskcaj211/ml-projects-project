@@ -25,20 +25,17 @@ class GamePopularityModel(BaseGameRecommendationModel):
     def get_score_between_user_and_game(self, user, game):
         return self.scores[self.game_to_score_index[game]][1]
     
+    def get_scores_between_users_and_games(self, users, games):
+        assert len(users) == len(games), 'Inconsistent list lengths.'
+        return [self.scores[self.game_to_score_index[game]][1] for game in games]
+    
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         pass
         # TODO
 
-    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True):
+    def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True, games_to_include=[]):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)
-        scores = [(game, embeddings) for game, embeddings in self.scores]
-        if N is not None:
-            scores = scores[:N + len(games_to_filter_out)]
-        if len(games_to_filter_out) > 0:
-            scores = [(game, score) for game, score in scores if game not in games_to_filter_out]
-        if N is not None:
-            scores = scores[:N]
-        return scores
+        return self.select_scores(self.scores, N, should_sort, games_to_filter_out=games_to_filter_out, games_to_include=games_to_include)
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'

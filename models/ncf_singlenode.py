@@ -202,4 +202,4 @@ class NCF(nn.Module):
         super(NCF, self).train(False)
         with torch.no_grad():
             output = self.forward(user_index, game_index)
-            return list(output.detach().numpy())
+            return output.detach().flatten().tolist()

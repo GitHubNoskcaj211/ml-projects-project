@@ -47,7 +47,7 @@ model.load(file_name)
 print('Fine Tuning')
 model.fine_tune(test_user_id)
 print('Recommending')
-preds = model.recommend_n_games_for_user(test_user_id, N)
+preds = model.score_and_predict_n_games_for_user(test_user_id, N)
 
 end_time = time.perf_counter()
 size, peak = tracemalloc.get_traced_memory()
