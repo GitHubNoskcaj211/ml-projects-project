@@ -75,9 +75,9 @@ class GetRecommendationFilterInput(BaseModel, extra="forbid"):
 @login_required
 @validate()
 def get_recommendations(query: GetRecommendationFilterInput):
-    print(g.execution_id, "Getting recommendations")
     data_loader = load_and_get_data_loader(current_app)
     model_wrapper = load_and_get_random_model_wrapper(current_app)
+    print(g.execution_id, "Getting recommendations", model_wrapper.name())
     model = model_wrapper.model
     user_id = int(current_user.id)
     if not data_loader.user_exists(user_id):
