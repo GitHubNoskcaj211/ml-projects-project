@@ -59,7 +59,7 @@ def create_app():
         execution_id = uuid.uuid4()
         g.start_time = time.time()
         g.execution_id = execution_id
-        print(g.execution_id, "ROUTE CALLED ", request.url)
+        print(g.execution_id, os.getpid(), "ROUTE CALLED ", request.url)
 
     @app.after_request
     def after_request(response):
