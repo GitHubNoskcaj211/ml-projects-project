@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 import ast
 from sklearn.model_selection import train_test_split
@@ -173,16 +174,17 @@ class DataLoader():
         df = pd.DataFrame(columns=USERS_GAMES_SCHEMA.keys()).astype(USERS_GAMES_SCHEMA)
         if self.get_local and get_local:
             if self.cache_local_dataset:
+                users_games_df_for_user = self.users_games_df_grouped_by_user.get_group(user_id)
                 if self.train_or_eval_mode:
-                    df = pd.concat([df, self.users_games_df[(self.users_games_df['user_id'] == user_id) & (self.users_games_df['data_split'] != 'test')]])
+                    new = users_games_df_for_user[users_games_df_for_user['data_split'] != 'test']
+                    df = pd.concat([df, new])
                 else:
-                    df = pd.concat([df, self.users_games_df[self.users_games_df['user_id'] == user_id]])
+                    df = pd.concat([df, users_games_df_for_user])
             else:
                 new_df = deserialize_users_games(user_id)
                 if new_df is not None:
                     new_df['source'] = LOCAL_DATA_SOURCE
                     df = pd.concat([df, new_df])
-        
         if self.get_external_database and get_external_database:
             db_data = self.database_client.users_games_ref.document(str(user_id)).get()
             if db_data.exists:
@@ -408,6 +410,7 @@ class DataLoader():
         self.friends_df = self.add_friend_friend_edge_embeddings(full_friends_df, self.friend_friend_edge_embeddings)
 
         self.users_games_df = self.preprocess_users_games_df(self.users_games_df)
+        self.users_games_df_grouped_by_user = self.users_games_df.groupby('user_id')
 
     def preprocess_users_games_df(self, users_games_df):
         if self.remove_users_games_edges_function != never_remove_edge:
