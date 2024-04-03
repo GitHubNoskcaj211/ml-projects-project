@@ -2,7 +2,7 @@ import os
 
 if "K_SERVICE" in os.environ:
     import googlecloudprofiler
-    googlecloudprofiler.start(service="backend")
+    googlecloudprofiler.start(service="backend", disable_wall_profiling=True)
 
 if __name__ == "__main__":
     import sys
