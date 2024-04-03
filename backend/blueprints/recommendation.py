@@ -77,8 +77,8 @@ class GetRecommendationFilterInput(BaseModel, extra="forbid"):
 def get_recommendations(query: GetRecommendationFilterInput):
     data_loader = load_and_get_data_loader(current_app)
     model_wrapper = load_and_get_random_model_wrapper(current_app)
-    print(g.execution_id, "Getting recommendations", model_wrapper.name())
     model = model_wrapper.model
+    print(g.execution_id, "Getting recommendations", model.name())
     user_id = int(current_user.id)
     if not data_loader.user_exists(user_id):
         return jsonify({"error": f"User with user_id {user_id} not found"}), 404
