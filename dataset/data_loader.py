@@ -265,10 +265,6 @@ class DataLoader():
         assert self.cache_local_dataset, 'Method requires full load.'
         return self.games_df['id'].unique().tolist()
 
-    def get_all_node_ids(self):
-        assert self.cache_local_dataset, 'Method requires full load.'
-        return self.get_user_node_ids() + self.get_game_node_ids()
-    
     def load_random_edge_train_test_split(self, train_percentage=0.9, test_percentage=0.1, seed=0):
         assert self.cache_local_dataset, 'Method requires full load.'
         assert train_percentage + test_percentage <= 1
@@ -403,7 +399,7 @@ class DataLoader():
                 (global_friends_df['user1'].isin(users_df['id'])) |
                 (global_friends_df['user2'].isin(users_df['id']))
             ]
-            
+        self.train_or_eval_mode = False    
         self.users_df = self.add_user_embeddings(full_users_df, self.user_embeddings)
         self.games_df = self.add_game_embeddings(full_games_df, self.game_embeddings)
         self.users_games_df = self.add_user_game_edge_embeddings(full_users_games_df, self.user_game_edge_embeddings)

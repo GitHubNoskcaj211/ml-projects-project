@@ -11,10 +11,11 @@ class RandomModel(BaseGameRecommendationModel):
     def name(self):
         return 'random'
 
-    def train(self, seed=None, seed_min=0, seed_max=1e9):
+    def train(self, seed=None, seed_min=0, seed_max=1e9, user_node_ids=None):
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         random.seed(seed)
-        self.user_to_seed = {user_id: random.randint(seed_min, seed_max) for user_id in self.data_loader.get_user_node_ids()}
+        user_node_ids = user_node_ids if user_node_ids is not None else self.data_loader.get_user_node_ids()
+        self.user_to_seed = {user_id: random.randint(seed_min, seed_max) for user_id in user_node_ids}
         self.game_nodes = self.data_loader.get_game_node_ids()
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df, seed=None, seed_min=0, seed_max=1e9):

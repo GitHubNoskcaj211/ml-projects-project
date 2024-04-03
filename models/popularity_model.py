@@ -10,7 +10,7 @@ class GamePopularityModel(BaseGameRecommendationModel):
     def name(self):
         return 'game_popularity'
 
-    def train(self):
+    def train(self, user_node_ids=None):
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         game_nodes = self.data_loader.get_game_node_ids()
         train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']

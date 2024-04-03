@@ -29,12 +29,13 @@ class CommonNeighbors(BaseGameRecommendationModel):
         return sparse_matrix_csr
 
     # TODO Set different interaction strengths based on game ownership, user liked, and user disliked
-    def train(self):
+    def train(self, user_node_ids=None):
         # TODO train on downloaded interactions
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
-        self.index_to_node = self.data_loader.get_all_node_ids()
-        self.node_to_index = {node: ii for ii, node in enumerate(self.index_to_node)}
         self.game_nodes = self.data_loader.get_game_node_ids()
+        user_node_ids = user_node_ids if user_node_ids is not None else self.data_loader.get_user_node_ids()
+        self.index_to_node = user_node_ids + self.game_nodes
+        self.node_to_index = {node: ii for ii, node in enumerate(self.index_to_node)}
 
         train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
         self.matrix = self.get_user_game_adjacency_matrix(train_users_games_df)

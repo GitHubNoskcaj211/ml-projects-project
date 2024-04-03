@@ -53,7 +53,7 @@ class BaseGameRecommendationModel(ABC):
 
     # Train the model given the data loader.
     @abstractmethod
-    def train(self):
+    def train(self, user_node_ids=None):
         pass
 
     def fine_tune(self, user_id):

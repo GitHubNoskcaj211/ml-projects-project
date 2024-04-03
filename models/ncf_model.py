@@ -29,11 +29,11 @@ class NCFModel(BaseGameRecommendationModel):
     def name(self):
         return f'neural_collborative_filtering_{self.model_type}'
     
-    def train(self, debug = False):
+    def train(self, debug = False, user_node_ids=None):
         # TODO train on downloaded interactions
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         self.game_nodes = self.data_loader.get_game_node_ids()
-        self.user_nodes = self.data_loader.get_user_node_ids()
+        self.user_nodes = user_node_ids if user_node_ids is not None else self.data_loader.get_user_node_ids()
         self.game_to_index = {game: ii for ii, game in enumerate(self.game_nodes)}
         self.user_to_index = {user: ii for ii, user in enumerate(self.user_nodes)}
         train_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
@@ -77,12 +77,12 @@ class NCFModel(BaseGameRecommendationModel):
         return self.ncf.test_loss(user_indices, game_indices, user_game_scores_tensor)
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
-        if new_user_games_df.empty and new_interactions_df.empty:
-            return
         if not user_id in self.user_to_index:
             self.ncf.add_new_user()
             self.user_to_index[user_id] = len(self.user_nodes)
             self.user_nodes.append(user_id)
+        if new_user_games_df.empty and new_interactions_df.empty:
+            return
         # TODO use all new ones and sample some already trained ones.
         user_indices = pd.concat([new_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), new_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])
         user_indices = torch.tensor(user_indices.values)

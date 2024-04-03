@@ -337,3 +337,44 @@ class WarmFineTuneEvaluator(OfflineEvaluator):
             for i in range(0, len(new_users_games_df_shuffled), self.fine_tune_batch_size):
                 users_games_batch_size = new_users_games_df_shuffled.iloc[i:i+self.fine_tune_batch_size]
                 self.model._fine_tune(user, users_games_batch_size, fake_interactions, all_users_games_df, fake_interactions)
+
+class WarmFineTuneEvaluator(OfflineEvaluator):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False, fine_tune_batch_size=10):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+        self.fine_tune_batch_size = fine_tune_batch_size
+    
+    def prepare_model(self):
+        self.model.train()
+        # TODO Add interactions.
+        for user in tqdm(self.users_to_eval, desc='Fine tuning'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            all_users_games_df = users_games_df[users_games_df['data_split'] != 'test']
+            fake_interactions = pd.DataFrame(columns=users_games_df.columns)
+            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
+            new_users_games_df_shuffled = new_users_games_df.sample(frac=1).reset_index(drop=True)
+            for i in range(0, len(new_users_games_df_shuffled), self.fine_tune_batch_size):
+                users_games_batch_size = new_users_games_df_shuffled.iloc[i:i+self.fine_tune_batch_size]
+                self.model._fine_tune(user, users_games_batch_size, fake_interactions, all_users_games_df, fake_interactions)
+
+class ColdFineTuneEvaluator(OfflineEvaluator):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False, fine_tune_batch_size=10):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+        self.fine_tune_batch_size = fine_tune_batch_size
+    
+    def prepare_model(self):
+        train_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
+        train_user_ids = train_df['user_id'].unique().tolist()
+        self.model.train(user_node_ids=train_user_ids)
+        # TODO Add interactions.
+        for user in tqdm(self.users_to_eval, desc='Fine tuning'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            all_users_games_df = users_games_df[users_games_df['data_split'] != 'test']
+            fake_interactions = pd.DataFrame(columns=users_games_df.columns)
+            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
+            new_users_games_df_shuffled = new_users_games_df.sample(frac=1).reset_index(drop=True)
+            if len(new_users_games_df_shuffled) == 0:
+                self.model._fine_tune(user, new_users_games_df_shuffled, fake_interactions, all_users_games_df, fake_interactions)
+                continue
+            for i in range(0, len(new_users_games_df_shuffled), self.fine_tune_batch_size):
+                users_games_batch_size = new_users_games_df_shuffled.iloc[i:i+self.fine_tune_batch_size]
+                self.model._fine_tune(user, users_games_batch_size, fake_interactions, all_users_games_df, fake_interactions)
