@@ -75,6 +75,7 @@ class GetRecommendationFilterInput(BaseModel, extra="forbid"):
 @login_required
 @validate()
 def get_recommendations(query: GetRecommendationFilterInput):
+    print("Getting recommendations")
     data_loader = load_and_get_data_loader(current_app)
     model_wrapper = load_and_get_random_model_wrapper(current_app)
     model = model_wrapper.model
@@ -102,4 +103,5 @@ def get_recommendations(query: GetRecommendationFilterInput):
         "num_game_interactions_external": len(interactions_df[interactions_df['source'] == EXTERNAL_DATA_SOURCE]),
         "num_game_owned_external": len(users_games_df[users_games_df['source'] == EXTERNAL_DATA_SOURCE]),
     }
+    print("Returning recommendations response")
     return jsonify(output)
