@@ -1,6 +1,6 @@
 import { makeBackendURL } from "../util";
 
-export interface RecommendationResponse {
+export interface RecResponse {
   avgReviewScore: number;
   description: string;
   genres: string[];
@@ -14,7 +14,7 @@ export interface RecommendationResponse {
 }
 
 export interface RecommendationsResponse {
-  recommendations: Array<RecommendationResponse>;
+  recommendations: Array<RecResponse>;
   model_name: string;
   model_save_path: string;
   num_game_interactions_local: number;
