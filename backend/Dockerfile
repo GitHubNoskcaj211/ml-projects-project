@@ -41,7 +41,6 @@ COPY dataset/scrape/serialization.py ./dataset/scrape
 
 COPY models/__init__.py ./models/
 COPY models/base_model.py ./models/
-COPY models/collaborative_filtering_model.py ./models/
 COPY models/common_neighbors_model.py ./models/
 COPY models/ncf_model.py ./models/
 COPY models/ncf_singlenode.py ./models/
