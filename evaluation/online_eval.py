@@ -20,7 +20,7 @@ def get_filtered_interactions(include_fn):
     return filter(lambda x: include_fn(x), itertools.chain.from_iterable(interactions))
 
 
-def eval(include_fn, score_fn):
+def online_eval(include_fn, score_fn):
     data = pd.DataFrame(get_filtered_interactions(include_fn))
     data["expected_score"] = data.apply(score_fn, axis=1)
     data.rename(columns={
@@ -42,4 +42,4 @@ def score_time_spent(interaction):
     return interaction["time_spent"]
 
 
-print(eval(include_coldstart, score_time_spent))
+print(online_eval(include_coldstart, score_time_spent))
