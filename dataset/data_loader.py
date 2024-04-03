@@ -243,7 +243,7 @@ class DataLoader():
                 info = info.to_dict()
                 df = pd.concat([pd.DataFrame([info]), df])
         df.drop_duplicates(subset=["id"], keep="first", inplace=True)
-        return df.to_dict("records")
+        return df.to_dict("records")][0]
 
     def user_exists(self, user_id):
         if self.get_local:
