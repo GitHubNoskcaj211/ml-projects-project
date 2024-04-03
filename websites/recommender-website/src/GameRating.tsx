@@ -48,7 +48,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     while (true) {
       try {
         const resp = await fetchGameRecommendations(
-          REQ_BATCH_SIZE + BUFFER_SIZE,
+          REQ_BATCH_SIZE + BUFFER_SIZE
         );
         const promises = resp.recommendations.map(async (rec) => {
           const gameInfo = await fetchGameInfo(rec.game_id);
@@ -81,20 +81,23 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           closePopup();
         }
       };
-      window.addEventListener("keydown", handleKeyPress);
+      window.addEventListener("keydown", handleKeyPress, { once: true });
       return () => {
         window.removeEventListener("keydown", handleKeyPress);
       };
     }
 
+    if (loading || interactionAttempts > 1) {
+      return;
+    }
     const handleKeyPress = async (event: KeyboardEvent) => {
       if (loading) return;
 
-      if (startTime === null) {
-        throw Error("startTime is null");
-      }
       if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
         return;
+      }
+      if (startTime === null) {
+        throw Error("startTime is null");
       }
 
       setInteractionAttempts((prev) => prev + 1);
@@ -119,7 +122,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           num_game_interactions_local: rec.resp.num_game_interactions_local,
           num_game_owned_local: rec.resp.num_game_owned_local,
           num_game_interactions_external:
-          rec.resp.num_game_interactions_external,
+            rec.resp.num_game_interactions_external,
           num_game_owned_external: rec.resp.num_game_owned_external,
           game_id: rec.gameInfo.id,
           user_liked: userLiked,
@@ -136,11 +139,19 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       setSteamLinkClicked(false);
     };
 
-    window.addEventListener("keydown", handleKeyPress);
+    window.addEventListener("keydown", handleKeyPress, { once: true });
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [showPopup, loading, startTime, currentIndex, steamLinkClicked, interactionAttempts, recommendations.length]);
+  }, [
+    showPopup,
+    loading,
+    startTime,
+    currentIndex,
+    steamLinkClicked,
+    interactionAttempts,
+    recommendations.length,
+  ]);
 
   useEffect(() => {
     const expectedNumLeft = expectedRecommendationsLength - currentIndex;
@@ -192,7 +203,12 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       <div className="contentContainer">
         {/* Game Title */}
         <div className="title box">
-          <a href={`https://store.steampowered.com/app/${recommendations[currentIndex].gameInfo.id}`} target="_blank" rel="noopener noreferrer" onClick={handleSteamLinkClicked}>
+          <a
+            href={`https://store.steampowered.com/app/${recommendations[currentIndex].gameInfo.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleSteamLinkClicked}
+          >
             <h1>{recommendations[currentIndex].gameInfo.name}</h1>
           </a>
         </div>
@@ -213,7 +229,9 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           <div className="rec box">
             <RecCircle
               value={recommendations[currentIndex].gameInfo.avgReviewScore || 0}
-              num_reviewers={recommendations[currentIndex].gameInfo.numReviews || 0}
+              num_reviewers={
+                recommendations[currentIndex].gameInfo.numReviews || 0
+              }
             />
           </div>
         </div>
