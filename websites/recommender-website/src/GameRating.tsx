@@ -77,7 +77,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           closePopup();
         }
       };
-      window.addEventListener("keydown", handleKeyPress, { once: true });
+      window.addEventListener("keydown", handleKeyPress);
       return () => {
         window.removeEventListener("keydown", handleKeyPress);
       };
@@ -135,7 +135,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
       setSteamLinkClicked(false);
     };
 
-    window.addEventListener("keydown", handleKeyPress, { once: true });
+    window.addEventListener("keydown", handleKeyPress);
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
