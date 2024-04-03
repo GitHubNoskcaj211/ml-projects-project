@@ -5,8 +5,8 @@ import PopUpBox from "./components/PopUpBox";
 import {
   fetchGameRecommendations,
   RecommendationsResponse,
+  RecResponse,
 } from "./components/GetRecs";
-import { fetchGameInfo, GameInfo } from "./components/GetGameDetails";
 import { makeBackendURL } from "./util";
 
 interface Game {
@@ -17,8 +17,8 @@ interface Game {
 }
 
 interface Recommendation {
-  gameInfo: GameInfo;
   resp: RecommendationsResponse;
+  rec: RecResponse;
 }
 
 interface GameRatingProps {
@@ -50,20 +50,16 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         const resp = await fetchGameRecommendations(
           REQ_BATCH_SIZE + BUFFER_SIZE
         );
-        const promises = resp.recommendations.map(async (rec) => {
-          const gameInfo = await fetchGameInfo(rec.game_id);
-          return {
-            gameInfo,
-            resp,
-          };
-        });
-        const new_recommendations = await Promise.all(promises);
         setRecommendations((prev) => {
-          const prevRecommend = new Set(prev.map((rec) => rec.gameInfo.id));
-          let addedRecs = new_recommendations.filter(
-            (game) => !prevRecommend.has(game.gameInfo.id)
-          );
-          addedRecs = addedRecs.slice(0, REQ_BATCH_SIZE);
+          const prevRecommend = new Set(prev.map((rec) => rec.rec.id));
+          const addedRecs = resp.recommendations.filter(
+            (rec) => !prevRecommend.has(rec.id)
+          )
+          .slice(0, REQ_BATCH_SIZE)
+          .map((rec => ({
+            resp,
+            rec,
+          })));
           return prev.concat(addedRecs);
         });
         setLoading(false);
@@ -124,7 +120,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           num_game_interactions_external:
             rec.resp.num_game_interactions_external,
           num_game_owned_external: rec.resp.num_game_owned_external,
-          game_id: rec.gameInfo.id,
+          game_id: rec.rec.id,
           user_liked: userLiked,
           time_spent: timeSpent,
           steam_link_clicked: steamLinkClicked,
@@ -204,33 +200,33 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         {/* Game Title */}
         <div className="title box">
           <a
-            href={`https://store.steampowered.com/app/${recommendations[currentIndex].gameInfo.id}`}
+            href={`https://store.steampowered.com/app/${recommendations[currentIndex].rec.id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleSteamLinkClicked}
           >
-            <h1>{recommendations[currentIndex].gameInfo.name}</h1>
+            <h1>{recommendations[currentIndex].rec.name}</h1>
           </a>
         </div>
         {/* Price */}
         <div className="price box">
-          <h2>Price: ${recommendations[currentIndex].gameInfo.price}</h2>
+          <h2>Price: ${recommendations[currentIndex].rec.price}</h2>
         </div>
         <div className="secondRow">
           {/* Image */}
           <div className="image box">
             <img
-              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].gameInfo.id}/header.jpg`}
-              alt={recommendations[currentIndex].gameInfo.name}
+              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].rec.id}/header.jpg`}
+              alt={recommendations[currentIndex].rec.name}
             />
           </div>
 
           {/* RecCircle */}
           <div className="rec box">
             <RecCircle
-              value={recommendations[currentIndex].gameInfo.avgReviewScore || 0}
+              value={recommendations[currentIndex].rec.avgReviewScore || 0}
               num_reviewers={
-                recommendations[currentIndex].gameInfo.numReviews || 0
+                recommendations[currentIndex].rec.numReviews || 0
               }
             />
           </div>
@@ -238,14 +234,14 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
         {/* Game Description */}
         <div className="game box">
-          <p>{recommendations[currentIndex].gameInfo.description}</p>
+          <p>{recommendations[currentIndex].rec.description}</p>
         </div>
 
         {/* Genres */}
         <div className="genre box">
           <h2>Genres</h2>
           <div className="genreButtons">
-            {recommendations[currentIndex].gameInfo.genres.map(
+            {recommendations[currentIndex].rec.genres.map(
               (genre: string, index: number) => (
                 <button key={index} disabled>
                   {genre}
@@ -259,7 +255,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         <div className="tag box">
           <h2>Tags</h2>
           <div className="tagButtons">
-            {recommendations[currentIndex].gameInfo.tags.map(
+            {recommendations[currentIndex].rec.tags.map(
               (tag: string, index: number) => (
                 <button key={index} disabled>
                   {tag}

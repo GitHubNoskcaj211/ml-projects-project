@@ -86,7 +86,7 @@ def get_recommendations(query: GetRecommendationFilterInput):
         user_id, query.N, should_sort=True
     )
     recommendations = [
-        {"game_id": int(game_id), "recommendation_score": float(score)}
+        {**data_loader.get_game_information(game_id), "recommendation_score": float(score)}
         for game_id, score in recommendations
     ]
 

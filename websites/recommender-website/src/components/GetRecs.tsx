@@ -1,7 +1,20 @@
 import { makeBackendURL } from "../util";
 
+export interface RecommendationResponse {
+  avgReviewScore: number;
+  description: string;
+  genres: string[];
+  name: string;
+  numFollowers: number;
+  numReviews: number;
+  price: number;
+  tags: string[];
+  id: string;
+  recommendation_score: number;
+}
+
 export interface RecommendationsResponse {
-  recommendations: Array<{ game_id: number; recommendation_score: number }>;
+  recommendations: Array<RecommendationResponse>;
   model_name: string;
   model_save_path: string;
   num_game_interactions_local: number;
