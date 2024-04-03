@@ -11,6 +11,8 @@ if __name__ == "__main__":
 
 from dataset.scrape.constants import *
 
+IN_PROD = "K_SERVICE" in os.environ
+
 
 def serialize_users_games():
     csv_file = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.csv")
@@ -26,32 +28,41 @@ def serialize_users_games():
 
     offsets = {}
     filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.bin")
+    data = io.BytesIO()
+    for user_id, group in tqdm(groups):
+        start = data.tell()
+        group.to_feather(data)
+        size = data.tell() - start
+        offsets[user_id] = [start, size]
     with open(filepath, "wb") as f:
-        for user_id, group in tqdm(groups):
-            start = f.tell()
-            group.to_feather(f)
-            size = f.tell() - start
-            offsets[user_id] = [start, size]
-
-        offsets_str = ujson.dumps(offsets)
-        f.seek(0)
+        offsets_str = ujson.dumps(offsets).encode("utf-8")
         f.write(len(offsets_str).to_bytes(8, "little"))
-        f.write(offsets_str.encode("utf-8"))
+        f.write(offsets_str)
+        f.write(data.getvalue())
+
+
+USERS_GAMES_OFFSETS = None
+USERS_GAMES_DATA = None
 
 
 def deserialize_users_games(user_id):
-    filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.bin")
-    user_id = str(user_id)
-    with open(filepath, "rb") as f:
-        offsets_len = int.from_bytes(f.read(8), "little")
-        offsets = ujson.loads(f.read(offsets_len).decode("utf-8"))
+    global USERS_GAMES_OFFSETS
+    global USERS_GAMES_DATA
 
-        start, size = offsets.get(user_id, [None, None])
-        if start is None:
-            return None
-        f.seek(start)
-        data = io.BytesIO(f.read(size))
-    return pd.read_feather(data)
+    if USERS_GAMES_DATA is None:
+        filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.bin")
+        with open(filepath, "rb") as f:
+            offsets_len = int.from_bytes(f.read(8), "little")
+            USERS_GAMES_OFFSETS = ujson.loads(f.read(offsets_len).decode("utf-8"))
+            USERS_GAMES_DATA = bytearray(f.read())
+        if IN_PROD:
+            os.remove(filepath)
+    user_id = str(user_id)
+    ret = USERS_GAMES_OFFSETS.get(user_id, None)
+    if ret is None:
+        return None
+    start, size = ret
+    return pd.read_feather(io.BytesIO(USERS_GAMES_DATA[start:start + size]))
 
 
 def serialize_games():
@@ -88,7 +99,7 @@ def deserialize_game(game_id):
         filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "games.json")
         with open(filepath, "r") as f:
             GAMES = ujson.load(f)
-        if "K_SERVICE" in os.environ:
+        if IN_PROD:
             os.remove(filepath)
     return GAMES.get(str(game_id), None)
 
