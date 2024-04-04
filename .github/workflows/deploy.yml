@@ -22,6 +22,12 @@ jobs:
 
       - name: Clone LFS Submodules
         run: |
+          git -c "lfs.url=https://huggingface.co" -c "http.extraheader=AUTHORIZATION: Bearer $HF_PAT" submodule update --init --recursive
+        env:
+          HF_PAT: ${{ secrets.HF_TOKEN }}
+
+      - name: Update LFS Submodules
+        run: |
           git -c "http.extraheader=AUTHORIZATION: bearer $HF_PAT" -C dataset/data_files lfs pull origin b9cea916d006df7241ac66642ba8a0fee5104bfd
           git -c "http.extraheader=AUTHORIZATION: bearer $HF_PAT" -C models/published_recommendation_models lfs pull origin f30eb2f656cd829e539700c3af384e1bc7a1bc5a
           ls models/published_recommendation_models
