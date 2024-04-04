@@ -45,6 +45,7 @@ for snowball in snowballs:
         continue
     anon_snowball = str(get_anon_id(int(snowball)))
     os.makedirs(os.path.join(PUBLIC_ROOT, anon_snowball), exist_ok=True)
+    anonymize_and_write(snowball, "users.csv", ["id"])
     anonymize_and_write(snowball, "friends.csv", ["user1", "user2"])
     anonymize_and_write(snowball, "users_games.csv", ["user_id"])
     anonymize_and_write(snowball, "games.csv", [])
