@@ -40,7 +40,7 @@ file_name = args.load_file_name
 N = args.num_games_to_recommend
 
 print("Initializing Data Loader")
-data_loader = DataLoader.load_from_file(args.data_loader_file_name, load_live_data_loader=True) # 
+data_loader = DataLoader.load_from_file(args.data_loader_file_name, use_published_models_path=True, load_live_data_loader=True) # 
 model.set_data_loader(data_loader)
 print('Loading Model')
 model.load(file_name)

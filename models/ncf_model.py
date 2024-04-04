@@ -43,24 +43,18 @@ class NCFModel(BaseGameRecommendationModel):
             # normalized_column = linear_transformation(column, column.min(), column.max(), -0.1, 0.1)
             return normalized_column
 
-        # TODO use existing data
-        game_data_df = get_numeric_dataframe_columns(self.data_loader.games_df, columns_to_remove=['id'])
-        game_data_df = game_data_df.apply(normalize_column, axis=0)
-        # known_game_embeddings = game_data_df.to_numpy()
+        assert all((id1 == id2 for id1, id2 in zip(self.game_nodes, self.data_loader.games_df['id']))), 'Need the dataframe ids to have the same order as get_game_node_ids for embeddings to assign properly.'
+        self.known_game_embeddings_df = get_numeric_dataframe_columns(self.data_loader.games_df, columns_to_remove=['id'])
+        self.known_game_embeddings_df = self.known_game_embeddings_df.apply(normalize_column, axis=0)
         
-        user_data_df = get_numeric_dataframe_columns(self.data_loader.users_df, columns_to_remove=['id'])
-        user_data_df = user_data_df.apply(normalize_column, axis=0)
-        # known_user_embeddings = user_data_df.to_numpy()
-        
-        print('Known Game Embeddings: ', game_data_df.columns.tolist())
-        print('Known User Embeddings: ', user_data_df.columns.tolist())
+        print('Known Game Embeddings: ', self.known_game_embeddings_df.columns.tolist())
 
         user_indices = torch.tensor(train_users_games_df['user_id'].apply(lambda id: self.user_to_index[id]).values)
         game_indices = torch.tensor(train_users_games_df['game_id'].apply(lambda id: self.game_to_index[id]).values)
 
         self.num_users = len(self.user_nodes)
         self.num_games = len(self.game_nodes)
-        self.ncf = NCF(self.num_users, self.num_games, self.model_type, self.embedding_size, self.mlp_hidden_layer_sizes, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
+        self.ncf = NCF(self.num_users, self.num_games, self.model_type, self.embedding_size, self.known_game_embeddings_df, self.mlp_hidden_layer_sizes, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
 
         user_game_scores_tensor = torch.tensor(train_users_games_df['score'].values)
         user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
@@ -94,7 +88,7 @@ class NCFModel(BaseGameRecommendationModel):
         scores_tensor = torch.reshape(scores_tensor, (-1, 1))
         # TODO parameterize these later.
         self.fine_tune_num_epochs = 40
-        self.fine_tune_weight_decay = 1e-1#1e-3
+        self.fine_tune_weight_decay = 1e-6#1e-3
         self.fine_tune_learning_rate = 1e-1
         self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=False)
             
@@ -109,7 +103,7 @@ class NCFModel(BaseGameRecommendationModel):
         assert len(users) == len(games), 'Inconsistent list lengths.'
         users_ii = [self.user_to_index[user] for user in users]
         games_ii = [self.game_to_index[game] for game in games]
-        output = self.ncf.predict(torch.tensor([users_ii]), torch.tensor([games_ii]))
+        output = self.ncf.predict(torch.tensor(users_ii), torch.tensor(games_ii))
         return output
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True, games_to_include=[]):
@@ -129,6 +123,7 @@ class NCFModel(BaseGameRecommendationModel):
             pickle.dump({
                 'num_epochs': self.num_epochs,
                 'embedding_size': self.embedding_size,
+                'known_game_embeddings_df': self.known_game_embeddings_df,
                 'batch_percent': self.batch_percent,
                 'learning_rate': self.learning_rate,
                 'weight_decay': self.weight_decay,
@@ -152,6 +147,7 @@ class NCFModel(BaseGameRecommendationModel):
             loaded_obj = pickle.load(file)
             self.num_epochs = loaded_obj['num_epochs']
             self.embedding_size = loaded_obj['embedding_size']
+            self.known_game_embeddings_df = loaded_obj['known_game_embeddings_df']
             self.batch_percent = loaded_obj['batch_percent']
             self.learning_rate = loaded_obj['learning_rate']
             self.weight_decay = loaded_obj['weight_decay']
@@ -167,5 +163,5 @@ class NCFModel(BaseGameRecommendationModel):
             self.fine_tune_num_epochs = loaded_obj['fine_tune_num_epochs']
             self.fine_tune_learning_rate = loaded_obj['fine_tune_learning_rate']
             self.fine_tune_weight_decay = loaded_obj['fine_tune_weight_decay']
-        self.ncf = NCF(self.num_users, self.num_games, self.model_type, self.embedding_size, self.mlp_hidden_layer_sizes, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
+        self.ncf = NCF(self.num_users, self.num_games, self.model_type, self.embedding_size, self.known_game_embeddings_df, self.mlp_hidden_layer_sizes, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
         self.ncf.load(folder_path, file_name)

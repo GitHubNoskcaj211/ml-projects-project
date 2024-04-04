@@ -7,19 +7,24 @@ from tqdm import tqdm
 from models.base_model import SAVED_MODELS_PATH, SAVED_NN_PATH
 from matplotlib import pyplot as plt
 import random
+import pandas as pd
 
 # In depth explanation here: https://github.com/recommenders-team/recommenders/blob/main/examples/02_model_collaborative_filtering/ncf_deep_dive.ipynb
 class NCF(nn.Module):
-    def __init__(self, num_users, num_games, model_type="ncf", embedding_size=100, mlp_hidden_layer_sizes=[16, 8, 4], num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
+    def __init__(self, num_users, num_games, model_type="ncf", embedding_size=100, known_game_embeddings_df=pd.DataFrame(), mlp_hidden_layer_sizes=[16, 8, 4], num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
         super(NCF, self).__init__()
 
         self.new_seed(seed)
+
+        self.known_game_embeddings_df = known_game_embeddings_df
+        self.known_game_embeddings_tensor = torch.tensor(self.known_game_embeddings_df.values, dtype=torch.float32)
+        self.num_known_game_embeddings = len(self.known_game_embeddings_df.columns)
 
         self.num_users = num_users
         self.num_games = num_games
         self.model_type = model_type.lower()
         self.embedding_size = embedding_size
-        self.mlp_hidden_layer_sizes = [2 * embedding_size, *mlp_hidden_layer_sizes]
+        self.mlp_hidden_layer_sizes = [2 * embedding_size + self.num_known_game_embeddings, *mlp_hidden_layer_sizes]
         self.num_epochs = num_epochs
         self.batch_percent = batch_percent
         self.learning_rate = learning_rate
@@ -53,41 +58,37 @@ class NCF(nn.Module):
         if self.gcf or self.cf:
             self.embedding_gcf_user = nn.Embedding(self.num_users, self.embedding_size)
             self.embedding_gcf_game = nn.Embedding(self.num_games, self.embedding_size)
-
+            self.embedding_gcf_known_game = nn.Embedding.from_pretrained(self.known_game_embeddings_tensor)
+            self.embedding_gcf_user_for_known_game = nn.Embedding(self.num_users, self.num_known_game_embeddings)
+            
         if self.mlp:
             self.embedding_mlp_user = nn.Embedding(self.num_users, self.embedding_size)
             self.embedding_mlp_game = nn.Embedding(self.num_games, self.embedding_size)
+            self.embedding_mlp_known_game = nn.Embedding.from_pretrained(self.known_game_embeddings_tensor)
             self.mlp_layers = nn.ModuleList()
             for layer1, layer2 in zip(self.mlp_hidden_layer_sizes[:-1], self.mlp_hidden_layer_sizes[1:]):
                 self.mlp_layers.append(nn.Linear(layer1, layer2))
                 self.mlp_layers.append(nn.ReLU())
 
         if self.ncf:
-            self.ncf_fc = nn.Linear(self.embedding_size + self.mlp_hidden_layer_sizes[-1], 1)
+            self.ncf_fc = nn.Linear(self.embedding_size + self.num_known_game_embeddings + self.mlp_hidden_layer_sizes[-1], 1)
         elif self.gcf:
-            self.ncf_fc = nn.Linear(self.embedding_size, 1)
+            self.ncf_fc = nn.Linear(self.embedding_size + self.num_known_game_embeddings, 1)
         elif self.mlp:
             self.ncf_fc = nn.Linear(self.mlp_hidden_layer_sizes[-1], 1)
         
         self.dropout = nn.Dropout(0.2)
-        self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU()
-        # self.loss_fn = nn.MSELoss()
         self.loss_fn = nn.L1Loss()
-        # self.loss_fn = nn.BCELoss()
 
     def forward(self, user_index, game_index):
         if self.cf or self.gcf:
-            gcf_user = self.embedding_gcf_user(user_index)
-            gcf_game = self.embedding_gcf_game(game_index)
-            gcf_vector = gcf_user * gcf_game
+            gcf_vector = torch.cat([self.embedding_gcf_user(user_index) * self.embedding_gcf_game(game_index), self.embedding_gcf_user_for_known_game(user_index) * self.embedding_gcf_known_game(game_index)], dim=1)
             if self.gcf:
                 gcf_vector = self.relu(gcf_vector)
 
         if self.mlp:
-            mlp_user = self.embedding_mlp_user(user_index)
-            mlp_game = self.embedding_mlp_game(game_index)
-            mlp_vector = torch.cat([mlp_user, mlp_game], dim=1)
+            mlp_vector = torch.cat([self.embedding_mlp_user(user_index), self.embedding_mlp_game(game_index), self.embedding_mlp_known_game(game_index)], dim=1)
             for layer in self.mlp_layers:
                 mlp_vector = layer(mlp_vector)
 
@@ -112,6 +113,11 @@ class NCF(nn.Module):
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
             p.requires_grad_(True)
+        if self.gcf or self.cf:
+            self.embedding_gcf_known_game.weight.requires_grad_(False)
+        if self.mlp:
+            self.embedding_mlp_known_game.weight.requires_grad_(False)
+        # TODO Fix weight decay for these
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.learning_rate, weight_decay=self.weight_decay)
         print('Total Learnable Parameters:', sum(p.numel() for p in self.parameters() if p.requires_grad))
         batch_size = int(len(user_indices) * self.batch_percent) + 1
@@ -144,16 +150,18 @@ class NCF(nn.Module):
     def add_new_user(self):
         # Init with average user embedding + normal random around it?
         if self.gcf or self.cf:
-            # new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[similar_user_index].reshape(1, -1)])
             # new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
-            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.mean(self.embedding_gcf_user.weight, dim=0, keepdim=True)])
-            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
+            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.mean(self.embedding_gcf_user.weight, dim=0, keepdim=True)])
+            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_gcf_user = nn.Embedding.from_pretrained(new_weight)
+            # new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, self.embedding_gcf_user_for_known_game.weight[random.randint(0, self.num_users)].reshape(1, -1)])
+            new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.mean(self.embedding_gcf_user_for_known_game.weight, dim=0, keepdim=True)])
+            # new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.randn(1, self.num_known_game_embeddings)])
+            self.embedding_gcf_user_for_known_game = nn.Embedding.from_pretrained(new_weight)
         if self.mlp:
-            # new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[similar_user_index].reshape(1, -1)])
             # new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
-            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.mean(self.embedding_mlp_user.weight, dim=0, keepdim=True)])
-            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
+            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.mean(self.embedding_mlp_user.weight, dim=0, keepdim=True)])
+            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
         self.num_users += 1
 

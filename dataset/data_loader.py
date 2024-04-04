@@ -316,8 +316,8 @@ class DataLoader():
         self.users_games_df.loc[fine_tune_edges, 'data_split'] = 'tune'
 
     @classmethod
-    def load_from_file(cls, file_name, load_live_data_loader=False):
-        folder_path = PUBLISHED_MODELS_PATH if load_live_data_loader else SAVED_DATA_LOADER_PATH
+    def load_from_file(cls, file_name, use_published_models_path=False, load_live_data_loader=False):
+        folder_path = PUBLISHED_MODELS_PATH if use_published_models_path else SAVED_DATA_LOADER_PATH
         with open(folder_path + file_name + '.pkl', 'rb') as file:
             parameter_dictionary = pickle.load(file)
             return cls(

@@ -18,50 +18,56 @@ recommendation = Blueprint(name="recommendation", import_name=__name__)
 model_wrappers = [
     ModelWrapper(
         CommonNeighbors,
-        "test_common_neighbors_default",
-        "test_common_neighbors_default_data_loader",
+        "evaluation_test_common_neighbors_constant_scoring",
+        "test_evaluation_constant_scoring",
         None,
     ),
     ModelWrapper(
         CommonNeighbors,
-        "test_common_neighbors_playtime_scored_gaussian_normalized",
-        "test_common_neighbors_playtime_scored_gaussian_normalized_data_loader",
+        "evaluation_test_common_neighbors_percentile_scoring",
+        "test_evaluation_data_loader_percentile_scoring",
+        None,
+    ),
+    ModelWrapper(
+        CommonNeighbors,
+        "evaluation_test_common_neighbors",
+        "test_evaluation_data_loader",
         None,
     ),
     ModelWrapper(
         GamePopularityModel,
-        "test_popularity_model",
-        "test_popularity_model_data_loader",
+        "evaluation_test_popularity_model",
+        "test_evaluation_data_loader",
         None,
     ),
     ModelWrapper(
         RandomModel,
-        "test_random_model",
-        "test_random_model_data_loader",
+        "evaluation_test_random_model",
+        "test_evaluation_data_loader",
         None,
     ),
     ModelWrapper(
         NCFModel,
-        "test_cf_model",
-        "test_ncf_data_loader",
+        "evaluation_test_cf_embed_all_except_tags",
+        "test_evaluation_data_loader_embed_all_except_tags",
         None,
     ),
     ModelWrapper(
         NCFModel,
-        "test_gcf_model",
-        "test_ncf_data_loader",
+        "evaluation_test_gcf_embed_all_except_tags",
+        "test_evaluation_data_loader_embed_all_except_tags",
         None,
     ),
     ModelWrapper(
         NCFModel,
-        "test_mlp_model",
-        "test_ncf_data_loader",
+        "evaluation_test_mlp_embed_all_except_tags",
+        "test_evaluation_data_loader_embed_all_except_tags",
         None,
     ),
     ModelWrapper(
         NCFModel,
-        "test_ncf_model",
-        "test_ncf_data_loader",
+        "evaluation_test_ncf_embed_all_except_tags",
+        "test_evaluation_data_loader_embed_all_except_tags",
         None,
     ),
 ]
@@ -78,7 +84,7 @@ def get_recommendations(query: GetRecommendationFilterInput):
     data_loader = load_and_get_data_loader(current_app)
     model_wrapper = load_and_get_random_model_wrapper(current_app)
     model = model_wrapper.model
-    print(g.execution_id, "Getting recommendations", model.name())
+    print(g.execution_id, "Getting recommendations", model.name(), model_wrapper.model_save_file_name)
     user_id = int(current_user.id)
     if not data_loader.user_exists(user_id):
         return jsonify({"error": f"User with user_id {user_id} not found"}), 404
