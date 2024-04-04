@@ -17,10 +17,15 @@ jobs:
       - name: Delete unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
 
+      - name: Set HF Token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global url."${HF_TOKEN}:https://huggingface.co/steamgamerecommender/".insteadOf "https://huggingface.co/"
+
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
         with:
-          token: ${{ secrets.HF_TOKEN }}
           submodules: true
 
       - name: Clone LFS Submodules
