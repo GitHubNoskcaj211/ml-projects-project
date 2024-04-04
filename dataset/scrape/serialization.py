@@ -1,5 +1,6 @@
 import ast
 import io
+import mmap
 import os
 import pandas as pd
 from tqdm import tqdm
@@ -26,17 +27,18 @@ def serialize_users_games():
 
     offsets = {}
     filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.bin")
-    data = io.BytesIO()
-    for user_id, group in tqdm(groups):
-        start = data.tell()
-        group.to_feather(data)
-        size = data.tell() - start
-        offsets[user_id] = [start, size]
+
     with open(filepath, "wb") as f:
-        offsets_str = ujson.dumps(offsets).encode("utf-8")
-        f.write(len(offsets_str).to_bytes(8, "little"))
-        f.write(offsets_str)
-        f.write(data.getvalue())
+        f.write((0).to_bytes(8, "little"))
+        for user_id, group in tqdm(groups):
+            start = f.tell()
+            group.to_feather(f)
+            size = f.tell() - start
+            offsets[user_id] = [start, size]
+        offsets_begin = f.tell()
+        f.write(ujson.dumps(offsets).encode("utf-8"))
+        f.seek(0)
+        f.write(offsets_begin.to_bytes(8, "little"))
 
 
 USERS_GAMES_OFFSETS = None
@@ -50,9 +52,10 @@ def deserialize_users_games(user_id):
     if USERS_GAMES_DATA is None:
         filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users_games.bin")
         with open(filepath, "rb") as f:
-            offsets_len = int.from_bytes(f.read(8), "little")
-            USERS_GAMES_OFFSETS = ujson.loads(f.read(offsets_len).decode("utf-8"))
-            USERS_GAMES_DATA = bytearray(f.read())
+            offsets_begin = int.from_bytes(f.read(8), "little")
+            f.seek(offsets_begin)
+            USERS_GAMES_OFFSETS = ujson.loads(f.read().decode("utf-8"))
+            USERS_GAMES_DATA = mmap.mmap(f.fileno(), offsets_begin, access=mmap.ACCESS_READ)
     user_id = str(user_id)
     ret = USERS_GAMES_OFFSETS.get(user_id, None)
     if ret is None:
