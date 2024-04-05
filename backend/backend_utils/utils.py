@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from dataset.data_loader import DataLoader
 from models.base_model import BaseGameRecommendationModel
 import random
-import os
 
 
 @dataclass
@@ -22,13 +21,11 @@ def load_and_get_data_loader(app):
 def load_and_get_random_model_wrapper(app):
     random.seed(None)
     selected_model_wrapper = random.choice(app.model_wrappers)
-    print(os.getpid(), "Getting model", selected_model_wrapper.model)
     if selected_model_wrapper.model is None:
         selected_model_wrapper.model = selected_model_wrapper.definition()
         selected_model_wrapper.model.load(
             selected_model_wrapper.model_save_file_name, load_published_model=True
         )
         model_data_loader = DataLoader.load_from_file(selected_model_wrapper.data_loader_save_file_name, use_published_models_path=True, load_live_data_loader=True)
-        print(os.getpid(), "Setting data loader", selected_model_wrapper.model)
         selected_model_wrapper.model.set_data_loader(model_data_loader)
     return selected_model_wrapper
