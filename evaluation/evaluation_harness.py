@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 import itertools
 import pandas as pd
 from utils.firestore import DatabaseClient
+from google.cloud.firestore_v1.base_query import FieldFilter
 from tqdm import tqdm
 
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
@@ -221,7 +222,8 @@ class OnlineEvaluator(Evaluator):
         users = self.client.interactions_ref.document("data").collections()
 
         def get_interactions_for_user(user_collection):
-            return (interaction.to_dict() for interaction in user_collection.stream())
+            query = user_collection.where(filter=FieldFilter("time_spent", ">", 0.2))
+            return (interaction.to_dict() for interaction in query.stream())
         interactions = (get_interactions_for_user(user_collection) for user_collection in users)
         return filter(lambda x: include_fn(x), itertools.chain.from_iterable(interactions))
 
