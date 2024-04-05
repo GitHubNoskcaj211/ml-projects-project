@@ -108,7 +108,7 @@ class NCF(nn.Module):
             output = self.ncf_fc(ncf_vector)
         return output
 
-    def train(self, user_indices, game_indices, labels, debug=False, writer=None):
+    def train(self, user_indices, game_indices, labels, test_user_indices, test_game_indices, test_labels, optimal_model_save_name, last_model_save_name, debug=False, writer=None):
         super(NCF, self).train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
@@ -123,6 +123,7 @@ class NCF(nn.Module):
         batch_size = int(len(user_indices) * self.batch_percent) + 1
 
         train_loss = []
+        lowest_test_loss = None
         for epoch_count in tqdm(range(self.num_epochs), desc='Training'):
             epoch_loss = []
             indices = np.random.permutation(len(user_indices))
@@ -135,16 +136,26 @@ class NCF(nn.Module):
                 batched_labels = labels[batch_indices]
                 predictions = self.forward(batched_users, batched_games)
                 loss = self.loss_fn(predictions, batched_labels)
-                if writer is not None:
-                    writer.add_scalar('Loss/train', loss, epoch_count)
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
                 epoch_loss.append(loss.item())
+
             average_epoch_loss = sum((value for value in epoch_loss)) / len(epoch_loss)
             train_loss.append(average_epoch_loss)
+
+            test_loss = self.test_loss(test_user_indices, test_game_indices, test_labels)
+            if writer is not None:
+                writer.add_scalar('Loss/train', average_epoch_loss, epoch_count)
+                writer.add_scalar('Loss/test', test_loss, epoch_count)
+            if optimal_model_save_name is not None:
+                # TODO Use val loss instead of test loss.
+                if lowest_test_loss is None or lowest_test_loss < test_loss:
+                    lowest_test_loss = test_loss
+                    self._save(optimal_model_save_name, overwrite=True)
+            self._save(last_model_save_name, overwrite=True)
         if debug:
             plt.plot(range(self.num_epochs), train_loss)
             plt.title('Mean Abs Error vs Epoch')
@@ -153,17 +164,17 @@ class NCF(nn.Module):
         # Init with average user embedding + normal random around it?
         if self.gcf or self.cf:
             # new_weight = torch.cat([self.embedding_gcf_user.weight, self.embedding_gcf_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
-            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.mean(self.embedding_gcf_user.weight, dim=0, keepdim=True)])
-            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
+            # new_weight = torch.cat([self.embedding_gcf_user.weight, torch.mean(self.embedding_gcf_user.weight, dim=0, keepdim=True)])
+            new_weight = torch.cat([self.embedding_gcf_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_gcf_user = nn.Embedding.from_pretrained(new_weight)
             # new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, self.embedding_gcf_user_for_known_game.weight[random.randint(0, self.num_users)].reshape(1, -1)])
-            new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.mean(self.embedding_gcf_user_for_known_game.weight, dim=0, keepdim=True)])
-            # new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.randn(1, self.num_known_game_embeddings)])
+            # new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.mean(self.embedding_gcf_user_for_known_game.weight, dim=0, keepdim=True)])
+            new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.randn(1, self.num_known_game_embeddings)])
             self.embedding_gcf_user_for_known_game = nn.Embedding.from_pretrained(new_weight)
         if self.mlp:
             # new_weight = torch.cat([self.embedding_mlp_user.weight, self.embedding_mlp_user.weight[random.randint(0, self.num_users)].reshape(1, -1)])
-            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.mean(self.embedding_mlp_user.weight, dim=0, keepdim=True)])
-            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
+            # new_weight = torch.cat([self.embedding_mlp_user.weight, torch.mean(self.embedding_mlp_user.weight, dim=0, keepdim=True)])
+            new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
         self.num_users += 1
 
@@ -197,11 +208,13 @@ class NCF(nn.Module):
 
     def test_loss(self, user_indices, game_indices, labels):
         super(NCF, self).train(False)
-        predictions = self.forward(user_indices, game_indices)
-        loss = self.loss_fn(predictions, labels)
+        with torch.no_grad():
+            predictions = self.forward(user_indices, game_indices)
+            loss = self.loss_fn(predictions, labels)
+        super(NCF, self).train(True)
         return loss.item()
 
-    def save(self, file_name, overwrite=False):
+    def _save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + SAVED_NN_PATH + file_name + '.pth') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
         torch.save(self.state_dict(), os.path.join(SAVED_MODELS_PATH, SAVED_NN_PATH, file_name + '.pth'))
 

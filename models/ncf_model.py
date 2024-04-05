@@ -4,6 +4,7 @@ import pickle
 import time
 import torch
 import pandas as pd
+from torch.utils.tensorboard import SummaryWriter
 
 import sys
 import os
@@ -11,9 +12,13 @@ sys.path.append("../dataset")
 sys.path.append("../utils")
 from utils.utils import linear_transformation, gaussian_transformation, get_numeric_dataframe_columns
 
+TENSORBOARD_RUN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tensorboard_runs/')
+
 class NCFModel(BaseGameRecommendationModel):
-    def __init__(self, num_epochs = 20, embedding_size = 100, batch_percent = 0.1, learning_rate = 0.01, weight_decay=1e-5, mlp_hidden_layer_sizes = [16], seed=int(time.time()), model_type='ncf', fine_tune_num_epochs=1, fine_tune_learning_rate=1e-1, fine_tune_weight_decay=1e-5):
+    def __init__(self, num_epochs = 20, embedding_size = 100, batch_percent = 0.1, learning_rate = 0.01, weight_decay=1e-5, mlp_hidden_layer_sizes = [16], seed=int(time.time()), model_type='ncf', fine_tune_num_epochs=1, fine_tune_learning_rate=1e-1, fine_tune_weight_decay=1e-5, save_file_name=None, nn_save_name=None):
         super().__init__()
+        self.save_file_name = save_file_name
+        self.nn_save_name = nn_save_name
         self.num_epochs = num_epochs
         self.embedding_size = embedding_size
         self.batch_percent = batch_percent
@@ -29,7 +34,7 @@ class NCFModel(BaseGameRecommendationModel):
     def name(self):
         return f'neural_collborative_filtering_{self.model_type}'
     
-    def train(self, debug = False, user_node_ids=None, writer=None):
+    def train(self, debug = False, user_node_ids=None):
         # TODO train on downloaded interactions
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         self.game_nodes = self.data_loader.get_game_node_ids()
@@ -59,16 +64,16 @@ class NCFModel(BaseGameRecommendationModel):
         user_game_scores_tensor = torch.tensor(train_users_games_df['score'].values)
         user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
         user_game_scores_tensor = torch.reshape(user_game_scores_tensor, (-1, 1))
-        self.ncf.train(user_indices, game_indices, user_game_scores_tensor, debug, writer)
 
-    def test_loss(self):
         test_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'test']
-        user_indices = torch.tensor(test_users_games_df['user_id'].apply(lambda id: self.user_to_index[id]).values)
-        game_indices = torch.tensor(test_users_games_df['game_id'].apply(lambda id: self.game_to_index[id]).values)
-        user_game_scores_tensor = torch.tensor(test_users_games_df['score'].values)
-        user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
-        user_game_scores_tensor = torch.reshape(user_game_scores_tensor, (-1, 1))
-        return self.ncf.test_loss(user_indices, game_indices, user_game_scores_tensor)
+        test_user_indices = torch.tensor(test_users_games_df['user_id'].apply(lambda id: self.user_to_index[id]).values)
+        test_game_indices = torch.tensor(test_users_games_df['game_id'].apply(lambda id: self.game_to_index[id]).values)
+        test_user_game_scores_tensor = torch.tensor(test_users_games_df['score'].values)
+        test_user_game_scores_tensor = test_user_game_scores_tensor.type(torch.FloatTensor)
+        test_user_game_scores_tensor = torch.reshape(test_user_game_scores_tensor, (-1, 1))
+
+        writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, self.save_file_name))
+        self.ncf.train(user_indices, game_indices, user_game_scores_tensor, test_user_indices, test_game_indices, test_user_game_scores_tensor, f'{self.save_file_name}_best', f'{self.save_file_name}_last', debug, writer)
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
         if not user_id in self.user_to_index:
@@ -119,8 +124,11 @@ class NCFModel(BaseGameRecommendationModel):
 
     def save(self, file_name, overwrite=False):
         assert not os.path.isfile(SAVED_MODELS_PATH + file_name + '.pkl') or overwrite, f'Tried to save to a file that already exists {file_name} without allowing for overwrite.'
+        assert file_name == self.save_file_name, 'Model name in saved parameters must match the requested model.'
         with open(SAVED_MODELS_PATH + file_name + '.pkl', 'wb') as file:
             pickle.dump({
+                'save_file_name': self.save_file_name,
+                'nn_save_name': self.nn_save_name,
                 'num_epochs': self.num_epochs,
                 'embedding_size': self.embedding_size,
                 'known_game_embeddings_df': self.known_game_embeddings_df,
@@ -140,11 +148,12 @@ class NCFModel(BaseGameRecommendationModel):
                 'fine_tune_learning_rate': self.fine_tune_learning_rate,
                 'fine_tune_weight_decay': self.fine_tune_weight_decay,
             }, file)
-        self.ncf.save(file_name, overwrite=overwrite)
 
     def _load(self, folder_path, file_name):
         with open(folder_path + file_name + '.pkl', 'rb') as file:
             loaded_obj = pickle.load(file)
+            self.save_file_name = loaded_obj['save_file_name']
+            self.nn_save_name = loaded_obj['nn_save_name']
             self.num_epochs = loaded_obj['num_epochs']
             self.embedding_size = loaded_obj['embedding_size']
             self.known_game_embeddings_df = loaded_obj['known_game_embeddings_df']
@@ -163,5 +172,6 @@ class NCFModel(BaseGameRecommendationModel):
             self.fine_tune_num_epochs = loaded_obj['fine_tune_num_epochs']
             self.fine_tune_learning_rate = loaded_obj['fine_tune_learning_rate']
             self.fine_tune_weight_decay = loaded_obj['fine_tune_weight_decay']
+        assert file_name == self.save_file_name, 'Model name in saved parameters must match the requested model.'
         self.ncf = NCF(self.num_users, self.num_games, self.model_type, self.embedding_size, self.known_game_embeddings_df, self.mlp_hidden_layer_sizes, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
-        self.ncf.load(folder_path, file_name)
+        self.ncf.load(folder_path, f'{file_name}_{self.nn_save_name}')
