@@ -108,7 +108,7 @@ class NCF(nn.Module):
             output = self.ncf_fc(ncf_vector)
         return output
 
-    def train(self, user_indices, game_indices, labels, debug=False):
+    def train(self, user_indices, game_indices, labels, debug=False, writer=None):
         super(NCF, self).train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
@@ -135,6 +135,8 @@ class NCF(nn.Module):
                 batched_labels = labels[batch_indices]
                 predictions = self.forward(batched_users, batched_games)
                 loss = self.loss_fn(predictions, batched_labels)
+                if writer is not None:
+                    writer.add_scalar('Loss/train', loss, epoch_count)
 
                 optimizer.zero_grad()
                 loss.backward()

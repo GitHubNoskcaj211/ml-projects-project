@@ -29,7 +29,7 @@ class NCFModel(BaseGameRecommendationModel):
     def name(self):
         return f'neural_collborative_filtering_{self.model_type}'
     
-    def train(self, debug = False, user_node_ids=None):
+    def train(self, debug = False, user_node_ids=None, writer=None):
         # TODO train on downloaded interactions
         assert self.data_loader.cache_local_dataset, 'Method requires full load.'
         self.game_nodes = self.data_loader.get_game_node_ids()
@@ -59,7 +59,7 @@ class NCFModel(BaseGameRecommendationModel):
         user_game_scores_tensor = torch.tensor(train_users_games_df['score'].values)
         user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
         user_game_scores_tensor = torch.reshape(user_game_scores_tensor, (-1, 1))
-        self.ncf.train(user_indices, game_indices, user_game_scores_tensor, debug)
+        self.ncf.train(user_indices, game_indices, user_game_scores_tensor, debug, writer)
 
     def test_loss(self):
         test_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'test']
