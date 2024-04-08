@@ -53,6 +53,7 @@ class Evaluator(ABC):
         self.metrics = {}
         self.roc_curve = None
         self.positional_error_scores = None
+        self.name = ""
     
     def compute_top_N_hit_percentage(self, N):
         assert self.top_N_games_to_eval is None or N < self.top_N_games_to_eval, 'Cannot get top N hit_percentage when we have less top N games to eval since the dataframe is malformed.'
@@ -173,12 +174,18 @@ class Evaluator(ABC):
 
     # This is just like the normal ROC except it orders predictions by user rank then score (so all user #1 recommendations come before any user gets their #2 recommendation). This helps prevent user predictive score bias and is more useful to real world scenarios.
     def plot_user_rank_roc_curve(self):
+        
         roc_curve = skmetrics.roc_curve(self.top_N_results_df['expected_edge'].astype(int).tolist(), 1 / (self.top_N_results_df['user_predicted_rank'] + 1))
-        self.metrics['user_rank_roc_figure'] = get_roc_figure(roc_curve, 'User-Game Predictions User Rank ROC Curve')
+        self.metrics['user_rank_roc_figure'] = get_roc_figure(roc_curve, f'User-Game Predictions User Rank ROC Curve for {self.name}')
 
     # This is just like the normal ROC except it orders predictions by user rank then score (so all user #1 recommendations come before any user gets their #2 recommendation). This helps prevent user predictive score bias and is more useful to real world scenarios.
     def compute_user_rank_auc_roc(self):
-        self.metrics['user_rank_auc_roc'] = skmetrics.roc_auc_score(self.top_N_results_df['expected_edge'].astype(int).tolist(), 1 / (self.top_N_results_df['user_predicted_rank'] + 1))
+        true_df = self.top_N_results_df['expected_edge'].astype(int)
+        if np.all(true_df == 0):
+            print("Not enough samples for AUC ROC")
+            self.metrics["user_rank_auc_roc"] = None
+        else:
+            self.metrics['user_rank_auc_roc'] = skmetrics.roc_auc_score(true_df.tolist(), 1 / (self.top_N_results_df['user_predicted_rank'] + 1))
 
     def save_metrics(self, folder_name, overwrite=False):
         full_folder = SAVED_EVALUATION_PATH + folder_name + '/'
@@ -215,6 +222,7 @@ class OnlineEvaluator(Evaluator):
 
     def reset(self, rec_model_name, rec_model_save_path):
         super().reset()
+        self.name = f"{rec_model_name} {rec_model_save_path}"
         self.results_df = self.all_results[(self.all_results['rec_model_name'] == rec_model_name) & (self.all_results['rec_model_save_path'] == rec_model_save_path)]
         self.top_N_results_df = self.results_df
     
