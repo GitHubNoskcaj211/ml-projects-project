@@ -11,6 +11,8 @@ from utils.firestore import DatabaseClient
 from google.cloud.firestore_v1.base_query import FieldFilter
 from tqdm import tqdm
 
+from compare_auc_delong_xu import delong_roc_variance
+
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
 
 def absolute_error(predicted, expected):
@@ -184,8 +186,9 @@ class Evaluator(ABC):
         if np.all(true_df == 0):
             print("Not enough samples for AUC ROC")
             self.metrics["user_rank_auc_roc"] = None
+            self.metrics["user_rank_auc_roc_variance"] = None
         else:
-            self.metrics['user_rank_auc_roc'] = skmetrics.roc_auc_score(true_df.tolist(), 1 / (self.top_N_results_df['user_predicted_rank'] + 1))
+            self.metrics['user_rank_auc_roc'], self.metrics['user_rank_auc_roc_variance'] = delong_roc_variance(true_df, 1 / (self.top_N_results_df['user_predicted_rank'] + 1))
 
     def save_metrics(self, folder_name, overwrite=False):
         full_folder = SAVED_EVALUATION_PATH + folder_name + '/'
