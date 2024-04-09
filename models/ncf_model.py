@@ -4,13 +4,15 @@ import pickle
 import time
 import torch
 import pandas as pd
-from torch.utils.tensorboard import SummaryWriter
 
 import sys
 import os
 sys.path.append("../dataset")
 sys.path.append("../utils")
-from utils.utils import linear_transformation, gaussian_transformation, get_numeric_dataframe_columns
+from utils.utils import gaussian_transformation, get_numeric_dataframe_columns
+
+if "K_SERVICE" not in os.environ:
+    from torch.utils.tensorboard import SummaryWriter
 
 TENSORBOARD_RUN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tensorboard_runs/')
 
