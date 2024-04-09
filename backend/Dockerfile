@@ -53,4 +53,4 @@ COPY utils/firestore.py ./utils/
 
 COPY backend/ ./
 
-CMD exec gunicorn --bind :$PORT --workers 1 --timeout 0 main:app
+CMD exec gunicorn --bind :$PORT --workers 2 --timeout 0 main:app
