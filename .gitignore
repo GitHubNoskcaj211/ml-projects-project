@@ -3,6 +3,7 @@ __pycache__
 models/saved_models
 models/saved_nns
 models/runs
+models/my_graph.pkl
 dataset/saved_data_loader_parameters
 serviceAccountKey.json
 .DS_Store
