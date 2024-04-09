@@ -11,7 +11,6 @@ Flask-Pydantic==0.12.0
 google-cloud-profiler==4.1.0
 grequests==0.7.0
 scikit-learn==1.4.1.post1
-networkx==3.2.1
 pandas==2.2.0
 numpy==1.26.4
 quickselect==0.2.0

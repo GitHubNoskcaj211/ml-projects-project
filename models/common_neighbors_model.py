@@ -1,7 +1,5 @@
 from models.base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH
-import networkx as nx
 import pickle
-import sys
 import os
 import scipy
 import numpy as np

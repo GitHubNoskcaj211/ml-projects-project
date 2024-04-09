@@ -6,7 +6,6 @@ import torch.optim as optim
 from tqdm import tqdm
 from models.base_model import SAVED_MODELS_PATH, SAVED_NN_PATH
 from matplotlib import pyplot as plt
-import random
 import pandas as pd
 
 # In depth explanation here: https://github.com/recommenders-team/recommenders/blob/main/examples/02_model_collaborative_filtering/ncf_deep_dive.ipynb

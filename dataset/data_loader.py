@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import ast
 from sklearn.model_selection import train_test_split
 from enum import Enum
-import networkx as nx
 import pandas as pd
 import os
 import pickle
@@ -11,7 +10,6 @@ from ast import literal_eval
 from utils.utils import linear_transformation, gaussian_transformation
 from utils.firestore import DatabaseClient
 import sqlite3
-import random
 import numpy as np
 
 from dataset.scrape.serialization import deserialize_user, deserialize_users_games, deserialize_game
@@ -79,12 +77,6 @@ class EmbeddingType(Enum):
     CATEGORICAL = 1
     ONE_HOT = 2
     SUM = 3
-
-def add_node_embeddings(network, embedding_name, node_to_value_dict):
-    nx.set_node_attributes(network, node_to_value_dict, embedding_name)
-
-def add_edge_embeddings(network, embedding_name, edge_to_value_dict):
-    nx.set_edge_attributes(network, edge_to_value_dict, embedding_name)
 
 # TODO FIX THESE NEXT
 class Normalizer(ABC):

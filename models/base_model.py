@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-from quickselect import floyd_rivest
-from tqdm import tqdm
 import os
 import pandas as pd
 from dataset.data_loader import EXTERNAL_DATA_SOURCE
