@@ -3,14 +3,46 @@ import io
 import mmap
 import os
 import pandas as pd
+import struct
 from tqdm import tqdm
 import ujson
 
 if __name__ == "__main__":
     import sys
+
     sys.path.append("../..")
 
 from dataset.scrape.constants import *
+
+
+def serialize_users():
+    csv_file = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users.csv")
+    users = pd.read_csv(
+        csv_file,
+        dtype={
+            "id": "int64",
+        },
+    )
+    num = len(users)
+    data = struct.pack(f"<{num}Q", *users["id"].tolist())
+    filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users.bin")
+    with open(filepath, "wb") as f:
+        f.write(data)
+
+
+USERS = None
+
+
+def deserialize_user(user_id):
+    global USERS
+
+    if USERS is None:
+        filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "users.bin")
+        with open(filepath, "rb") as f:
+            data = f.read()
+            num = len(data) // 8
+            USERS = set(struct.unpack(f"<{num}Q", data))
+    return user_id in USERS
 
 
 def serialize_users_games():
@@ -55,7 +87,9 @@ def deserialize_users_games(user_id):
             offsets_begin = int.from_bytes(f.read(8), "little")
             f.seek(offsets_begin)
             USERS_GAMES_OFFSETS = ujson.loads(f.read().decode("utf-8"))
-            USERS_GAMES_DATA = mmap.mmap(f.fileno(), offsets_begin, access=mmap.ACCESS_READ)
+            USERS_GAMES_DATA = mmap.mmap(
+                f.fileno(), offsets_begin, access=mmap.ACCESS_READ
+            )
     user_id = str(user_id)
     ret = USERS_GAMES_OFFSETS.get(user_id, None)
     if ret is None:
@@ -102,5 +136,6 @@ def deserialize_game(game_id):
 
 
 def serialize_all():
+    serialize_users()
     serialize_users_games()
     serialize_games()

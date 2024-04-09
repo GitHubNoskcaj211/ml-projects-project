@@ -14,7 +14,7 @@ import sqlite3
 import random
 import numpy as np
 
-from dataset.scrape.serialization import deserialize_users_games, deserialize_game
+from dataset.scrape.serialization import deserialize_user, deserialize_users_games, deserialize_game
 
 SAVED_DATA_LOADER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_data_loader_parameters/')
 PUBLISHED_MODELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../models/published_recommendation_models/')
@@ -249,8 +249,7 @@ class DataLoader():
                 if not self.users_df[self.users_df['id'] == user_id].empty:
                     return True
             else:
-                query = f"SELECT * FROM users WHERE id = {user_id}"
-                if not self.run_local_database_query(query).empty:
+                if deserialize_user(user_id):
                     return True
         if self.get_external_database:
             if self.database_client.users_games_ref.document(str(user_id)).get().exists:
