@@ -184,7 +184,7 @@ class Evaluator(ABC):
     def compute_user_rank_auc_roc(self):
         true_df = self.top_N_results_df['expected_edge'].astype(int)
         if np.all(true_df == 0):
-            print("Not enough samples for AUC ROC")
+            print("Not enough samples for AUC ROC", self.name)
             self.metrics["user_rank_auc_roc"] = None
             self.metrics["user_rank_auc_roc_variance"] = None
         else:
