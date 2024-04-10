@@ -293,14 +293,14 @@ class DataLoader():
         self.users_games_df.loc[test_edges, 'data_split'] = 'test'
         self.users_games_df.loc[fine_tune_edges, 'data_split'] = 'tune'
 
-    def load_random_user_train_tune_test_split(self, train_user_percentage=0.8, test_user_percentage=0.1, fine_tune_edge_percentage=0.5, test_edge_percentage=0.5, seed=0):
+    def load_random_user_train_tune_test_split(self, train_user_percentage=0.8, test_user_percentage=0.2, fine_tune_edge_percentage=0.5, test_edge_percentage=0.5, seed=0):
         assert self.cache_local_dataset, 'Method requires full load.'
         assert train_user_percentage + test_user_percentage <= 1
         assert fine_tune_edge_percentage + test_edge_percentage <= 1
         self.train_or_eval_mode = True
         
-        train_users, test_users = train_test_split(self.users_df['id'], test_size=test_user_percentage, train_size=train_user_percentage, random_state=seed)
-        test_edges, fine_tune_edges = train_test_split(self.users_games_df[self.users_games_df['user_id'].isin(test_users)].index, test_size=test_edge_percentage, train_size=fine_tune_edge_percentage, random_state=seed)
+        train_users, test_users = train_test_split(self.users_df['id'].unique(), test_size=test_user_percentage, train_size=train_user_percentage, random_state=seed)
+        fine_tune_edges, test_edges = train_test_split(self.users_games_df[self.users_games_df['user_id'].isin(test_users)].index, test_size=test_edge_percentage, train_size=fine_tune_edge_percentage, random_state=seed)
         self.users_games_df['data_split'] = 'none'
         self.users_games_df.loc[self.users_games_df['user_id'].isin(train_users), 'data_split'] = 'train'
         self.users_games_df.loc[test_edges, 'data_split'] = 'test'

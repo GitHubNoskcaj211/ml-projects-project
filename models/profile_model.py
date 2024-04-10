@@ -46,6 +46,8 @@ print('Loading Model')
 model.load(file_name)
 print('Fine Tuning')
 model.fine_tune(test_user_id)
+print('Fine Tuning Again')
+model.fine_tune(test_user_id)
 print('Recommending')
 preds = model.score_and_predict_n_games_for_user(test_user_id, N)
 

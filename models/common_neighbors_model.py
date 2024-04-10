@@ -3,7 +3,9 @@ import pickle
 import os
 import scipy
 import numpy as np
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, SparseEfficiencyWarning
+import warnings
+warnings.filterwarnings("ignore", category=SparseEfficiencyWarning)
 
 class CommonNeighbors(BaseGameRecommendationModel):
     def __init__(self, path_length_2_weight = 1, path_length_3_weight = 1):
@@ -62,18 +64,20 @@ class CommonNeighbors(BaseGameRecommendationModel):
             self.matrix[indices, self.node_to_index[user_id]] = user_connections[indices]
 
     def get_score_between_user_and_game(self, user, game):
-        user_index = self.node_to_index[user]
-        game_index = self.node_to_index[game]
-        return self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix[:, game_index])[0, 0] + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix[:, game_index])[0, 0]
+        pass
+        # user_index = self.node_to_index[user]
+        # game_index = self.node_to_index[game]
+        # return self.path_length_2_weight * (self.matrix[user_index, :] @ self.matrix[:, game_index])[0, 0] + self.path_length_3_weight * (self.matrix[user_index, :] @ self.matrix @ self.matrix[:, game_index])[0, 0]
 
     def get_scores_between_users_and_games(self, users, games):
-        assert len(users) == len(games), 'Inconsistent list lengths.'
-        users_index = [self.node_to_index[user] for user in users]
-        games_index = [self.node_to_index[game] for game in games]
-        users_index_to_result_index = {user_index: ii for ii, user_index in enumerate(sorted(list(set(users_index))))}
-        games_index_to_result_index = {game_index: ii for ii, game_index in enumerate(sorted(list(set(games_index))))}
-        result = self.path_length_2_weight * (self.matrix[users_index, :] @ self.matrix[:, games_index]) + self.path_length_3_weight * (self.matrix[users_index, :] @ self.matrix @ self.matrix[:, games_index])
-        return [result[users_index_to_result_index[user_index], games_index_to_result_index[game_index]] for user_index, game_index in zip(users_index, games_index)]
+        pass
+        # assert len(users) == len(games), 'Inconsistent list lengths.'
+        # users_index = [self.node_to_index[user] for user in users]
+        # games_index = [self.node_to_index[game] for game in games]
+        # users_index_to_result_index = {user_index: ii for ii, user_index in enumerate(sorted(list(set(users_index))))}
+        # games_index_to_result_index = {game_index: ii for ii, game_index in enumerate(sorted(list(set(games_index))))}
+        # result = self.path_length_2_weight * (self.matrix[users_index, :] @ self.matrix[:, games_index]) + self.path_length_3_weight * (self.matrix[users_index, :] @ self.matrix @ self.matrix[:, games_index])
+        # return [result[users_index_to_result_index[user_index], games_index_to_result_index[game_index]] for user_index, game_index in zip(users_index, games_index)]
 
     def score_and_predict_n_games_for_user(self, user, N=None, should_sort=True, games_to_include=[]):
         games_to_filter_out = self.data_loader.get_all_game_ids_for_user(user)

@@ -10,6 +10,7 @@ import pandas as pd
 from utils.firestore import DatabaseClient
 from google.cloud.firestore_v1.base_query import FieldFilter
 from tqdm import tqdm
+from copy import deepcopy
 
 from compare_auc_delong_xu import delong_roc_variance
 from statistical_test import weighted_variance
@@ -213,7 +214,13 @@ class Evaluator(ABC):
                     plt.close(value)
 
 def include_coldstart(interaction):
-    return interaction["num_game_interactions_local"] == 0 or interaction["num_game_owned_local"] == 0
+    return interaction["num_game_interactions_local"] == 0 and interaction["num_game_owned_local"] == 0
+
+def include_no_interactions(interaction):
+    return interaction["num_game_interactions_local"] == 0 and interaction["num_game_interactions_external"] == 0
+
+def include_some_interactions(interaction):
+    return interaction["num_game_interactions_local"] != 0 or interaction["num_game_interactions_external"] != 0
 
 def include_all(interaction):
     return True
@@ -293,6 +300,11 @@ class OfflineEvaluator(Evaluator):
     def prepare_model(self, model):
         pass
 
+    @abstractmethod
+    def get_all_user_predictions(self):
+        pass
+
+
     def reset(self, network_initializer, network_save_file):
         super().reset()
         self.create_load_prepare_save_model(network_initializer, network_save_file)
@@ -300,15 +312,7 @@ class OfflineEvaluator(Evaluator):
         if self.debug:
             print('Getting predictions.')
 
-        user_ids = []
-        game_ids = []
-        predicted_scores = []
-        for user in tqdm(self.users_to_eval, desc='User Predictions'):
-            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
-            predictions = self.model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
-            user_ids.extend([user] * len(predictions))
-            game_ids.extend([game_id for game_id, _ in predictions])
-            predicted_scores.extend([score for _, score in predictions])
+        user_ids, game_ids, predicted_scores = self.get_all_user_predictions(network_initializer, network_save_file)
         self.results_df = pd.DataFrame({
             'user': user_ids,
             'game': game_ids,
@@ -340,46 +344,83 @@ class TrainEvaluator(OfflineEvaluator):
     def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
         super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
     
+    def get_all_user_predictions(self, network_initializer, network_save_file):
+        user_ids = []
+        game_ids = []
+        predicted_scores = []
+        for user in tqdm(self.users_to_eval, desc='User Predictions'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            predictions = self.model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
+            user_ids.extend([user] * len(predictions))
+            game_ids.extend([game_id for game_id, _ in predictions])
+            predicted_scores.extend([score for _, score in predictions])
+        return user_ids, game_ids, predicted_scores
+
     def prepare_model(self):
         self.model.train()
 
 class WarmFineTuneEvaluator(OfflineEvaluator):
-    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False, fine_tune_batch_size=10):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
         super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
-        self.fine_tune_batch_size = fine_tune_batch_size
+    
+    def get_all_user_predictions(self, network_initializer, network_save_file):
+        user_ids = []
+        game_ids = []
+        predicted_scores = []
+        fake_interactions = pd.DataFrame(columns=self.data_loader.users_games_df.columns).astype(self.data_loader.users_games_df.dtypes)
+        for user in tqdm(self.users_to_eval, desc='User Predictions'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            
+            # TODO add interactions
+            all_users_games_df_without_test = users_games_df[users_games_df['data_split'] != 'test']
+            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
+            if not new_users_games_df.empty or all_users_games_df_without_test.empty:
+                user_model = network_initializer()
+                user_model.set_data_loader(self.data_loader)
+                user_model.load(network_save_file)
+                user_model._fine_tune(user, new_users_games_df, fake_interactions, all_users_games_df_without_test, fake_interactions)
+            else:
+                user_model = self.model
+
+            predictions = self.model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
+            user_ids.extend([user] * len(predictions))
+            game_ids.extend([game_id for game_id, _ in predictions])
+            predicted_scores.extend([score for _, score in predictions])
+        return user_ids, game_ids, predicted_scores
     
     def prepare_model(self):
         self.model.train()
-        # TODO Add interactions.
-        for user in tqdm(self.users_to_eval, desc='Fine tuning'):
-            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
-            all_users_games_df = users_games_df[users_games_df['data_split'] != 'test']
-            fake_interactions = pd.DataFrame(columns=users_games_df.columns)
-            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
-            new_users_games_df_shuffled = new_users_games_df.sample(frac=1).reset_index(drop=True)
-            for i in range(0, len(new_users_games_df_shuffled), self.fine_tune_batch_size):
-                users_games_batch_size = new_users_games_df_shuffled.iloc[i:i+self.fine_tune_batch_size]
-                self.model._fine_tune(user, users_games_batch_size, fake_interactions, all_users_games_df, fake_interactions)
 
 class ColdFineTuneEvaluator(OfflineEvaluator):
-    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False, fine_tune_batch_size=10):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
         super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
-        self.fine_tune_batch_size = fine_tune_batch_size
+    
+    def get_all_user_predictions(self, network_initializer, network_save_file):
+        user_ids = []
+        game_ids = []
+        predicted_scores = []
+        fake_interactions = pd.DataFrame(columns=self.data_loader.users_games_df.columns).astype(self.data_loader.users_games_df.dtypes)
+        for user in tqdm(self.users_to_eval, desc='User Predictions'):
+            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            
+            # TODO add interactions
+            all_users_games_df_without_test = users_games_df[users_games_df['data_split'] != 'test']
+            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
+            if not new_users_games_df.empty or all_users_games_df_without_test.empty:
+                user_model = network_initializer()
+                user_model.set_data_loader(self.data_loader)
+                user_model.load(network_save_file)
+                user_model._fine_tune(user, new_users_games_df, fake_interactions, all_users_games_df_without_test, fake_interactions)
+            else:
+                continue
+
+            predictions = user_model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
+            user_ids.extend([user] * len(predictions))
+            game_ids.extend([game_id for game_id, _ in predictions])
+            predicted_scores.extend([score for _, score in predictions])
+        return user_ids, game_ids, predicted_scores
     
     def prepare_model(self):
         train_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'train']
         train_user_ids = train_df['user_id'].unique().tolist()
         self.model.train(user_node_ids=train_user_ids)
-        # TODO Add interactions.
-        for user in tqdm(self.users_to_eval, desc='Fine tuning'):
-            users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
-            all_users_games_df = users_games_df[users_games_df['data_split'] != 'test']
-            fake_interactions = pd.DataFrame(columns=users_games_df.columns)
-            new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
-            new_users_games_df_shuffled = new_users_games_df.sample(frac=1).reset_index(drop=True)
-            if len(new_users_games_df_shuffled) == 0:
-                self.model._fine_tune(user, new_users_games_df_shuffled, fake_interactions, all_users_games_df, fake_interactions)
-                continue
-            for i in range(0, len(new_users_games_df_shuffled), self.fine_tune_batch_size):
-                users_games_batch_size = new_users_games_df_shuffled.iloc[i:i+self.fine_tune_batch_size]
-                self.model._fine_tune(user, users_games_batch_size, fake_interactions, all_users_games_df, fake_interactions)

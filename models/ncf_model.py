@@ -67,7 +67,7 @@ class NCFModel(BaseGameRecommendationModel):
         user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
         user_game_scores_tensor = torch.reshape(user_game_scores_tensor, (-1, 1))
 
-        test_users_games_df = self.data_loader.users_games_df[self.data_loader.users_games_df['data_split'] == 'test']
+        test_users_games_df = self.data_loader.users_games_df[(self.data_loader.users_games_df['data_split'] == 'test') & (self.data_loader.users_games_df['user_id'].isin(self.user_nodes))]
         test_user_indices = torch.tensor(test_users_games_df['user_id'].apply(lambda id: self.user_to_index[id]).values)
         test_game_indices = torch.tensor(test_users_games_df['game_id'].apply(lambda id: self.game_to_index[id]).values)
         test_user_game_scores_tensor = torch.tensor(test_users_games_df['score'].values)
@@ -85,11 +85,11 @@ class NCFModel(BaseGameRecommendationModel):
         if new_user_games_df.empty and new_interactions_df.empty:
             return
         # TODO use all new ones and sample some already trained ones.
-        user_indices = pd.concat([new_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), new_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])
+        user_indices = pd.concat([all_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), all_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])
         user_indices = torch.tensor(user_indices.values)
-        game_indices = pd.concat([new_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), new_interactions_df['game_id'].apply(lambda id: self.game_to_index[id])])
+        game_indices = pd.concat([all_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), all_interactions_df['game_id'].apply(lambda id: self.game_to_index[id])])
         game_indices = torch.tensor(game_indices.values)
-        scores = pd.concat([new_user_games_df['score'], new_interactions_df['score']])
+        scores = pd.concat([all_user_games_df['score'], all_interactions_df['score']])
         scores_tensor = torch.tensor(scores.values)
         scores_tensor = scores_tensor.type(torch.FloatTensor)
         scores_tensor = torch.reshape(scores_tensor, (-1, 1))
