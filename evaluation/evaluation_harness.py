@@ -185,8 +185,9 @@ class Evaluator(ABC):
         true_df = self.top_N_results_df['expected_edge'].astype(int)
         if np.all(true_df == 0):
             print("Not enough samples for AUC ROC", self.name)
-            self.metrics["user_rank_auc_roc"] = None
-            self.metrics["user_rank_auc_roc_variance"] = None
+            val = None if len(true_df) == 0 else 0
+            self.metrics["user_rank_auc_roc"] = val
+            self.metrics["user_rank_auc_roc_variance"] = val
         else:
             self.metrics['user_rank_auc_roc'], self.metrics['user_rank_auc_roc_variance'] = delong_roc_variance(true_df, 1 / (self.top_N_results_df['user_predicted_rank'] + 1))
 
