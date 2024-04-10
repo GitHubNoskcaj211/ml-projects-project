@@ -12,6 +12,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from tqdm import tqdm
 
 from compare_auc_delong_xu import delong_roc_variance
+from statistical_test import weighted_variance
 
 SAVED_EVALUATION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_evaluation/')
 
@@ -61,7 +62,11 @@ class Evaluator(ABC):
         assert self.top_N_games_to_eval is None or N < self.top_N_games_to_eval, 'Cannot get top N hit_percentage when we have less top N games to eval since the dataframe is malformed.'
         top_N_rows = self.results_df[(self.results_df['user_predicted_rank'] < N)]
         num_top_N_hit_percentages = (top_N_rows['expected_edge'] == True).sum()
-        self.metrics[f'top_{N}_hit_percentage'] = 1.0 if len(top_N_rows) == 0 else num_top_N_hit_percentages / len(top_N_rows)
+        top_N_hit_percentages = self.get_top_N_hit_percentage_per_user(N)
+        mean, var = weighted_variance(top_N_hit_percentages['hit_percentage'].tolist(), top_N_hit_percentages['num_expected_games'].tolist())
+        self.metrics[f'top_{N}_hit_percentage_variance'] = var
+        self.metrics[f'top_{N}_hit_percentage'] = mean
+        
 
     def get_top_N_hit_percentage_per_user(self, N):
         assert self.top_N_games_to_eval is None or N < self.top_N_games_to_eval, 'Cannot get top N hit_percentage when we have less top N games to eval since the dataframe is malformed.'
@@ -86,7 +91,10 @@ class Evaluator(ABC):
         top_N_rows = self.results_df[(self.results_df['user_predicted_rank'] < N)]
         num_top_N_recalls = (top_N_rows['expected_edge'] == True).sum()
         num_expected_edges = (self.results_df['expected_edge'] == True).sum()
-        self.metrics[f'top_{N}_recall'] = 1.0 if num_expected_edges == 0 else num_top_N_recalls / num_expected_edges
+        top_N_recalls = self.get_top_N_recall_per_user(N)
+        mean, var = weighted_variance(top_N_recalls['recall'].tolist(), top_N_recalls['num_expected_games'].tolist())
+        self.metrics[f'top_{N}_recall_variance'] = var
+        self.metrics[f'top_{N}_recall'] = mean
 
     def get_top_N_recall_per_user(self, N):
         assert self.top_N_games_to_eval is None or N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'

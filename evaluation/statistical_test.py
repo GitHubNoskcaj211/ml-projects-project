@@ -23,3 +23,13 @@ def estimate_probability_each_model_is_best(result_dataframe, metric, num_sample
 
     probabilities = [cc / num_samples for cc in best_counts]
     result_dataframe.loc[(result_dataframe[metric].notna()) & (result_dataframe[f'{metric}_variance'].notna()), f'{metric}_best_probability'] = probabilities
+
+def weighted_variance(scores, counts):
+    total_tests = sum(counts)
+    if total_tests == 0:
+        return None, None
+    weighted_mean = sum(score * count for score, count in zip(scores, counts)) / total_tests
+    if total_tests == 1:
+        return weighted_mean, None
+    weighted_variance = sum(count * (score - weighted_mean) ** 2 for score, count in zip(scores, counts)) / (total_tests - 1)
+    return weighted_mean, weighted_variance
