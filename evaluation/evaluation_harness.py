@@ -382,7 +382,7 @@ class WarmFineTuneEvaluator(OfflineEvaluator):
             else:
                 user_model = self.model
 
-            predictions = self.model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
+            predictions = user_model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
             user_ids.extend([user] * len(predictions))
             game_ids.extend([game_id for game_id, _ in predictions])
             predicted_scores.extend([score for _, score in predictions])
