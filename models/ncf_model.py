@@ -12,6 +12,7 @@ sys.path.append("../utils")
 from utils.utils import gaussian_transformation, get_numeric_dataframe_columns
 
 if "K_SERVICE" not in os.environ:
+    import datetime
     from torch.utils.tensorboard import SummaryWriter
 
 TENSORBOARD_RUN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tensorboard_runs/')
@@ -74,7 +75,8 @@ class NCFModel(BaseGameRecommendationModel):
         test_user_game_scores_tensor = test_user_game_scores_tensor.type(torch.FloatTensor)
         test_user_game_scores_tensor = torch.reshape(test_user_game_scores_tensor, (-1, 1))
 
-        writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, self.save_file_name))
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{current_time}"))
         self.ncf.train(user_indices, game_indices, user_game_scores_tensor, test_user_indices, test_game_indices, test_user_game_scores_tensor, f'{self.save_file_name}_best', f'{self.save_file_name}_last', debug, writer)
 
     def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
