@@ -237,6 +237,7 @@ class OnlineEvaluator(Evaluator):
         self.name = f"{rec_model_name} {rec_model_save_path}"
         self.results_df = self.all_results[(self.all_results['rec_model_name'] == rec_model_name) & (self.all_results['rec_model_save_path'] == rec_model_save_path)]
         self.top_N_results_df = self.results_df
+        self.metrics["num_interactions"] = len(self.results_df)
     
     def get_filtered_interactions(self, include_fn):
         users = self.client.interactions_ref.document("data").collections()
