@@ -242,7 +242,11 @@ class OnlineEvaluator(Evaluator):
     def reset(self, rec_model_name, rec_model_save_path, min_interactions=-np.inf, max_interactions=np.inf):
         super().reset()
         self.name = f"{rec_model_name} {rec_model_save_path}"
-        self.results_df = self.all_results[(self.all_results['rec_model_name'] == rec_model_name) & (self.all_results['rec_model_save_path'] == rec_model_save_path)]
+        if isinstance(rec_model_save_path, list):
+            save_path_mask = self.all_results['rec_model_save_path'].isin(rec_model_save_path)
+        else:
+            save_path_mask = self.all_results['rec_model_save_path'] == rec_model_save_path
+        self.results_df = self.all_results[(self.all_results['rec_model_name'] == rec_model_name) & save_path_mask]
         num_game_interactions = self.results_df["num_game_interactions_external"] + self.results_df["num_game_interactions_local"]
         self.results_df = self.results_df[(num_game_interactions >= min_interactions) & (num_game_interactions < max_interactions)]
         self.results_df["user_predicted_rank"] = self.results_df.groupby(['user', 'rec_model_save_path'])["timestamp"].rank()
