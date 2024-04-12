@@ -239,10 +239,12 @@ class OnlineEvaluator(Evaluator):
         self.top_N_games_to_eval = None
         self.all_results = self.get_results()
 
-    def reset(self, rec_model_name, rec_model_save_path):
+    def reset(self, rec_model_name, rec_model_save_path, min_interactions=-np.inf, max_interactions=-np.inf):
         super().reset()
         self.name = f"{rec_model_name} {rec_model_save_path}"
         self.results_df = self.all_results[(self.all_results['rec_model_name'] == rec_model_name) & (self.all_results['rec_model_save_path'] == rec_model_save_path)]
+        num_game_interactions = self.results_df["num_game_interactions_external"] + self.results_df["num_game_interactions_local"]
+        self.results_df = self.results_df[(num_game_interactions >= min_interactions) & (num_game_interactions < max_interactions)]
         self.top_N_results_df = self.results_df
         self.metrics["num_interactions"] = len(self.results_df)
     
