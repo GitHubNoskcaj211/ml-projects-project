@@ -13,7 +13,7 @@ if "K_SERVICE" not in os.environ:
 # In depth explanation here: https://github.com/recommenders-team/recommenders/blob/main/examples/02_model_collaborative_filtering/ncf_deep_dive.ipynb
 class NCF(nn.Module):
     def __init__(self, num_users, num_games, model_type="ncf", embedding_size=100, known_game_embeddings_df=pd.DataFrame(), mlp_hidden_layer_sizes=[16, 8, 4], num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
-        super(NCF, self).__init__()
+        super().__init__()
 
         self.new_seed(seed)
 
@@ -110,7 +110,7 @@ class NCF(nn.Module):
         return output
 
     def train(self, user_indices, game_indices, labels, test_user_indices, test_game_indices, test_labels, optimal_model_save_name, last_model_save_name, debug=False, writer=None):
-        super(NCF, self).train(True)
+        super().train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
             p.requires_grad_(True)
@@ -179,8 +179,8 @@ class NCF(nn.Module):
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
         self.num_users += 1
 
-    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False):
-        super(NCF, self).train(True)
+    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False, writer=None):
+        super().train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
             p.requires_grad_(False)
@@ -203,16 +203,18 @@ class NCF(nn.Module):
                     self.embedding_mlp_user.weight[user_index] = self.embedding_mlp_user.weight[user_index] - weight_decay * self.embedding_mlp_user(weight_decay_indices)
             optimizer.step()
             train_loss.append(loss.item())
+            if writer is not None:
+                writer.add_scalar('Loss/train', loss.item(), epoch_count)
         if debug:
             plt.plot(range(num_epochs), train_loss)
             plt.title('Mean Abs Error vs Epoch')
 
     def test_loss(self, user_indices, game_indices, labels):
-        super(NCF, self).train(False)
+        super().train(False)
         with torch.no_grad():
             predictions = self.forward(user_indices, game_indices)
             loss = self.loss_fn(predictions, labels)
-        super(NCF, self).train(True)
+        super().train(True)
         return loss.item()
 
     def _save(self, file_name, overwrite=False):
@@ -223,7 +225,7 @@ class NCF(nn.Module):
         self.load_state_dict(torch.load(os.path.join(folder_path, SAVED_NN_PATH, file_name + '.pth')))
 
     def predict(self, user_index, game_index):
-        super(NCF, self).train(False)
+        super().train(False)
         with torch.no_grad():
             output = self.forward(user_index, game_index)
             return output.detach().flatten().tolist()

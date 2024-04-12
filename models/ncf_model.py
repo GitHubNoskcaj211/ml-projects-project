@@ -99,7 +99,9 @@ class NCFModel(BaseGameRecommendationModel):
         self.fine_tune_num_epochs = 40
         self.fine_tune_weight_decay = 1e-6#1e-3
         self.fine_tune_learning_rate = 1e-1
-        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=False)
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{user_id}_{current_time}"))
+        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=False, writer=writer)
             
 
     def get_score_between_user_and_game(self, user, game):
