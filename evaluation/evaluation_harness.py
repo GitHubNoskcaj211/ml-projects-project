@@ -239,7 +239,7 @@ class OnlineEvaluator(Evaluator):
         self.top_N_games_to_eval = None
         self.all_results = self.get_results()
 
-    def reset(self, rec_model_name, rec_model_save_path, min_interactions=-np.inf, max_interactions=-np.inf):
+    def reset(self, rec_model_name, rec_model_save_path, min_interactions=-np.inf, max_interactions=np.inf):
         super().reset()
         self.name = f"{rec_model_name} {rec_model_save_path}"
         self.results_df = self.all_results[(self.all_results['rec_model_name'] == rec_model_name) & (self.all_results['rec_model_save_path'] == rec_model_save_path)]
