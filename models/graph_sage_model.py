@@ -133,6 +133,7 @@ class GraphSAGE(torch.nn.Module, BaseGameRecommendationModel):
         new_interactions_df,
         all_user_games_df,
         all_interactions_df,
+        debug=False
     ):
         # Update user embedding based on new interactions
         new_user_embedding = torch.mean(

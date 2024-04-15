@@ -29,7 +29,7 @@ class GamePopularityModel(BaseGameRecommendationModel):
         assert len(users) == len(games), 'Inconsistent list lengths.'
         return [self.scores[self.game_to_score_index[game]][1] for game in games]
     
-    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df, debug = False):
         pass
         # TODO
 

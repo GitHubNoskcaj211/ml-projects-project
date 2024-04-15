@@ -18,7 +18,7 @@ class RandomModel(BaseGameRecommendationModel):
         self.user_to_seed = {user_id: random.randint(seed_min, seed_max) for user_id in user_node_ids}
         self.game_nodes = self.data_loader.get_game_node_ids()
 
-    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df, seed=None, seed_min=0, seed_max=1e9):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df, debug = False, seed=None, seed_min=0, seed_max=1e9):
         random.seed(seed)
         self.user_to_seed[user_id] = random.randint(seed_min, seed_max)
     
