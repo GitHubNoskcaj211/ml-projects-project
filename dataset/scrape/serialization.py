@@ -42,8 +42,6 @@ def deserialize_user(user_id):
             data = f.read()
             num = len(data) // 8
             USERS = set(struct.unpack(f"<{num}Q", data))
-        if "K_SERVICE" in os.environ:
-            os.remove(filepath)
     return user_id in USERS
 
 
@@ -92,8 +90,6 @@ def deserialize_users_games(user_id):
             USERS_GAMES_DATA = mmap.mmap(
                 f.fileno(), offsets_begin, access=mmap.ACCESS_READ
             )
-        if "K_SERVICE" in os.environ:
-            os.remove(filepath)
     user_id = str(user_id)
     ret = USERS_GAMES_OFFSETS.get(user_id, None)
     if ret is None:
@@ -136,8 +132,6 @@ def deserialize_game(game_id):
         filepath = os.path.join(ENVIRONMENT.DATA_ROOT_DIR, "games.json")
         with open(filepath, "r") as f:
             GAMES = ujson.load(f)
-        if "K_SERVICE" in os.environ:
-            os.remove(filepath)
     return GAMES.get(str(game_id), None)
 
 
