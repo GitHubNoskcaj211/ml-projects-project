@@ -48,13 +48,20 @@ class NCFModel(BaseGameRecommendationModel):
         
         def normalize_column(column):
             normalized_column = gaussian_transformation(column, column.mean(), column.std(), 0.0, min(column.std(), 1.0))
-            # normalized_column = linear_transformation(column, column.min(), column.max(), -0.1, 0.1)
+            normalized_column = normalized_column.clip(-5, 5)
             return normalized_column
 
         assert all((id1 == id2 for id1, id2 in zip(self.game_nodes, self.data_loader.games_df['id']))), 'Need the dataframe ids to have the same order as get_game_node_ids for embeddings to assign properly.'
         self.known_game_embeddings_df = get_numeric_dataframe_columns(self.data_loader.games_df, columns_to_remove=['id'])
         self.known_game_embeddings_df = self.known_game_embeddings_df.apply(normalize_column, axis=0)
-        
+        # for column in self.known_game_embeddings_df.columns:
+        #     plt.figure()
+        #     plt.hist(self.known_game_embeddings_df[column], bins=100, color='skyblue', edgecolor='black')
+        #     plt.title(f'Distribution of {column}')
+        #     plt.xlabel('Value')
+        #     plt.ylabel('Frequency')
+        #     plt.yscale('log')
+        #     plt.show()
         print('Known Game Embeddings: ', self.known_game_embeddings_df.columns.tolist())
 
         user_indices = torch.tensor(train_users_games_df['user_id'].apply(lambda id: self.user_to_index[id]).values)
@@ -79,14 +86,13 @@ class NCFModel(BaseGameRecommendationModel):
         writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{current_time}"))
         self.ncf.train(user_indices, game_indices, user_game_scores_tensor, test_user_indices, test_game_indices, test_user_game_scores_tensor, f'{self.save_file_name}_best', f'{self.save_file_name}_last', debug, writer)
 
-    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df):
+    def _fine_tune(self, user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df, debug = False):
         if not user_id in self.user_to_index:
             self.ncf.add_new_user()
             self.user_to_index[user_id] = len(self.user_nodes)
             self.user_nodes.append(user_id)
         if new_user_games_df.empty and new_interactions_df.empty:
             return
-        # TODO use all new ones and sample some already trained ones.
         user_indices = pd.concat([all_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), all_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])
         user_indices = torch.tensor(user_indices.values)
         game_indices = pd.concat([all_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), all_interactions_df['game_id'].apply(lambda id: self.game_to_index[id])])
@@ -96,13 +102,29 @@ class NCFModel(BaseGameRecommendationModel):
         scores_tensor = scores_tensor.type(torch.FloatTensor)
         scores_tensor = torch.reshape(scores_tensor, (-1, 1))
         # TODO parameterize these later.
-        self.fine_tune_num_epochs = 40
+        self.fine_tune_num_epochs = 100
         self.fine_tune_weight_decay = 1e-6#1e-3
-        self.fine_tune_learning_rate = 1e-1
-        # current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        # writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{user_id}_{current_time}"))
+        self.fine_tune_learning_rate = 1e-2
+
         writer = None
-        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=False, writer=writer)
+        test_user_indices = None
+        test_game_indices = None
+        test_scores_tensor = None
+        if debug:
+            current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{user_id}_{current_time}"))
+            users_games_df_for_user = self.data_loader.users_games_df_grouped_by_user.get_group(user_id)
+            test_user_games_df = users_games_df_for_user[users_games_df_for_user['data_split'] == 'test']
+            test_user_indices = pd.concat([test_user_games_df['user_id'].apply(lambda id: self.user_to_index[id])])
+            test_user_indices = torch.tensor(test_user_indices.values)
+            test_game_indices = pd.concat([test_user_games_df['game_id'].apply(lambda id: self.game_to_index[id])])
+            test_game_indices = torch.tensor(test_game_indices.values)
+            test_scores = pd.concat([test_user_games_df['score']])
+            test_scores_tensor = torch.tensor(test_scores.values)
+            test_scores_tensor = test_scores_tensor.type(torch.FloatTensor)
+            test_scores_tensor = torch.reshape(test_scores_tensor, (-1, 1))
+        
+        self.ncf.fine_tune(self.user_to_index[user_id], user_indices, game_indices, scores_tensor, self.fine_tune_num_epochs, self.fine_tune_learning_rate, self.fine_tune_weight_decay, debug=debug, writer=writer, test_user_indices=test_user_indices, test_game_indices=test_game_indices, test_scores=test_scores_tensor)
             
 
     def get_score_between_user_and_game(self, user, game):
@@ -179,6 +201,6 @@ class NCFModel(BaseGameRecommendationModel):
             self.fine_tune_num_epochs = loaded_obj['fine_tune_num_epochs']
             self.fine_tune_learning_rate = loaded_obj['fine_tune_learning_rate']
             self.fine_tune_weight_decay = loaded_obj['fine_tune_weight_decay']
-        assert file_name == self.save_file_name, 'Model name in saved parameters must match the requested model.'
+        # assert file_name == self.save_file_name, 'Model name in saved parameters must match the requested model.'
         self.ncf = NCF(self.num_users, self.num_games, self.model_type, self.embedding_size, self.known_game_embeddings_df, self.mlp_hidden_layer_sizes, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
         self.ncf.load(folder_path, f'{file_name}_{self.nn_save_name}')

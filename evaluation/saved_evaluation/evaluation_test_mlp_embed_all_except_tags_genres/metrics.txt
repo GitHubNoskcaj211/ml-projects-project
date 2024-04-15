@@ -1,7 +1,0 @@
-mean_positional_error: 12.536034488669651
-top_10_recall: 0.006752634754389296
-auc_roc: 0.741777467077458
-user_rank_auc_roc: 0.5986303239708093
-top_10_hit_percentage: 0.04018
-top_50_hit_percentage: 0.0197
-top_50_recall: 0.016553870664692525

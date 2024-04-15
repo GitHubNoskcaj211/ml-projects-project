@@ -6,6 +6,7 @@ import torch.optim as optim
 from tqdm import tqdm
 from models.base_model import SAVED_MODELS_PATH, SAVED_NN_PATH
 import pandas as pd
+from torch.utils.data import DataLoader, TensorDataset
 
 if "K_SERVICE" not in os.environ:
     from matplotlib import pyplot as plt
@@ -82,14 +83,22 @@ class NCF(nn.Module):
         self.relu = nn.ReLU()
         self.loss_fn = nn.L1Loss()
 
-    def forward(self, user_index, game_index):
+    def forward(self, user_index, game_index, fine_tune_training=False):
         if self.cf or self.gcf:
-            gcf_vector = torch.cat([self.embedding_gcf_user(user_index) * self.embedding_gcf_game(game_index), self.embedding_gcf_user_for_known_game(user_index) * self.embedding_gcf_known_game(game_index)], dim=1)
+            embedding_gcf_user_for_user_index = self.embedding_gcf_user(user_index)
+            embedding_gcf_user_for_known_game_for_user_index = self.embedding_gcf_user_for_known_game(user_index)
+            if fine_tune_training:
+                embedding_gcf_user_for_user_index = self.dropout(embedding_gcf_user_for_user_index)
+                embedding_gcf_user_for_known_game_for_user_index = self.dropout(embedding_gcf_user_for_known_game_for_user_index)
+            gcf_vector = torch.cat([embedding_gcf_user_for_user_index * self.embedding_gcf_game(game_index), embedding_gcf_user_for_known_game_for_user_index * self.embedding_gcf_known_game(game_index)], dim=1)
             if self.gcf:
                 gcf_vector = self.relu(gcf_vector)
 
         if self.mlp:
-            mlp_vector = torch.cat([self.embedding_mlp_user(user_index), self.embedding_mlp_game(game_index), self.embedding_mlp_known_game(game_index)], dim=1)
+            embedding_mlp_user_for_user_index = self.embedding_mlp_user(user_index)
+            if fine_tune_training:
+                embedding_mlp_user_for_user_index = self.dropout(embedding_mlp_user_for_user_index)
+            mlp_vector = torch.cat([embedding_mlp_user_for_user_index, self.embedding_mlp_game(game_index), self.embedding_mlp_known_game(game_index)], dim=1)
             for layer in self.mlp_layers:
                 mlp_vector = layer(mlp_vector)
 
@@ -153,7 +162,7 @@ class NCF(nn.Module):
                 writer.add_scalar('Loss/test', test_loss, epoch_count)
             if optimal_model_save_name is not None:
                 # TODO Use val loss instead of test loss.
-                if lowest_test_loss is None or lowest_test_loss < test_loss:
+                if lowest_test_loss is None or test_loss < lowest_test_loss:
                     lowest_test_loss = test_loss
                     self._save(optimal_model_save_name, overwrite=True)
             self._save(last_model_save_name, overwrite=True)
@@ -179,32 +188,52 @@ class NCF(nn.Module):
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
         self.num_users += 1
 
-    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False, writer=None):
+    def fine_tune(self, user_index, user_indices, game_indices, labels, num_epochs, learning_rate, weight_decay, debug=False, writer=None, test_user_indices=None, test_game_indices=None, test_scores=None):
         super().train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
             p.requires_grad_(False)
         if self.gcf or self.cf:
             self.embedding_gcf_user.weight.requires_grad_(True)
+            self.embedding_gcf_user_for_known_game.requires_grad_(True)
         if self.mlp:
             self.embedding_mlp_user.weight.requires_grad_(True)
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=0)
         train_loss = []
         weight_decay_indices = torch.LongTensor([user_index])
+        batch_percent = 0.25
+        batch_size = int(len(user_indices) * batch_percent) + 1
         for epoch_count in range(num_epochs):
-            predictions = self.forward(user_indices, game_indices)
-            loss = self.loss_fn(predictions, labels)
-            optimizer.zero_grad()
-            loss.backward()
-            with torch.no_grad():
-                if self.gcf or self.cf:
-                    self.embedding_gcf_user.weight[user_index] = self.embedding_gcf_user.weight[user_index] - weight_decay * self.embedding_gcf_user(weight_decay_indices)
-                if self.mlp:
-                    self.embedding_mlp_user.weight[user_index] = self.embedding_mlp_user.weight[user_index] - weight_decay * self.embedding_mlp_user(weight_decay_indices)
-            optimizer.step()
-            train_loss.append(loss.item())
+            epoch_loss = []
+            indices = np.random.permutation(len(user_indices))
+            for batch_start in range(0, len(user_indices), batch_size):
+                batch_end = min(batch_start + batch_size, len(user_indices))
+                batch_indices = indices[batch_start:batch_end]
+
+                batched_users = user_indices[batch_indices]
+                batched_games = game_indices[batch_indices]
+                batched_labels = labels[batch_indices]
+                predictions = self.forward(user_indices, game_indices, fine_tune_training=True)
+                loss = self.loss_fn(predictions, labels)
+                optimizer.zero_grad()
+                loss.backward()
+                with torch.no_grad():
+                    if self.gcf or self.cf:
+                        self.embedding_gcf_user.weight[user_index] = self.embedding_gcf_user.weight[user_index] - weight_decay * self.embedding_gcf_user(weight_decay_indices)
+                        self.embedding_gcf_user_for_known_game.weight[user_index] = self.embedding_gcf_user_for_known_game.weight[user_index] - weight_decay * self.embedding_gcf_user_for_known_game(weight_decay_indices)
+                    if self.mlp:
+                        self.embedding_mlp_user.weight[user_index] = self.embedding_mlp_user.weight[user_index] - weight_decay * self.embedding_mlp_user(weight_decay_indices)
+                optimizer.step()
+            epoch_loss.append(loss.item())
+
+            average_epoch_loss = sum((value for value in epoch_loss)) / len(epoch_loss)
+            train_loss.append(average_epoch_loss)
+            test_loss = None
+            if debug:
+                test_loss = self.test_loss(test_user_indices, test_game_indices, test_scores)
             if writer is not None:
-                writer.add_scalar('Loss/train', loss.item(), epoch_count)
+                writer.add_scalar('Loss/train', average_epoch_loss, epoch_count)
+                writer.add_scalar('Loss/test', test_loss, epoch_count)
         if debug:
             plt.plot(range(num_epochs), train_loss)
             plt.title('Mean Abs Error vs Epoch')

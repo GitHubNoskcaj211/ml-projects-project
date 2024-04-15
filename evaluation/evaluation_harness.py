@@ -61,8 +61,6 @@ class Evaluator(ABC):
     
     def compute_top_N_hit_percentage(self, N):
         assert self.top_N_games_to_eval is None or N < self.top_N_games_to_eval, 'Cannot get top N hit_percentage when we have less top N games to eval since the dataframe is malformed.'
-        top_N_rows = self.results_df[(self.results_df['user_predicted_rank'] < N)]
-        num_top_N_hit_percentages = (top_N_rows['expected_edge'] == True).sum()
         top_N_hit_percentages = self.get_top_N_hit_percentage_per_user(N)
         mean, var = weighted_variance(top_N_hit_percentages['hit_percentage'].tolist(), top_N_hit_percentages['num_expected_games'].tolist())
         self.metrics[f'top_{N}_hit_percentage_variance'] = var
@@ -89,8 +87,6 @@ class Evaluator(ABC):
 
     def compute_top_N_recall(self, N):
         assert self.top_N_games_to_eval is None or N < self.top_N_games_to_eval, 'Cannot get top N recall when we have less top N games to eval since the dataframe is malformed.'
-        top_N_rows = self.results_df[(self.results_df['user_predicted_rank'] < N)]
-        num_top_N_recalls = (top_N_rows['expected_edge'] == True).sum()
         num_expected_edges = (self.results_df['expected_edge'] == True).sum()
         top_N_recalls = self.get_top_N_recall_per_user(N)
         mean, var = weighted_variance(top_N_recalls['recall'].tolist(), top_N_recalls['num_expected_games'].tolist())
@@ -274,8 +270,14 @@ class OnlineEvaluator(Evaluator):
 
         return data
 
+def include_learnable_users(users_games_df):
+    return len(users_games_df) > 250
+
+def include_all_users(users_games_df):
+    return True
+
 class OfflineEvaluator(Evaluator):
-    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, user_eval_include_function=include_all_users, seed=0, debug=False):
         self.data_loader = data_loader
         assert self.data_loader.cache_local_dataset, 'Evaluator requires data fully loaded.'
         self.top_N_games_to_eval = top_N_games_to_eval
@@ -284,24 +286,27 @@ class OfflineEvaluator(Evaluator):
             self.users_to_eval = self.data_loader.users_df['id'].sample(n=num_users_to_eval, random_state=seed)
         else:
             self.users_to_eval = self.data_loader.users_df['id']
+        self.user_eval_include_function = user_eval_include_function
         self.debug = debug
 
     def create_load_prepare_save_model(self, network_initializer, network_save_file):
         self.model = network_initializer()
         self.model.set_data_loader(self.data_loader)
-        if self.model.model_file_exists(network_save_file):
-            if self.debug:
-                print('Loading model:', network_save_file)
-            self.model.load(network_save_file)
-            if self.debug:
-                print('Doen loading model.', network_save_file)
-        else:
+        if not self.model.model_file_exists(network_save_file):
             if self.debug:
                 print('Preparing model.')
             self.prepare_model()
             self.model.save(network_save_file)
             if self.debug:
                 print('Done preparing model.')
+
+        if self.debug:
+            print('Loading model:', network_save_file)
+        self.model = network_initializer()
+        self.model.set_data_loader(self.data_loader)
+        self.model.load(network_save_file)
+        if self.debug:
+            print('Doen loading model.', network_save_file)
 
     @abstractmethod
     def prepare_model(self, model):
@@ -348,8 +353,8 @@ class OfflineEvaluator(Evaluator):
             print('Done getting edge results.')
 
 class TrainEvaluator(OfflineEvaluator):
-    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
-        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, user_eval_include_function=include_all_users, seed=0, debug=False):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, user_eval_include_function, seed, debug)
     
     def get_all_user_predictions(self, network_initializer, network_save_file):
         user_ids = []
@@ -357,6 +362,8 @@ class TrainEvaluator(OfflineEvaluator):
         predicted_scores = []
         for user in tqdm(self.users_to_eval, desc='User Predictions'):
             users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            if not self.user_eval_include_function(users_games_df):
+                continue
             predictions = self.model.score_and_predict_n_games_for_user(user, N=self.top_N_games_to_eval, should_sort=False, games_to_include=users_games_df[users_games_df['data_split'] == 'test']['game_id'].tolist())
             user_ids.extend([user] * len(predictions))
             game_ids.extend([game_id for game_id, _ in predictions])
@@ -367,8 +374,8 @@ class TrainEvaluator(OfflineEvaluator):
         self.model.train()
 
 class WarmFineTuneEvaluator(OfflineEvaluator):
-    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
-        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, user_eval_include_function=include_all_users, seed=0, debug=False):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, user_eval_include_function, seed, debug)
     
     def get_all_user_predictions(self, network_initializer, network_save_file):
         user_ids = []
@@ -377,7 +384,9 @@ class WarmFineTuneEvaluator(OfflineEvaluator):
         fake_interactions = pd.DataFrame(columns=self.data_loader.users_games_df.columns).astype(self.data_loader.users_games_df.dtypes)
         for user in tqdm(self.users_to_eval, desc='User Predictions'):
             users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
-            
+            if not self.user_eval_include_function(users_games_df):
+                continue
+
             # TODO add interactions
             all_users_games_df_without_test = users_games_df[users_games_df['data_split'] != 'test']
             new_users_games_df = users_games_df[users_games_df['data_split'] == 'tune']
@@ -399,8 +408,8 @@ class WarmFineTuneEvaluator(OfflineEvaluator):
         self.model.train()
 
 class ColdFineTuneEvaluator(OfflineEvaluator):
-    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, seed=0, debug=False):
-        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, seed, debug)
+    def __init__(self, data_loader, top_N_games_to_eval, num_users_to_eval=None, user_eval_include_function=include_all_users, seed=0, debug=False):
+        super().__init__(data_loader, top_N_games_to_eval, num_users_to_eval, user_eval_include_function, seed, debug)
     
     def get_all_user_predictions(self, network_initializer, network_save_file):
         user_ids = []
@@ -409,6 +418,8 @@ class ColdFineTuneEvaluator(OfflineEvaluator):
         fake_interactions = pd.DataFrame(columns=self.data_loader.users_games_df.columns).astype(self.data_loader.users_games_df.dtypes)
         for user in tqdm(self.users_to_eval, desc='User Predictions'):
             users_games_df = self.data_loader.users_games_df_grouped_by_user.get_group(user)
+            if not self.user_eval_include_function(users_games_df):
+                continue
             
             # TODO add interactions
             all_users_games_df_without_test = users_games_df[users_games_df['data_split'] != 'test']
