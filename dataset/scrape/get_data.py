@@ -114,7 +114,7 @@ def write_user_data(user_id):
             resp_game = new_resp_games[i]
             game_id = resp_game["appid"]
 
-            if resp.status_code == 500:
+            if resp.status_code == 500 or resp.status_code == 404:
                 add_invalid_game(game_id)
                 continue
             assert resp.status_code == 200
