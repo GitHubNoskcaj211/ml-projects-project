@@ -54,7 +54,7 @@ class BaseGameRecommendationModel(ABC):
     def train(self, user_node_ids=None):
         pass
 
-    def fine_tune(self, user_id):
+    def fine_tune(self, user_id, debug=False):
         all_user_games_df = self.data_loader.get_users_games_df_for_user(user_id, preprocess=True)
         all_interactions_df = self.data_loader.get_interactions_df_for_user(user_id, preprocess=True)
         # Get all then filter to do score normalization on all data but only do modifications on external data.
@@ -66,7 +66,7 @@ class BaseGameRecommendationModel(ABC):
         new_user_games_df = get_new_df(external_user_games_df)
         new_interactions_df = get_new_df(external_interactions_df)
         
-        self._fine_tune(user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df)
+        self._fine_tune(user_id, new_user_games_df, new_interactions_df, all_user_games_df, all_interactions_df, debug=debug)
         self.users_games_interactions_fine_tuned = pd.concat([self.users_games_interactions_fine_tuned, new_user_games_df[['user_id', 'game_id']], new_interactions_df[['user_id', 'game_id']]])
 
     @abstractmethod

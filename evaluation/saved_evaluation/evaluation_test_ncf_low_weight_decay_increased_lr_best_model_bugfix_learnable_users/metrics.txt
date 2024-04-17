@@ -1,0 +1,12 @@
+mean_positional_error: 54.31967769856091
+top_10_recall_variance: 2.8831103648955452e-05
+top_10_recall: 0.002387521222410866
+auc_roc: 0.5833818248975059
+user_rank_auc_roc: 0.5592772510360762
+user_rank_auc_roc_variance: 2.8747781955847473e-06
+top_10_hit_percentage_variance: 0.006506370060791373
+top_10_hit_percentage: 0.06432105552501374
+top_50_hit_percentage_variance: 0.002063359385889306
+top_50_hit_percentage: 0.04697086311159978
+top_50_recall_variance: 0.00020080019642530145
+top_50_recall: 0.008717513386443778

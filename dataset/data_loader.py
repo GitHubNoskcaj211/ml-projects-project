@@ -287,7 +287,7 @@ class DataLoader():
 
         train_edges, test_edges = train_test_split(self.users_games_df.index, test_size=test_percentage, train_size=train_percentage + fine_tune_percentage, random_state=seed)
         sum_fine_tune_train_percentage = train_percentage + fine_tune_percentage
-        train_edges, fine_tune_edges = train_test_split(train_edges, test_size=fine_tune_percentage / sum_fine_tune_train_percentage, train_size=train_percentage / sum_fine_tune_train_percentage, random_state=seed)
+        train_edges, fine_tune_edges = train_test_split(train_edges, test_size=fine_tune_percentage / sum_fine_tune_train_percentage, train_size=train_percentage / sum_fine_tune_train_percentage)
         self.users_games_df['data_split'] = 'none'
         self.users_games_df.loc[train_edges, 'data_split'] = 'train'
         self.users_games_df.loc[test_edges, 'data_split'] = 'test'
@@ -300,7 +300,7 @@ class DataLoader():
         self.train_or_eval_mode = True
         
         train_users, test_users = train_test_split(self.users_df['id'].unique(), test_size=test_user_percentage, train_size=train_user_percentage, random_state=seed)
-        fine_tune_edges, test_edges = train_test_split(self.users_games_df[self.users_games_df['user_id'].isin(test_users)].index, test_size=test_edge_percentage, train_size=fine_tune_edge_percentage, random_state=seed)
+        fine_tune_edges, test_edges = train_test_split(self.users_games_df[self.users_games_df['user_id'].isin(test_users)].index, test_size=test_edge_percentage, train_size=fine_tune_edge_percentage)
         self.users_games_df['data_split'] = 'none'
         self.users_games_df.loc[self.users_games_df['user_id'].isin(train_users), 'data_split'] = 'train'
         self.users_games_df.loc[test_edges, 'data_split'] = 'test'

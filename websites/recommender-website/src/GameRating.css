@@ -1,34 +1,28 @@
 .container {
   display: flex;
   flex-direction: column;
-  width: 80%;
+  width: 90%; /* Adjusted width for better mobile experience */
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: center; /* Center content vertically */
   min-height: 90vh;
-  overflow: hidden;
   margin: auto;
 }
 
 .contentContainer {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: stretch;
   width: 100%;
-  height: auto;
-  overflow: auto;
+  padding: 10px; /* Decreased vertical padding for price */
+  box-sizing: border-box;
+  overflow-y: auto; /* Added vertical scroll for content overflow */
 }
 
 .box {
-  flex: 1 1 auto;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 0.2%;
+  margin: 5px; /* Increased margin for better separation */
   border-radius: 5px;
-  box-sizing: border-box;
-  padding: 0.5%;
-  font-size: 1vw;
+  padding: 5px; /* Increased padding for better spacing */
+  font-size: 1rem; /* Set font size to a fixed value for better consistency */
   overflow: hidden;
 }
 
@@ -36,36 +30,30 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 1% 0;
-  height: 5%;
-}
-
-@media (min-width: 768px) {
-  .box {
-    font-size: 0.8vw; /* Adjust font size for larger screens */
-  }
+  padding: 5px 0; /* Increased padding for better spacing */
 }
 
 .secondRow {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  align-items: center; /* Center items horizontally */
   width: 100%;
 }
 
-.image.box,
-.rec.box {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0.5%;
+.image.box {
+  width: 50%; /* Image takes 30% width on desktop */
+  overflow: hidden; /* Hide overflowing content */
+  margin-bottom: 10px; /* Added margin-bottom to separate image on mobile */
 }
 
-@media (max-width: 768px) {
-  .secondRow {
-    flex-direction: column;
-  }
+.image.box img {
+  width: 100%; /* Ensure the image fills its container */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Remove any default inline styles */
+  max-width: 100%; /* Prevent image from exceeding its natural size */
+}
+
+.rec.box {
+  width: 70%; /* RecCircle takes 70% width on desktop */
 }
 
 .finalPage {
@@ -76,20 +64,88 @@
   overflow: hidden;
 }
 
-.tag.box,
-.genre.box {
-  flex-direction: column;
-  flex-wrap: wrap;
+.genreButtons,
+.tagButtons {
+  flex-wrap: wrap; /* Allow buttons to wrap onto new lines */
+  max-width: 100%; /* Set maximum width */
+  display: flex; /* Set display to flex */
+  text-align: center; /* Center align the content */
+  justify-content: center; /* Center align buttons */
+}
+
+.genreButtons button,
+.tagButtons button {
+  font-size: 1rem; /* Set button text size */
+}
+/* Default font size for genre, tag, and paragraphs */
+.genre.box h2,
+.tag.box h2,
+p {
+  font-size: 1rem; /* Default font size */
+  margin: 5px; /* Add margin for better spacing */
+}
+
+/* Adjust font size for smaller screens for genre, tag, and paragraphs */
+@media (max-width: 768px) {
+  .genre.box h2,
+  .tag.box h2,
+  .price.box h2,
+  p {
+    font-size: 0.8rem; /* Adjusted font size for smaller screens */
+    margin: 1px;
+  }
+
+  .genreButtons button,
+  .tagButtons button {
+    font-size: 0.8rem; /* Set button text size */
+  }
+
+  .genre.box h2,
+  .tag.box h2 {
+    margin-bottom: 10px; /* Added margin-bottom to separate titles from elements */
+  }
+
+  .image.box {
+    width: 100%; /* Image takes full width on mobile */
+  }
+
+  .rec.box {
+    width: 100%; /* RecCircle takes full width on mobile */
+  }
+
+  .secondRow {
+    flex-direction: column; /* Image and RecCircle in separate rows on mobile */
+  }
+}
+
+/* Default font size for title */
+.title.box h1 {
+  font-size: 3.0rem; /* Default font size for title */
+  margin: 5px; /* Add margin for better spacing */
+}
+
+/* Adjust font size for smaller screens for title */
+@media (max-width: 768px) {
+  .title.box h1 {
+    font-size: 1.5rem; /* Adjusted font size for smaller screens */
+  }
 }
 
 button,
 h1,
 h2,
 p {
-  font-size: 1vw;
-  margin: 2px;
+  margin: 5px; /* Increased margin for better spacing */
 }
 
 button.undoButton {
   color: red;
+}
+
+.swipeRight {
+  background-color: rgba(0, 255, 0, var(--swipe-progress)); /* Background color interpolated to green */
+}
+
+.swipeLeft {
+  background-color: rgba(255, 0, 0, var(--swipe-progress)); /* Background color interpolated to red */
 }

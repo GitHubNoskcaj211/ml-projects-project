@@ -190,6 +190,7 @@ class GraphSAGE(torch.nn.Module, BaseGameRecommendationModel):
         new_interactions_df,
         all_user_games_df,
         all_interactions_df,
+        debug=False
     ):
         if user_id not in self.node_id_to_index:
             raise ValueError(
