@@ -97,11 +97,6 @@ const App: React.FC = () => {
 
   return (
     <div>
-      {currentView === "FindNewGames" ? (
-        <GameRating details={{ userID }} />
-      ) : (
-        <GamesList userID={userID} />
-      )}
       <button
         className="changeViewBtn"
         onClick={() =>
@@ -111,6 +106,11 @@ const App: React.FC = () => {
       >
         Home Screen
       </button>
+      {currentView === "FindNewGames" ? (
+        <GameRating details={{ userID }} />
+      ) : (
+        <GamesList userID={userID} />
+      )}
     </div>
   );
 };

@@ -27,6 +27,11 @@ interface GameRatingProps {
 
 const REQ_BATCH_SIZE = 10;
 const BUFFER_SIZE = 40;
+const MIN_HORIZONTAL_SWIPE_COLOR_CHANGE = window.innerWidth / 4;
+const HORIZONTAL_SWIPE_THRESHOLD = window.innerWidth / 2;
+const VERTICAL_SWIPE_THRESHOLD = 50;
+const MAX_SWIPE_COLOR_ALPHA = 0.25;
+const SWIPE_COLOR_CHANGE_TIME_MS = 500;
 
 const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -38,6 +43,8 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [steamLinkClicked, setSteamLinkClicked] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
+  const [swipeProgress, setSwipeProgress] = useState(0); // Percentage of swipe progress
 
   const handleSteamLinkClicked = () => {
     setSteamLinkClicked(true);
@@ -86,58 +93,73 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     if (loading || interactionAttempts > 1) {
       return;
     }
+
     const handleKeyPress = async (event: KeyboardEvent) => {
       if (loading) return;
 
       if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
         return;
       }
-      if (startTime === null) {
-        throw Error("startTime is null");
-      }
+      await handleUserLikeDislike(event.key === "ArrowRight");
+    };
 
-      setInteractionAttempts((prev) => prev + 1);
-      if (interactionAttempts > 1) {
+    // Function to handle touch events for swipe
+    const handleSwipe = async (startX: number, endX: number, startY: number, endY: number) => {
+      if (Math.abs(startY - endY) >= VERTICAL_SWIPE_THRESHOLD) {
         return;
       }
-      const userLiked = event.key === "ArrowRight";
-      const timeSpent = (Date.now() - startTime) / 1000;
-
-      console.assert(currentIndex < recommendations.length);
-      const rec = recommendations[currentIndex];
-      const newIndex = currentIndex + 1;
-      await fetch(makeBackendURL("add_interaction"), {
-        credentials: "include",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          rec_model_name: rec.resp.model_name,
-          rec_model_save_path: rec.resp.model_save_path,
-          num_game_interactions_local: rec.resp.num_game_interactions_local,
-          num_game_owned_local: rec.resp.num_game_owned_local,
-          num_game_interactions_external:
-            rec.resp.num_game_interactions_external,
-          num_game_owned_external: rec.resp.num_game_owned_external,
-          game_id: rec.rec.id,
-          user_liked: userLiked,
-          time_spent: timeSpent,
-          steam_link_clicked: steamLinkClicked,
-        }),
-      });
-      if (newIndex >= recommendations.length) {
-        setLoading(true);
+      if (endX - startX > HORIZONTAL_SWIPE_THRESHOLD) {
+        await handleUserLikeDislike(true);
+      } else if (startX - endX > HORIZONTAL_SWIPE_THRESHOLD) {
+        await handleUserLikeDislike(false);
       }
-      setInteractionAttempts(0);
-      setCurrentIndex(newIndex);
-      setStartTime(Date.now());
-      setSteamLinkClicked(false);
+    };
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouchInProgress = false;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (!isTouchInProgress) {
+        touchStartX = event.touches[0].clientX;
+        touchStartY = event.touches[0].clientY;
+        isTouchInProgress = true;
+      }
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (isTouchInProgress) {
+        const touchMoveX = event.touches[0].clientX;
+        const touchMoveY = event.touches[0].clientY;
+        if (Math.abs(touchStartY - touchMoveY) >= VERTICAL_SWIPE_THRESHOLD) {
+          setSwipeDirection(null);
+          setSwipeProgress(0);
+          return;
+        }
+        setSwipeDirection(touchMoveX - touchStartX > MIN_HORIZONTAL_SWIPE_COLOR_CHANGE ? "right" : touchStartX - touchMoveX > MIN_HORIZONTAL_SWIPE_COLOR_CHANGE ? "left" : null);
+        setSwipeProgress(Math.min(Math.max(Math.abs(touchMoveX - touchStartX) - MIN_HORIZONTAL_SWIPE_COLOR_CHANGE, 0.0) / (HORIZONTAL_SWIPE_THRESHOLD - MIN_HORIZONTAL_SWIPE_COLOR_CHANGE), 1.0) * MAX_SWIPE_COLOR_ALPHA);
+      }
+    };
+
+    const onTouchEnd = async (event: TouchEvent) => {
+      if (isTouchInProgress) {
+        const touchEndX = event.changedTouches[0].clientX;
+        const touchEndY = event.changedTouches[0].clientY;
+        await handleSwipe(touchStartX, touchEndX, touchStartY, touchEndY);
+        isTouchInProgress = false;
+        setSwipeDirection(null);
+        setSwipeProgress(0);
+      }
     };
 
     window.addEventListener("keydown", handleKeyPress);
+    window.addEventListener("touchstart", onTouchStart);
+    window.addEventListener("touchmove", onTouchMove);
+    window.addEventListener("touchend", onTouchEnd);
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
     };
   }, [
     showPopup,
@@ -148,6 +170,59 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     interactionAttempts,
     recommendations.length,
   ]);
+
+  const handleUserLikeDislike = async (userLiked: boolean) => {
+    setInteractionAttempts((prev) => prev + 1);
+    if (interactionAttempts > 1) {
+      return;
+    }
+    if (startTime === null) {
+      throw Error("startTime is null");
+    }
+    const timeSpent = (Date.now() - startTime) / 1000;
+
+    console.assert(currentIndex < recommendations.length);
+    const rec = recommendations[currentIndex];
+    const newIndex = currentIndex + 1;
+    await fetch(makeBackendURL("add_interaction"), {
+      credentials: "include",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        rec_model_name: rec.resp.model_name,
+        rec_model_save_path: rec.resp.model_save_path,
+        num_game_interactions_local: rec.resp.num_game_interactions_local,
+        num_game_owned_local: rec.resp.num_game_owned_local,
+        num_game_interactions_external:
+          rec.resp.num_game_interactions_external,
+        num_game_owned_external: rec.resp.num_game_owned_external,
+        game_id: rec.rec.id,
+        user_liked: userLiked,
+        time_spent: timeSpent,
+        steam_link_clicked: steamLinkClicked,
+      }),
+    });
+    if (newIndex >= recommendations.length) {
+      setLoading(true);
+    }
+    setInteractionAttempts(0);
+    setCurrentIndex(newIndex);
+    setStartTime(Date.now());
+    setSteamLinkClicked(false);
+    setSwipeDirection(userLiked ? 'right' : 'left');
+    setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
+    setTimeout(() => {
+      setSwipeDirection(null);
+      setSwipeProgress(0);
+    }, SWIPE_COLOR_CHANGE_TIME_MS);
+  }
+
+  useEffect(() => {
+    const swipeProgressString = swipeProgress.toString();
+    document.documentElement.style.setProperty('--swipe-progress', swipeProgressString);
+  }, [swipeProgress]);
 
   useEffect(() => {
     const expectedNumLeft = expectedRecommendationsLength - currentIndex;
@@ -188,7 +263,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   }
 
   return (
-    <div className="container">
+    <div className={`container ${swipeDirection === "right" ? "swipeRight" : swipeDirection === "left" ? "swipeLeft" : ""}`}>
       {
         /* Popup Directions Box*/
         showPopup && currentIndex === 0 && (
@@ -240,29 +315,29 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         {/* Genres */}
         <div className="genre box">
           <h2>Genres</h2>
-          <div className="genreButtons">
-            {recommendations[currentIndex].rec.genres.map(
-              (genre: string, index: number) => (
-                <button key={index} disabled>
-                  {genre}
-                </button>
-              )
-            )}
-          </div>
+        </div>
+        <div className="genreButtons">
+          {recommendations[currentIndex].rec.genres.map(
+            (genre: string, index: number) => (
+              <button key={index} disabled>
+                {genre}
+              </button>
+            )
+          )}
         </div>
 
         {/* Tags */}
         <div className="tag box">
           <h2>Tags</h2>
-          <div className="tagButtons">
-            {recommendations[currentIndex].rec.tags.map(
-              (tag: string, index: number) => (
-                <button key={index} disabled>
-                  {tag}
-                </button>
-              )
-            )}
-          </div>
+        </div>
+        <div className="tagButtons">
+          {recommendations[currentIndex].rec.tags.map(
+            (tag: string, index: number) => (
+              <button key={index} disabled>
+                {tag}
+              </button>
+            )
+          )}
         </div>
 
         {/* Undo Button */}
