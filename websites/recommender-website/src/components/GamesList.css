@@ -1,0 +1,23 @@
+#gamesTable {
+    border: 1px solid white;
+}
+
+.fixed-bottom-right {
+    position: fixed;
+    bottom: 0.75rem; /* Adjust as needed */
+    right: 0.75rem; /* Adjust as needed */
+    background-color: #1b2838; /* Grey background */
+    border: 2px solid #66c0f4; 
+    width: 3rem; 
+    height: 3rem; 
+    border-radius: 50%; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF; /* Black text */
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    z-index: 9999; 
+  }
+  

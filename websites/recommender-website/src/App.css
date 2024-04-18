@@ -1,6 +1,5 @@
-.changeViewBtn {
-    display: block;
-    margin-top: 10px;
-    left: 10px;
-    bottom: 10px;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+

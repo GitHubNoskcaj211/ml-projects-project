@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import "./GameRating.css";
-import RecCircle from "./components/RecCircle";
-import PopUpBox from "./components/PopUpBox";
+import RecCircle from "./RecCircle";
+import PopUpBox from "./PopUpBox";
 import {
   fetchGameRecommendations,
   RecommendationsResponse,
   RecResponse,
-} from "./components/GetRecs";
-import { makeBackendURL } from "./util";
+} from "./GetRecs";
+import { makeBackendURL } from "../util";
 
 interface Game {
   userID: string;
@@ -285,7 +285,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         </div>
         {/* Price */}
         <div className="price box">
-          <h2>Price: ${recommendations[currentIndex].rec.price}</h2>
+          <h2 className='font-bold text-2xl'>Price: ${recommendations[currentIndex].rec.price}</h2>
         </div>
         <div className="secondRow">
           {/* Image */}
@@ -316,7 +316,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         <div className="genre box">
           <h2>Genres</h2>
         </div>
-        <div className="genreButtons">
+        <div className="flex flex-wrap gap-2 justify-center text-gray-400">
           {recommendations[currentIndex].rec.genres.map(
             (genre: string, index: number) => (
               <button key={index} disabled>
@@ -330,7 +330,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         <div className="tag box">
           <h2>Tags</h2>
         </div>
-        <div className="tagButtons">
+        <div className="flex flex-wrap gap-2 justify-center text-gray-500 ">
           {recommendations[currentIndex].rec.tags.map(
             (tag: string, index: number) => (
               <button key={index} disabled>

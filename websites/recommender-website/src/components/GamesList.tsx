@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { fetchGameInfo, GameInfo } from "./components/GetGameDetails";
-import { makeBackendURL } from "./util";
+import { fetchGameInfo, GameInfo } from "./GetGameDetails";
+import { makeBackendURL } from "../util";
 import "./GamesList.css";
 
 interface GamesListProps {
@@ -40,6 +40,13 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
     };
   }, [userID]);
 
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   if (gamesLikedInfo === null) {
     return "Loading...";
   }
@@ -69,7 +76,19 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
           ))}
         </tbody>
       </table>
+
+      <button
+        onClick={scrollToTop}
+        className="fixed-bottom-right"
+      >
+        ↑
+      </button>
+
+
+
     </div>
+
+
   );
 };
 

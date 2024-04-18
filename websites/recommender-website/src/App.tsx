@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
-import GameRating from "./GameRating";
-import GamesList from "./GamesList";
-import PublicDirectionsBox from "./components/publicDirections";
+import GameRating from "./components/GameRating";
+import GamesList from "./components/GamesList";
+import Navbar from "./components/NavBar";
+import SignIn from "./components/SignIn";
+import Loading from "./components/Loading";
+import HomePage from "./components/HomePage";
 import "./App.css";
 
 import { makeBackendURL } from "./util";
@@ -10,7 +13,7 @@ const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
   const [showPublicProfileWarning, setShowPublicProfileWarning] = useState(false);
   const [currentView, setCurrentView] = useState<
-    "LandingPage" | "FindNewGames" | "LikedGames"
+    "LandingPage" | "FindNewGames" | "LikedGames" | "HomePage"
   >("LandingPage");
 
   useEffect(() => {
@@ -43,7 +46,9 @@ const App: React.FC = () => {
         return;
       }
       const data = await res.json();
+      console.log(data)
       setUserID(data.id);
+      setCurrentView("HomePage");
     })();
     return () => {
       controller.abort();
@@ -55,62 +60,32 @@ const App: React.FC = () => {
   };
 
   if (userID === undefined) {
-    return <div className="container">Loading...</div>;
+    return <Loading />
   }
 
   if (userID === null) {
     return (
-      <div className="container signInContainer">
-        {
-          /* Popup Directions Box*/
-          showPublicProfileWarning && (
-            <PublicDirectionsBox isOpen={showPublicProfileWarning} onClose={closePopup} />
-          )
-        }
-        <button onClick={() => (location.href = makeBackendURL("/login"))}>
-          Sign in through Steam
-        </button>
-      </div>
+      <SignIn
+        showPublicProfileWarning={showPublicProfileWarning}
+        setShowPublicProfileWarning={setShowPublicProfileWarning}
+      />
     );
   }
 
-  if (currentView === "LandingPage") {
-    return (
-      <div className="landingPage">
-        <button onClick={() => setCurrentView("FindNewGames")}>
-          Find New Games
-        </button>
-        <button onClick={() => setCurrentView("LikedGames")}>
-          Liked Games
-        </button>
-        <button onClick={() => window.open("mailto:jackson.p.rusch@vanderbilt.edu", "_blank")}>
-          Feedback
-        </button>
-        <button onClick={() => {
-          window.location.replace(makeBackendURL("logout"))
-        }}>
-          Logout
-      </button>
-      </div>
-    );
-  }
 
   return (
     <div>
-      <button
-        className="changeViewBtn"
-        onClick={() =>
-          setCurrentView("LandingPage"
-          )
-        }
-      >
-        Home Screen
-      </button>
-      {currentView === "FindNewGames" ? (
+      <Navbar setCurrentView={setCurrentView}/>
+      {currentView === "HomePage" && (
+        <HomePage  />
+      )}
+      {currentView === "FindNewGames" && (
         <GameRating details={{ userID }} />
-      ) : (
+      )}
+      {currentView === "LikedGames" && (
         <GamesList userID={userID} />
       )}
+      
     </div>
   );
 };
