@@ -185,6 +185,8 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     const rec = recommendations[currentIndex];
     // console.log(rec.resp.model_save_path);
     const newIndex = currentIndex + 1;
+    setSwipeDirection(userLiked ? 'right' : 'left');
+    setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
     await fetch(makeBackendURL("add_interaction"), {
       credentials: "include",
       method: "POST",
@@ -212,8 +214,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     setCurrentIndex(newIndex);
     setStartTime(Date.now());
     setSteamLinkClicked(false);
-    setSwipeDirection(userLiked ? 'right' : 'left');
-    setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
     setTimeout(() => {
       setSwipeDirection(null);
       setSwipeProgress(0);
