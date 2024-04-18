@@ -113,6 +113,7 @@ class NCFModel(BaseGameRecommendationModel):
         if debug:
             current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
             writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{user_id}_{current_time}"))
+            assert self.data_loader.cache_local_dataset, 'Need to cache local dataset to debug.'
             users_games_df_for_user = self.data_loader.users_games_df_grouped_by_user.get_group(user_id)
             test_user_games_df = users_games_df_for_user[users_games_df_for_user['data_split'] == 'test']
             test_user_indices = pd.concat([test_user_games_df['user_id'].apply(lambda id: self.user_to_index[id])])

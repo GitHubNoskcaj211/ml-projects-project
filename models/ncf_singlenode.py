@@ -199,6 +199,7 @@ class NCF(nn.Module):
         if self.mlp:
             self.embedding_mlp_user.weight.requires_grad_(True)
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=0)
+        # TODO Train on an equal number of positive and negative samples.
         train_loss = []
         weight_decay_indices = torch.LongTensor([user_index])
         batch_percent = 0.25

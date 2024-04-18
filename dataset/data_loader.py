@@ -133,11 +133,12 @@ def add_categorical_embedding(df, category_base_name, nested_values):
 
 # Default is a network with game and user nodes (hashed with ids) and edges between users and games. All options are in init.
 class DataLoader():
-    def __init__(self, users_games_edge_scoring_function = constant_users_games_edge_scoring_function, interactions_edge_scoring_function = liked_interactions_edge_scoring_function, score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_users_games_edges_function = never_remove_edge, cache_local_dataset = False, get_local = True, get_external_database = False):
+    def __init__(self, users_games_edge_scoring_function = constant_users_games_edge_scoring_function, interactions_edge_scoring_function = liked_interactions_edge_scoring_function, users_games_edge_score_normalizers = [], interactions_score_normalizers = [], user_embeddings = [], game_embeddings = [], user_game_edge_embeddings = [], friend_friend_edge_embeddings = [], snowballs_ids = [], num_users_to_load_per_snowball = None, remove_users_games_edges_function = never_remove_edge, cache_local_dataset = False, get_local = True, get_external_database = False):
         super().__init__()
         self.users_games_edge_scoring_function = users_games_edge_scoring_function
         self.interactions_edge_scoring_function = interactions_edge_scoring_function
-        self.score_normalizers = score_normalizers
+        self.users_games_edge_score_normalizers = users_games_edge_score_normalizers
+        self.interactions_score_normalizers = interactions_score_normalizers
         self.user_embeddings = user_embeddings
         self.game_embeddings = game_embeddings
         self.user_game_edge_embeddings = user_game_edge_embeddings
@@ -314,7 +315,8 @@ class DataLoader():
             return cls(
                 users_games_edge_scoring_function = parameter_dictionary['users_games_edge_scoring_function'],
                 interactions_edge_scoring_function = parameter_dictionary['interactions_edge_scoring_function'],
-                score_normalizers = parameter_dictionary['score_normalizers'],
+                users_games_edge_score_normalizers = parameter_dictionary['users_games_edge_score_normalizers'],
+                interactions_score_normalizers = parameter_dictionary['interactions_score_normalizers'],
                 user_embeddings = parameter_dictionary['user_embeddings'],
                 game_embeddings = parameter_dictionary['game_embeddings'],
                 user_game_edge_embeddings = parameter_dictionary['user_game_edge_embeddings'],
@@ -330,7 +332,8 @@ class DataLoader():
         return {
             'users_games_edge_scoring_function': self.users_games_edge_scoring_function,
             'interactions_edge_scoring_function': self.interactions_edge_scoring_function,
-            'score_normalizers': self.score_normalizers,
+            'users_games_edge_score_normalizers': self.users_games_edge_score_normalizers,
+            'interactions_score_normalizers': self.interactions_score_normalizers,
             'user_embeddings': self.user_embeddings,
             'game_embeddings': self.game_embeddings,
             'user_game_edge_embeddings': self.user_game_edge_embeddings,
@@ -406,7 +409,7 @@ class DataLoader():
             
         self.score_users_games_edges(users_games_df)
         
-        for normalizer in self.score_normalizers:
+        for normalizer in self.users_games_edge_score_normalizers:
             normalizer.normalize(users_games_df)
         
         return users_games_df
@@ -414,7 +417,7 @@ class DataLoader():
     def preprocess_interactions_df(self, interactions_df):
         self.score_interactions_edges(interactions_df)
 
-        for normalizer in self.score_normalizers:
+        for normalizer in self.interactions_score_normalizers:
             normalizer.normalize(interactions_df)
         
         return interactions_df

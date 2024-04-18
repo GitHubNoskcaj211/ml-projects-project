@@ -1,5 +1,12 @@
-mean_positional_error: 17.302017805420554
-top_10_recall: 0.0289230165028923
-auc_roc: 0.8145339123137406
-user_rank_auc_roc: 0.6528502239679645
-top_10_hit_percentage: 0.18556430446194225
+mean_positional_error: 17.84838093007182
+top_10_recall_variance: nan
+top_10_recall: nan
+auc_roc: 0.8103142364776144
+user_rank_auc_roc: 0.6531335972547737
+user_rank_auc_roc_variance: 2.5219660405805884e-06
+top_10_hit_percentage_variance: 0.03152327223388177
+top_10_hit_percentage: 0.18401682439537329
+top_50_hit_percentage_variance: 0.013212992970555096
+top_50_hit_percentage: 0.10077812828601472
+top_50_recall_variance: nan
+top_50_recall: nan
