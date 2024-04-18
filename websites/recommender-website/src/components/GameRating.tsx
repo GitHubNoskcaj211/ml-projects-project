@@ -183,6 +183,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
     console.assert(currentIndex < recommendations.length);
     const rec = recommendations[currentIndex];
+    // console.log(rec.resp.model_save_path);
     const newIndex = currentIndex + 1;
     await fetch(makeBackendURL("add_interaction"), {
       credentials: "include",
