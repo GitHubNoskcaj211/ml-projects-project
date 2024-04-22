@@ -187,26 +187,26 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     const newIndex = currentIndex + 1;
     setSwipeDirection(userLiked ? 'right' : 'left');
     setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
-    // await fetch(makeBackendURL("add_interaction"), {
-    //   credentials: "include",
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({
-    //     rec_model_name: rec.resp.model_name,
-    //     rec_model_save_path: rec.resp.model_save_path,
-    //     num_game_interactions_local: rec.resp.num_game_interactions_local,
-    //     num_game_owned_local: rec.resp.num_game_owned_local,
-    //     num_game_interactions_external:
-    //       rec.resp.num_game_interactions_external,
-    //     num_game_owned_external: rec.resp.num_game_owned_external,
-    //     game_id: rec.rec.id,
-    //     user_liked: userLiked,
-    //     time_spent: timeSpent,
-    //     steam_link_clicked: steamLinkClicked,
-    //   }),
-    // });
+    await fetch(makeBackendURL("add_interaction"), {
+      credentials: "include",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        rec_model_name: rec.resp.model_name,
+        rec_model_save_path: rec.resp.model_save_path,
+        num_game_interactions_local: rec.resp.num_game_interactions_local,
+        num_game_owned_local: rec.resp.num_game_owned_local,
+        num_game_interactions_external:
+          rec.resp.num_game_interactions_external,
+        num_game_owned_external: rec.resp.num_game_owned_external,
+        game_id: rec.rec.id,
+        user_liked: userLiked,
+        time_spent: timeSpent,
+        steam_link_clicked: steamLinkClicked,
+      }),
+    });
     if (newIndex >= recommendations.length) {
       setLoading(true);
     }
