@@ -12,6 +12,7 @@ from tqdm import tqdm
 import numpy as np
 from utils.utils import gaussian_transformation, get_numeric_dataframe_columns
 import pickle
+import pandas as pd
 
 import os
 if "K_SERVICE" not in os.environ:
@@ -308,5 +309,22 @@ class GraphSAGE(BaseGameRecommendationModel):
         all_interactions_df,
         debug=False
     ):
-        return
-        
+        # print(self.data)
+        if not user_id in self.user_to_index:
+            self.user_to_index[user_id] = len(self.user_nodes)
+            self.user_nodes.append(user_id)
+            self.data['user'].x = torch.cat((self.data['user'].x, torch.ones((1, self.data['user'].x.size(1)), dtype=self.data['user'].x.dtype)), dim=0)
+        if new_user_games_df.empty and new_interactions_df.empty:
+            return
+        # TODO Also update all the old scores (when this is actually used).
+        user_indices = pd.concat([new_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), new_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])
+        user_indices = torch.tensor(user_indices.values).reshape((1, -1))
+        game_indices = pd.concat([new_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), new_interactions_df['game_id'].apply(lambda id: self.game_to_index[id])])
+        game_indices = torch.tensor(game_indices.values).reshape((1, -1))
+        scores = pd.concat([new_user_games_df['score'], new_interactions_df['score']])
+        scores_tensor = torch.tensor(scores.values)
+        scores_tensor = scores_tensor.type(torch.FloatTensor)
+        self.data['user', 'plays', 'game'].edge_index = torch.cat((self.data['user', 'plays', 'game'].edge_index, torch.cat((user_indices, game_indices), dim=0)), dim=1)
+        self.data['user', 'plays', 'game'].edge_label = torch.cat((self.data['user', 'plays', 'game'].edge_label, scores_tensor))
+        self.data['game', 'rev_plays', 'user'].edge_index = torch.cat((self.data['game', 'rev_plays', 'user'].edge_index, torch.cat((game_indices, user_indices), dim=0)), dim=1)
+        # print(self.data)             
