@@ -1,8 +1,13 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.abspath('')))
+
+
 from models.base_model import BaseGameRecommendationModel, SAVED_MODELS_PATH, SAVED_NN_PATH
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch_geometric.nn import SAGEConv, to_hetero
+from torch_geometric.nn import GraphConv, to_hetero
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from torch_geometric.loader import NeighborLoader
@@ -13,6 +18,9 @@ import numpy as np
 from utils.utils import gaussian_transformation, get_numeric_dataframe_columns
 import pickle
 import pandas as pd
+import random
+from collections import defaultdict
+from copy import deepcopy
 
 import os
 if "K_SERVICE" not in os.environ:
@@ -27,19 +35,126 @@ TENSORBOARD_RUN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 class GNNEncoder(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels):
         super().__init__()
-        self.conv1 = SAGEConv((-1, -1), hidden_channels)
-        self.conv2 = SAGEConv((-1, -1), hidden_channels)
-        self.conv3 = SAGEConv((-1, -1), out_channels)
+        self.conv1 = GraphConv((-1, -1), hidden_channels)
+        self.conv2 = GraphConv((-1, -1), hidden_channels)
+        self.conv3 = GraphConv((-1, -1), out_channels)
 
-    def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index).relu()
-        x = self.conv2(x, edge_index).relu()
-        x = self.conv3(x, edge_index)
+    def forward(self, x, edge_index, edge_weight):
+        x = self.conv1(x, edge_index, edge_weight=edge_weight).relu()
+        x = self.conv2(x, edge_index, edge_weight=edge_weight).relu()
+        x = self.conv3(x, edge_index, edge_weight=edge_weight)# Add sigmoid?
+        # TODO Add dropout
 
         return x
 
 
-class EdgeDecoder(torch.nn.Module):
+def graph_sage_neighbor_sampling(node_type_to_node_to_edge_type_to_neighbors_edge_ids_map, num_neighbors, starting_nodes_map, train_edge_percent=None):
+    sampled_node_ids = defaultdict(set)
+    sampled_edge_ids = defaultdict(set)
+    sampled_train_edge_ids = defaultdict(set)
+    max_depth = len(num_neighbors[list(num_neighbors.keys())[0]]) - 1
+    queue = []
+    for node_type, nodes in starting_nodes_map.items():
+        queue += [(node, node_type, 0) for node in nodes]
+        sampled_node_ids[node_type] |= set(nodes)
+    while len(queue) > 0:
+        node, node_type, depth = queue.pop(0)
+        edge_type_to_neighbors_edge_ids_map = node_type_to_node_to_edge_type_to_neighbors_edge_ids_map[node_type][node]
+        for edge_type, (neighbors, edge_ids) in edge_type_to_neighbors_edge_ids_map.items():
+            starting_node_type, edge_name, ending_node_type = edge_type
+            max_num_neighbors = num_neighbors[edge_type][depth]
+            assert len(neighbors) == len(edge_ids)
+            if train_edge_percent is not None and depth == 0:
+                pairs = list(zip(neighbors, edge_ids))
+                pairs = random.sample(pairs, int(len(neighbors) * train_edge_percent))
+                if len(pairs) > 0:
+                    train_neighbors, train_edge_ids = zip(*pairs)
+                else:
+                    train_neighbors, train_edge_ids = [], []
+                neighbors = list(set(neighbors) - set(train_neighbors))
+                edge_ids = list(set(edge_ids) - set(train_edge_ids))
+                sampled_train_edge_ids[edge_type] |= set(train_edge_ids)
+            if max_num_neighbors < len(neighbors):
+                pairs = list(zip(neighbors, edge_ids))
+                pairs = random.sample(pairs, max_num_neighbors)
+                selected_neighbors, selected_edge_ids = zip(*pairs)
+            else:
+                selected_neighbors, selected_edge_ids = neighbors, edge_ids
+            new_nodes = set(selected_neighbors) - sampled_node_ids[ending_node_type]
+            if depth + 1 <= max_depth:
+                queue += [(new_node, ending_node_type, depth + 1) for new_node in new_nodes]
+            sampled_node_ids[ending_node_type] |= set(new_nodes)
+            sampled_edge_ids[edge_type] |= set(selected_edge_ids)
+    # print(sampled_edge_ids)
+    # print(sampled_train_edge_ids)
+    return sampled_node_ids, sampled_edge_ids, sampled_train_edge_ids
+
+class CustomNeighborLoader():
+    def __init__(self, data, num_neighbors, batch_size, input_nodes):
+        random.seed(10)
+        self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map = {}
+        edge_types = list(data.edge_index_dict.keys())
+        for node_type, x in data.x_dict.items():
+            self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map[node_type] = {}
+            matching_edge_types = [edge_type for edge_type in edge_types if edge_type[0] == node_type]
+            for node in range(len(x)):
+                self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map[node_type][node] = {}
+                for edge_type in matching_edge_types:
+                    self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map[node_type][node][edge_type] = ([], [])
+        for edge_type, edge_index in data.edge_index_dict.items():
+            edge_index_np = edge_index.numpy()
+            num_cols = edge_index_np.shape[1]
+            edge_index_np = np.vstack([edge_index_np, np.arange(num_cols).reshape(1, num_cols)])
+            def add_edge(column):
+                self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map[edge_type[0]][column[0]][edge_type][0].append(column[1])
+                self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map[edge_type[0]][column[0]][edge_type][1].append(column[2])
+            np.apply_along_axis(add_edge, 0, edge_index_np)
+        self.num_neighbors = num_neighbors
+        self.data = data
+        self.input_nodes = input_nodes
+        self.batch_size = batch_size
+        
+    def _get_batch(self, starting_nodes_map=None, train_edge_percent=None):
+        if starting_nodes_map is None:
+            starting_nodes_map = {node_type: random.sample(nodes_to_sample_from, self.batch_size) for node_type, nodes_to_sample_from in self.input_nodes.items()}
+        sampled_node_ids, sampled_edge_ids, train_edge_ids = graph_sage_neighbor_sampling(self.node_type_to_node_to_edge_type_to_neighbors_edge_ids_map, self.num_neighbors, starting_nodes_map, train_edge_percent=train_edge_percent)
+        data = HeteroData()
+        data['user'].x = self.data['user'].x
+        data['game'].x = self.data['game'].x
+        data['user', 'plays', 'game'].edge_index = self.data['user', 'plays', 'game'].edge_index[:, list(sampled_edge_ids[('user', 'plays', 'game')])]
+        data['game', 'rev_plays', 'user'].edge_index = self.data['game', 'rev_plays', 'user'].edge_index[:, list(sampled_edge_ids[('game', 'rev_plays', 'user')])]
+        data['user', 'plays', 'game'].edge_weight = self.data['user', 'plays', 'game'].edge_weight[list(sampled_edge_ids[('user', 'plays', 'game')])]
+        data['game', 'rev_plays', 'user'].edge_weight = self.data['game', 'rev_plays', 'user'].edge_weight[list(sampled_edge_ids[('game', 'rev_plays', 'user')])]
+        train_edge_index = None
+        train_edge_label = None
+        if train_edge_percent is not None:
+            train_edge_index = self.data['user', 'plays', 'game'].edge_index[:, list(train_edge_ids[('user', 'plays', 'game')])]
+            train_edge_label = self.data['user', 'plays', 'game'].edge_label[list(train_edge_ids[('user', 'plays', 'game')])]
+        return data, starting_nodes_map, train_edge_index, train_edge_label
+    
+    def get_batch(self, starting_nodes_map=None):
+        data, starting_nodes_map, train_edge_index, train_edge_label = self._get_batch(starting_nodes_map=starting_nodes_map)
+        return data, starting_nodes_map
+    
+    def get_training_batch(self, train_edge_percent):
+        data, starting_nodes_map, train_edge_index, train_edge_label = self._get_batch(train_edge_percent=train_edge_percent)
+        return data, starting_nodes_map, train_edge_index, train_edge_label
+        
+# if __name__ == '__main__':
+#     data = HeteroData()
+#     data['user'].x = torch.full((11, 1), 1, dtype=torch.float32)
+#     data['game'].x = torch.full((11, 1), 1, dtype=torch.float32)
+#     data['user', 'plays', 'game'].edge_index = torch.tensor([[0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10], [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 0]])
+#     data['game', 'rev_plays', 'user'].edge_index = torch.tensor([[0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 0], [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10]])
+#     data['user', 'plays', 'game'].edge_weight = torch.tensor([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10])
+#     data['game', 'rev_plays', 'user'].edge_weight = torch.tensor([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10])
+#     data['user', 'plays', 'game'].edge_label = torch.tensor([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10])
+#     loader = CustomNeighborLoader(data, {('user', 'plays', 'game'): [2, 2, 2, 1, 1], ('game', 'rev_plays', 'user'): [2, 2, 2, 1, 1]}, 3, {'user': list(range(11))})
+#     batch, starting_nodes_map, train_edge_index, train_edge_label = loader.get_training_batch(0.5)
+#     print(starting_nodes_map)
+#     print(batch)
+
+class MLPEdgeDecoder(torch.nn.Module):
     def __init__(self, hidden_channels):
         super().__init__()
         self.lin1 = nn.Linear(2 * hidden_channels, hidden_channels)
@@ -51,19 +166,34 @@ class EdgeDecoder(torch.nn.Module):
 
         z = self.lin1(z).relu()
         z = self.lin2(z)
+        # TODO Add dropout
         return z.view(-1)
 
 
+class DotProductEdgeDecoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, z_dict, edge_label_index):
+        row, col = edge_label_index
+        z = torch.sum(z_dict['user'][row] * z_dict['game'][col], axis=1)
+        # TODO Add dropout
+        return z
+
+
 class HeterogeneousGraphSAGE(torch.nn.Module):
-    def __init__(self, hidden_channels, data_metadata, aggr, num_epochs, batch_percent, learning_rate, weight_decay, seed):
+    def __init__(self, hidden_channels, game_embedding_size, num_games, data_metadata, aggr, num_epochs, batch_percent, learning_rate, weight_decay, seed):
         super().__init__()
         self.encoder = GNNEncoder(hidden_channels, hidden_channels)
         self.encoder = to_hetero(self.encoder, data_metadata, aggr=aggr)
-        self.decoder = EdgeDecoder(hidden_channels)
+        # self.decoder = MLPEdgeDecoder(hidden_channels)
+        self.decoder = DotProductEdgeDecoder()
+        self.embedding_game = nn.Embedding(num_games, game_embedding_size)
         self.num_epochs = num_epochs
         self.batch_percent = batch_percent
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
+        self.loader = None
 
         self.new_seed(seed)
 
@@ -77,35 +207,21 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
         np.random.seed(seed)
         self.seed = seed
 
-    def forward(self, x_dict, edge_index_dict, edge_score_index):
-        z_dict = self.encoder(x_dict, edge_index_dict)
+    def forward(self, x_dict, edge_index_dict, edge_weight_dict, edge_score_index):
+        x_dict['game'] = torch.cat((x_dict['game'], self.embedding_game.weight), axis=1)
+        z_dict = self.encoder(x_dict, edge_index_dict, edge_weight_dict)
         return self.decoder(z_dict, edge_score_index)
 
     def get_batch_for_users(self, train_data, user_indices=None):
-        fill_value = True if user_indices is None else False
-        users_to_include = torch.full((len(train_data['user']['x']),), fill_value)
-        if user_indices is not None:
-            for user_index in user_indices:
-                users_to_include[user_index] = True
-        num_users_to_include = int(torch.sum(users_to_include.int()))
-        loader = NeighborLoader(
-            train_data,
-            num_neighbors={key: [30, 30, 30] for key in train_data.edge_types},
-            batch_size=num_users_to_include,
-            input_nodes=('user', users_to_include),
-        )
-        batch = next(iter(loader))
-        data = HeteroData()
-        data['user'].x = train_data['user'].x
-        data['game'].x = train_data['game'].x
-        data['user', 'plays', 'game'].edge_index = train_data['user', 'plays', 'game'].edge_index[:, batch['user', 'plays', 'game'].e_id]
-        data['game', 'rev_plays', 'user'].edge_index = train_data['game', 'rev_plays', 'user'].edge_index[:, batch['game', 'rev_plays', 'user'].e_id]
-        return data
+        if user_indices is None:
+            user_indices = list(range(len(train_data.x_dict['user'])))
+        batch, starting_nodes_map = self.loader.get_batch(starting_nodes_map={'user': user_indices})
+        return batch
 
     def train(self, train_data, test_edge_index, test_labels, optimal_model_save_name, last_model_save_name, debug=False, writer=None):
         super().train(True)
         # Initializes the network.
-        self.forward(train_data.x_dict, {key: value[:, 0:1] for key, value in train_data.edge_index_dict.items()},
+        self.forward(train_data.x_dict, {key: value[:, 0:1] for key, value in train_data.edge_index_dict.items()}, {key: value[0:1] for key, value in train_data.edge_weight_dict.items()},
                     train_data['user', 'game'].edge_index[:, 0:1])
 
         for p in self.parameters():
@@ -114,26 +230,23 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=self.learning_rate, weight_decay=self.weight_decay)
         print('Total Learnable Parameters:', sum(p.numel() for p in self.parameters() if p.requires_grad))
         batch_size = int(len(train_data['user']['x']) * self.batch_percent) + 1
-        loader = NeighborLoader(
-            train_data,
-            num_neighbors={key: [30, 30, 30] for key in train_data.edge_types},
-            batch_size=batch_size,
-            input_nodes=('user', torch.full((len(train_data['user']['x']),), True)),
-        )
+        if self.loader is None:
+            self.loader = CustomNeighborLoader(train_data, {key: [50, 25, 10] for key in train_data.edge_types}, batch_size, {'user': list(range(len(train_data.x_dict['user'])))})
 
         train_loss = []
         lowest_test_loss = None
         for epoch_count in tqdm(range(self.num_epochs), desc='Training'):
             epoch_loss = []
-            for batch in loader:
-                pred = self.forward(batch.x_dict, batch.edge_index_dict, batch['user', 'game'].edge_index)
+            percent_data_batched = 0
+            while percent_data_batched < 1:
+                batch, starting_nodes_map, train_edge_index, train_edge_label = self.loader.get_training_batch(0.2)
+                pred = self.forward(batch.x_dict, batch.edge_index_dict, batch.edge_weight_dict, train_edge_index)
                 # TODO We perform a new round of negative sampling for every training epoch?
-                target = batch['user', 'game'].edge_label
-                loss = self.loss_fn(pred, target)
+                loss = self.loss_fn(pred, train_edge_label)
                 loss.backward()
                 optimizer.step()
-
                 epoch_loss.append(loss.item())
+                percent_data_batched += self.batch_percent
             average_epoch_loss = sum((value for value in epoch_loss)) / len(epoch_loss)
             train_loss.append(average_epoch_loss)
             test_loss = self.test(train_data, test_edge_index, test_labels)
@@ -150,8 +263,10 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
     @torch.no_grad()
     def test(self, train_data, test_edge_index, test_labels):
         super().train(False)
+        if self.loader is None:
+            self.loader = CustomNeighborLoader(train_data, {key: [50, 25, 10] for key in train_data.edge_types}, None, {'user': list(range(len(train_data.x_dict['user'])))})
         batch = self.get_batch_for_users(train_data, user_indices=None)
-        pred = self.forward(batch.x_dict, batch.edge_index_dict, test_edge_index)
+        pred = self.forward(batch.x_dict, batch.edge_index_dict, batch.edge_weight_dict, test_edge_index)
         loss = self.loss_fn(pred, test_labels)
         super().train(True)
         return loss.item()
@@ -159,8 +274,11 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
     @torch.no_grad()
     def predict(self, train_data, user_indices, edge_score_index):
         super().train(False)
+        # TODO How does predict work if the game node is not connected anywhere in the subgraph... should just be 0?
+        if self.loader is None:
+            self.loader = CustomNeighborLoader(train_data, {key: [50, 25, 10] for key in train_data.edge_types}, None, {'user': list(range(len(train_data.x_dict['user'])))})
         batch = self.get_batch_for_users(train_data, user_indices)
-        output = self.forward(batch.x_dict, batch.edge_index_dict, edge_score_index)
+        output = self.forward(batch.x_dict, batch.edge_index_dict, batch.edge_weight_dict, edge_score_index)
         return output.detach().flatten().tolist()
 
     def _save(self, file_name, overwrite=False):
@@ -172,7 +290,7 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
 
 
 class GraphSAGE(BaseGameRecommendationModel):
-    def __init__(self, hidden_channels=50, aggr='mean', save_file_name=None, nn_save_name=None, num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
+    def __init__(self, hidden_channels=50, game_embedding_size=50, aggr='mean', save_file_name=None, nn_save_name=None, num_epochs=50, batch_percent=0.1, learning_rate=5e-3, weight_decay=1e-5, seed=None):
         super().__init__()
         self.hidden_channels = hidden_channels
         self.aggr = aggr
@@ -183,6 +301,7 @@ class GraphSAGE(BaseGameRecommendationModel):
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         self.seed = seed
+        self.game_embedding_size = game_embedding_size
 
     def name(self):
         return "graphsage"
@@ -220,13 +339,14 @@ class GraphSAGE(BaseGameRecommendationModel):
         self.data['user', 'plays', 'game'].edge_index = torch.cat((user_indices, game_indices), dim=0)
         user_game_scores_tensor = torch.tensor(train_users_games_df['score'].values)
         user_game_scores_tensor = user_game_scores_tensor.type(torch.FloatTensor)
+        self.data['user', 'plays', 'game'].edge_weight = user_game_scores_tensor
         self.data['user', 'plays', 'game'].edge_label = user_game_scores_tensor
 
         self.data = T.ToUndirected()(self.data)
         del self.data['game', 'rev_plays', 'user'].edge_label
 
         self.data_metadata = self.data.metadata()
-        self.model = HeterogeneousGraphSAGE(self.hidden_channels, self.data_metadata, self.aggr, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
+        self.model = HeterogeneousGraphSAGE(self.hidden_channels, self.game_embedding_size, len(self.game_nodes), self.data_metadata, self.aggr, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         writer = SummaryWriter(os.path.join(TENSORBOARD_RUN_PATH, f"{self.save_file_name}_{current_time}"))
 
@@ -271,6 +391,7 @@ class GraphSAGE(BaseGameRecommendationModel):
                 'learning_rate': self.learning_rate,
                 'weight_decay': self.weight_decay,
                 'seed': self.seed,
+                'game_embedding_size': self.game_embedding_size,
                 'game_nodes': self.game_nodes,
                 'user_nodes': self.user_nodes,
                 'game_to_index': self.game_to_index,
@@ -291,13 +412,14 @@ class GraphSAGE(BaseGameRecommendationModel):
             self.learning_rate = loaded_obj['learning_rate']
             self.weight_decay = loaded_obj['weight_decay']
             self.seed = loaded_obj['seed']
+            self.game_embedding_size = loaded_obj['game_embedding_size']
             self.game_nodes = loaded_obj['game_nodes']
             self.user_nodes = loaded_obj['user_nodes']
             self.game_to_index = loaded_obj['game_to_index']
             self.user_to_index = loaded_obj['user_to_index']
             self.data = loaded_obj['data']
         # assert file_name == self.save_file_name, 'Model name in saved parameters must match the requested model.'
-        self.model = HeterogeneousGraphSAGE(self.hidden_channels, self.data_metadata, self.aggr, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
+        self.model = HeterogeneousGraphSAGE(self.hidden_channels, self.game_embedding_size, len(self.game_nodes), self.data_metadata, self.aggr, self.num_epochs, self.batch_percent, self.learning_rate, self.weight_decay, self.seed)
         self.model.load(folder_path, f'{file_name}_{self.nn_save_name}')
 
     def _fine_tune(
@@ -326,5 +448,7 @@ class GraphSAGE(BaseGameRecommendationModel):
         scores_tensor = scores_tensor.type(torch.FloatTensor)
         self.data['user', 'plays', 'game'].edge_index = torch.cat((self.data['user', 'plays', 'game'].edge_index, torch.cat((user_indices, game_indices), dim=0)), dim=1)
         self.data['user', 'plays', 'game'].edge_label = torch.cat((self.data['user', 'plays', 'game'].edge_label, scores_tensor))
+        self.data['user', 'plays', 'game'].edge_weight = torch.cat((self.data['user', 'plays', 'game'].edge_weight, scores_tensor))
+        self.data['game', 'rev_plays', 'user'].edge_weight = torch.cat((self.data['game', 'rev_plays', 'user'].edge_weight, scores_tensor))
         self.data['game', 'rev_plays', 'user'].edge_index = torch.cat((self.data['game', 'rev_plays', 'user'].edge_index, torch.cat((game_indices, user_indices), dim=0)), dim=1)
         # print(self.data)             

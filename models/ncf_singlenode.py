@@ -192,12 +192,18 @@ class NCF(nn.Module):
         super().train(True)
         assert len(user_indices) == len(game_indices) and len(game_indices) == labels.shape[0], 'Inconsistent number of data rows'
         for p in self.parameters():
-            p.requires_grad_(False)
+            p.requires_grad_(True)
         if self.gcf or self.cf:
-            self.embedding_gcf_user.weight.requires_grad_(True)
-            self.embedding_gcf_user_for_known_game.requires_grad_(True)
+            self.embedding_gcf_game.weight.requires_grad_(False)
         if self.mlp:
-            self.embedding_mlp_user.weight.requires_grad_(True)
+            self.embedding_mlp_game.weight.requires_grad_(False)
+        # for p in self.parameters():
+        #     p.requires_grad_(False)
+        # if self.gcf or self.cf:
+        #     self.embedding_gcf_user.weight.requires_grad_(True)
+        #     self.embedding_gcf_user_for_known_game.requires_grad_(True)
+        # if self.mlp:
+        #     self.embedding_mlp_user.weight.requires_grad_(True)
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=0)
         # TODO Train on an equal number of positive and negative samples.
         train_loss = []
