@@ -4,7 +4,7 @@ import { makeBackendURL } from "../util";
 import './NavBar.css';
 
 interface NavbarProps {
-    setCurrentView: React.Dispatch<React.SetStateAction<"LandingPage" | "FindNewGames" | "LikedGames" | "HomePage">>;
+    setCurrentView: React.Dispatch<React.SetStateAction<"LandingPage" | "FindNewGames" | "Interactions" | "HomePage">>;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ setCurrentView }) => {
@@ -17,8 +17,8 @@ const Navbar: React.FC<NavbarProps> = ({ setCurrentView }) => {
                 <button className="text-sm md:text-lg mr-2 sm:mr-4" onClick={() => setCurrentView("FindNewGames")}>
                     Find New Games
                 </button>
-                <button className="text-sm md:text-lg mr-2 sm:mr-4" onClick={() => setCurrentView("LikedGames")}>
-                    Liked Games
+                <button className="text-sm md:text-lg mr-2 sm:mr-4" onClick={() => setCurrentView("Interactions")}>
+                    Interactions
                 </button>
                 <button className="text-sm md:text-lg mr-2 sm:mr-4" onClick={() => window.open("mailto:jackson.p.rusch@vanderbilt.edu", "_blank")}>
                     Feedback

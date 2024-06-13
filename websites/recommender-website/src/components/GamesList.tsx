@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { fetchGameInfo, GameInfo } from "./GetGameDetails";
 import { makeBackendURL } from "../util";
 import "./GamesList.css";
+import MUIDataTable from 'mui-datatables';
+import { createTheme, ThemeProvider } from '@mui/material';
+
 
 interface GamesListProps {
   userID: string;
@@ -10,11 +13,17 @@ interface GamesListProps {
 interface Interaction {
   game_id: number;
   user_liked: boolean;
+  timestamp: number;
+}
+
+interface RowInfo {
+  gameInfo: GameInfo;
+  interaction: Interaction;
 }
 
 const GamesList: React.FC<GamesListProps> = ({ userID }) => {
-  const [gamesLikedInfo, setGamesLikedInfo] = useState<GameInfo[] | null>(null);
-
+  const [rowInfo, setRowInfo] = useState<RowInfo[] | null>(null);
+  
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
@@ -27,67 +36,107 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
       );
       const data = await resp.json();
       const interactions = data.interactions;
-      const gamesLiked: number[] = interactions
-        .filter((interaction: Interaction) => interaction.user_liked)
+      const interaction_game_ids: number[] = interactions
         .map((interaction: Interaction) => interaction.game_id);
-      const promises = gamesLiked.map((id) => fetchGameInfo(id));
+      const promises = interaction_game_ids.map((id) => fetchGameInfo(id));
       const gamesInfo = await Promise.all(promises);
+      
+      const rowInfo: RowInfo[] = gamesInfo.map((gameInfo: GameInfo) => {
+        const interaction = interactions.find((interaction: Interaction) => interaction.game_id === parseInt(gameInfo.id));
+        return {
+          gameInfo: gameInfo,
+          interaction: interaction
+        };
+      });
 
-      setGamesLikedInfo(gamesInfo);
+      setRowInfo(rowInfo);
     })();
     return () => {
       controller.abort();
     };
   }, [userID]);
 
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  };
-
-  if (gamesLikedInfo === null) {
+  if (rowInfo === null) {
     return "Loading...";
   }
 
+  const formatUnixTimestamp = (unixTimestamp: number): string => {
+    const date = new Date(unixTimestamp * 1000);
+    return date.toLocaleString('en-US', { timeZone: 'UTC' });
+  };
+
+  const columns = [
+    { 
+      name: 'interaction.timestamp',
+      label: 'Time',
+      options: {
+        customBodyRender: (value: number) => formatUnixTimestamp(value),
+      }
+    },
+    {
+      name: 'gameInfo.name',
+      label: 'Game Name',
+      options: {
+        filter: false,
+        sort: false,
+        customBodyRender: (value: string, tableMeta: any) => (
+          <a
+            href={`https://store.steampowered.com/app/${tableMeta.rowData[7]}`}
+            target="_blank"
+          >
+            {value}
+          </a>
+        )
+      }
+    },
+    {
+      name: 'interaction.user_liked', 
+      label: 'User Liked',
+      options: {
+        customBodyRender: (value: boolean) => (
+          <span>{value ? 'Yes' : 'No'}</span>
+        )
+      }
+    },
+    { name: 'gameInfo.price', label: 'Price' },
+    { name: 'gameInfo.numReviews', label: 'Num Reviews' },
+    { name: 'gameInfo.avgReviewScore', label: 'Review Score' },
+    { name: 'gameInfo.description', label: 'Description', options: {filter: false, sort: false, display: false} },
+    { name: 'gameInfo.id', label: 'ID', options: {filter: false, sort: false, display: false} },
+  ];
+
+  const theme = createTheme({
+    palette: {
+      mode: 'dark',
+    },
+  });
+
+  const options = {
+    enableNestedDataAccess: '.',
+    selectableRows: false,
+    expandableRows: true,
+    renderExpandableRow: (rowData: string[], rowMeta: any) => {
+      const colSpan = rowData.length + 1;
+      return (
+        <tr>
+          <td colSpan={colSpan}>
+            <p>{rowData[6]}</p>
+          </td>
+        </tr>
+      );
+    },
+  };
+
   return (
-    <div>
-      <table id="gamesTable">
-        <thead>
-          <tr>
-            <th>Game Name</th>
-            <th>Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {gamesLikedInfo.map((gameInfo) => (
-            <tr key={gameInfo.id}>
-              <td>
-                <a
-                  href={`https://store.steampowered.com/app/${gameInfo.id}`}
-                  target="_blank"
-                >
-                  {gameInfo.name}
-                </a>
-              </td>
-              <td>{gameInfo.price}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <button
-        onClick={scrollToTop}
-        className="fixed-bottom-right"
-      >
-        ↑
-      </button>
-
-
-
-    </div>
-
+    <ThemeProvider theme={theme}>
+      <div style={{ height: '100%', width: '100%' }}>
+        <MUIDataTable
+          data={rowInfo}
+          columns={columns}
+          options={options}
+        />
+      </div>
+    </ThemeProvider>
 
   );
 };

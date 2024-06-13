@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
   const [showPublicProfileWarning, setShowPublicProfileWarning] = useState(false);
   const [currentView, setCurrentView] = useState<
-    "LandingPage" | "FindNewGames" | "LikedGames" | "HomePage"
+    "LandingPage" | "FindNewGames" | "Interactions" | "HomePage"
   >("LandingPage");
 
   useEffect(() => {
@@ -82,7 +82,7 @@ const App: React.FC = () => {
       {currentView === "FindNewGames" && (
         <GameRating details={{ userID }} />
       )}
-      {currentView === "LikedGames" && (
+      {currentView === "Interactions" && (
         <GamesList userID={userID} />
       )}
       

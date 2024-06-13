@@ -31,6 +31,7 @@ INTERACTIONS_SCHEMA = {
                   'user_liked': 'bool',
                   'time_spent': 'float64',
                   'source': 'string',
+                  'timestamp': 'int64',
                  }
 
 GAME_SCHEMA = {
