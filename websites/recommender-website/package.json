@@ -28,6 +28,7 @@
     "typescript": "^5.2.2",
     "vite": "^5.1.0",
     "mui-datatables": "^4.3.0",
+    "@types/mui-datatables": "^4.3.0",
     "@mui/material": "^5.13.5",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0"
