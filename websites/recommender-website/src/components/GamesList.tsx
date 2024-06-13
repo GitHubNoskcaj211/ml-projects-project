@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { fetchGameInfo, GameInfo } from "./GetGameDetails";
 import { makeBackendURL } from "../util";
 import "./GamesList.css";
-import { MUIDataTable, MUIDataTableOptions } from 'mui-datatables';
+import MUIDataTable, { MUIDataTableOptions } from 'mui-datatables';
 import { createTheme, ThemeProvider } from '@mui/material';
 
 
@@ -131,7 +131,7 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
     <ThemeProvider theme={theme}>
       <div style={{ height: '100%', width: '100%' }}>
         <MUIDataTable
-          title={'Interactions'}
+          title='Interactions'
           data={rowInfo}
           columns={columns}
           options={options}
