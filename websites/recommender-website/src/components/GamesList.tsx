@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { fetchGameInfo, GameInfo } from "./GetGameDetails";
 import { makeBackendURL } from "../util";
 import "./GamesList.css";
-import MUIDataTable, { MUIDataTableOptions } from 'mui-datatables';
+import MUIDataTable from 'mui-datatables';
+import { MUIDataTableOptions } from 'mui-datatables';
 import { createTheme, ThemeProvider } from '@mui/material';
 
 
@@ -65,6 +66,7 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
     return date.toLocaleString('en-US', { timeZone: 'UTC' });
   };
 
+  // TODO: Add useful filter options for numeric.
   const columns = [
     { 
       name: 'interaction.timestamp',
