@@ -66,7 +66,9 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
     return date.toLocaleString('en-US', { timeZone: 'UTC' });
   };
 
-  // TODO: Add useful filter options for numeric.
+  // TODO Add useful filter options for numeric.
+  // TODO Make the dropdown pull the screen from recommendation page.
+  // TODO Fix visual bugs on mobile.
   const columns = [
     { 
       name: 'interaction.timestamp',
@@ -82,12 +84,14 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
         filter: false,
         sort: false,
         customBodyRender: (value: string, tableMeta: any) => (
-          <a
-            href={`https://store.steampowered.com/app/${tableMeta.rowData[7]}`}
-            target="_blank"
-          >
-            {value}
-          </a>
+          <u>
+            <a
+              href={`https://store.steampowered.com/app/${tableMeta.rowData[7]}`}
+              target="_blank"
+            >
+              {value}
+            </a>
+          </u>
         )
       }
     },
@@ -96,7 +100,7 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
       label: 'User Liked',
       options: {
         customBodyRender: (value: boolean) => (
-          <span>{value ? 'Yes' : 'No'}</span>
+          <span>{value ? "\u2714" : "\u274C"}</span>
         )
       }
     },
