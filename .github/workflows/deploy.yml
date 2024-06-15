@@ -48,7 +48,7 @@ jobs:
           entry_point: 'hello_world'
           source_dir: './cloud_functions'
           build_environment_variables: |-
-            GOOGLE_FUNCTION_SOURCE="./refresh_recommendations.py"
+            GOOGLE_FUNCTION_SOURCE="./cloud_functionsrefresh_recommendations.py"
 
       - name: 'Deploy Cloud Function URL'
         run: 'curl "${{ steps.deploy.outputs.url }}"'
