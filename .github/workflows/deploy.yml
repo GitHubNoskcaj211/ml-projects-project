@@ -28,6 +28,18 @@ jobs:
         with:
           submodules: true
 
+      - name: 'Deploy Cloud Functions'
+        uses: google-github-actions/deploy-cloud-functions@v3
+        timeout-minutes: 10
+        with:
+          name: 'hello-world'
+          runtime: 'python311'
+          entry_point: 'hello_world'
+          source_dir: './cloud_functions'
+
+      - name: 'Deploy Cloud Function URL'
+        run: 'curl "${{ steps.deploy.outputs.url }}"'
+
       - name: Clone LFS Submodules
         run: |
           git -C dataset/data_files lfs pull origin 4ca677daf973bb180fe063ac89c2ff8248cdc283
@@ -81,18 +93,6 @@ jobs:
       - name: 'Report Cloud Deploy release'
         run: |-
           echo "Release url ${{ steps.release.outputs.url }} "
-
-      - name: 'Deploy Cloud Functions'
-        uses: google-github-actions/deploy-cloud-functions@v3
-        timeout-minutes: 10
-        with:
-          name: 'hello-world'
-          runtime: 'python311'
-          entry_point: 'hello_world'
-          source_dir: './cloud_functions'
-
-      - name: 'Deploy Cloud Function URL'
-        run: 'curl "${{ steps.deploy.outputs.url }}"'
 
   BuildFrontEnd:
     runs-on: ubuntu-latest
