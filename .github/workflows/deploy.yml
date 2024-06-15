@@ -90,8 +90,6 @@ jobs:
           runtime: 'python311'
           entry_point: 'hello_world'
           source_dir: './cloud_functions'
-          trigger_http: true
-          allow_unauthenticated: true
 
       - name: 'Deploy Cloud Function URL'
         run: 'curl "${{ steps.deploy.outputs.url }}"'
