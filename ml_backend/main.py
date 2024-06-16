@@ -19,11 +19,9 @@ import ujson
 
 from utils.firestore import DatabaseClient
 
-# from blueprints.activities import activities
 from blueprints.errors import errors
-from blueprints.games import games
 from blueprints.steam_login import steam_login, login_manager
-from blueprints.interactions import interactions
+from blueprints.recommendation import recommendation, model_wrappers
 
 from dotenv import load_dotenv
 
@@ -33,9 +31,8 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
     app.register_blueprint(errors)
-    app.register_blueprint(games)
     app.register_blueprint(steam_login)
-    app.register_blueprint(interactions)
+    app.register_blueprint(recommendation)
 
     @app.errorhandler(404)
     def resource_not_found(e):
@@ -77,6 +74,7 @@ def create_app():
 app = create_app()
 app.secret_key = bytes.fromhex(app.config["SECRET_KEY"])
 app.default_data_loader = None
+app.model_wrappers = model_wrappers
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_SECURE"] = True
 
@@ -92,4 +90,4 @@ app.database_client = DatabaseClient()
 
 if __name__ == "__main__":
     print("Starting app...")
-    app.run(host="0.0.0.0", port=3000)
+    app.run(host="0.0.0.0", port=3001)

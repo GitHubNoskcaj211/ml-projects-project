@@ -14,6 +14,11 @@ export default defineConfig(({ command, mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ""),
         },
+        "/ml_api": {
+          target: env.VITE_ML_BACKEND_URL,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ml_api/, ""),
+        },
       },
     },
   };

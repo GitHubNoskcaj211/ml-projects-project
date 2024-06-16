@@ -8,6 +8,7 @@ jobs:
       PROJECT_ID: steam-game-recommender-415605
       REGION: us-central1
       APP: backend
+      ML_APP: ml_backend
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -39,18 +40,6 @@ jobs:
         with:
           project_id: '${{ env.PROJECT_ID }}'
 
-      - name: 'Deploy Cloud Functions'
-        uses: google-github-actions/deploy-cloud-functions@v3
-        timeout-minutes: 10
-        with:
-          name: 'hello-world'
-          runtime: 'python311'
-          entry_point: 'hello_world'
-          source_dir: './cloud_functions'
-
-      - name: 'Deploy Cloud Function URL'
-        run: 'curl "${{ steps.deploy.outputs.url }}"'
-
       - name: Clone LFS Submodules
         run: |
           git -C dataset/data_files lfs pull origin 4ca677daf973bb180fe063ac89c2ff8248cdc283
@@ -63,7 +52,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push Container
+      - name: Build and Push Backend Container
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -78,17 +67,44 @@ jobs:
             FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
           push: true
 
+      - name: Build and Push ML Backend Container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}
+          file: ml_backend/Dockerfile
+          build-args: |
+            FLASK_BACKEND_URL=${{ secrets.FLASK_ML_BACKEND_URL }}
+            FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
+            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
+            FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
+          push: true
+
       - name: 'Create release name'
         run: |-
           echo "RELEASE_NAME=${{ env.APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
 
-      - name: 'Deploy Cloud Release'
+      - name: 'Create ml release name'
+        run: |-
+          echo "RELEASE_NAME=${{ env.ML_APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
+
+      - name: 'Deploy Backend Cloud Release'
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: '${{ env.APP }}'
           region: '${{ env.REGION }}'
-          tag: '${{ env.RELEASE_NAME }}'
+          tag: '$backend-{{ env.RELEASE_NAME }}'
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
+
+      - name: 'Deploy ML Backend Cloud Release'
+        uses: 'google-github-actions/deploy-cloudrun@v2'
+        with:
+          service: '${{ env.ML_APP }}'
+          region: '${{ env.REGION }}'
+          tag: '$ml_backend-{{ env.ML_RELEASE_NAME }}'
+          image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}'
 
       - name: 'Report Cloud Deploy release'
         run: |-
@@ -104,6 +120,7 @@ jobs:
       - name: Build
         env:
           VITE_BACKEND_URL: ${{ secrets.FLASK_BACKEND_URL }}
+          VITE_ML_BACKEND_URL: ${{ secrets.FLASK_ML_BACKEND_URL }}
         run: |
           npm i
           npm run build

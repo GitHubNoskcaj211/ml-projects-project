@@ -3,3 +3,7 @@ export function makeBackendURL(path: string) {
   return url.toString();
 }
 
+export function makeMLBackendURL(path: string) {
+  const url = (import.meta.env.DEV) ? `/ml_api/${path}` : new URL(path, import.meta.env.VITE_ML_BACKEND_URL);
+  return url.toString();
+}
