@@ -8,7 +8,7 @@ jobs:
       PROJECT_ID: steam-game-recommender-415605
       REGION: us-central1
       APP: backend
-      ML_APP: ml_backend
+      ML_APP: ml-backend
     permissions:
       contents: 'read'
       id-token: 'write'
