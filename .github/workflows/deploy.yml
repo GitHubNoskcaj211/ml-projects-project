@@ -95,7 +95,7 @@ jobs:
         with:
           service: '${{ env.APP }}'
           region: '${{ env.REGION }}'
-          tag: '$backend-{{ env.RELEASE_NAME }}'
+          tag: '${{ env.RELEASE_NAME }}'
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
 
       - name: 'Deploy ML Backend Cloud Release'
@@ -103,7 +103,7 @@ jobs:
         with:
           service: '${{ env.ML_APP }}'
           region: '${{ env.REGION }}'
-          tag: '$ml_backend-{{ env.ML_RELEASE_NAME }}'
+          tag: '${{ env.ML_RELEASE_NAME }}'
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}'
 
       - name: 'Report Cloud Deploy release'
