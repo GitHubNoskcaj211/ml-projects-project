@@ -20,7 +20,7 @@ WORKDIR $APP_HOME
 RUN apt update && \
     apt -y install build-essential
 
-COPY backend/requirements.txt ./
+COPY ml_backend/requirements.txt ./
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 COPY dataset/data_files/users.bin ./dataset/data_files/
