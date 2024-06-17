@@ -88,7 +88,7 @@ jobs:
 
       - name: 'Create ml release name'
         run: |-
-          echo "RELEASE_NAME=${{ env.ML_APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
+          echo "ML_RELEASE_NAME=${{ env.ML_APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
 
       - name: 'Deploy Backend Cloud Release'
         uses: 'google-github-actions/deploy-cloudrun@v2'
