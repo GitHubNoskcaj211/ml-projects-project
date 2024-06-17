@@ -51,6 +51,6 @@ COPY utils/__init__.py ./utils/
 COPY utils/utils.py ./utils/
 COPY utils/firestore.py ./utils/
 
-COPY backend/ ./
+COPY ml_backend/ ./
 
 CMD exec gunicorn --bind :$PORT --workers 2 --threads 1 --timeout 0 main:app

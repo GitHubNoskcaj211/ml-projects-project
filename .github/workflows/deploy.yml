@@ -52,21 +52,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push ML Backend Container
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}
-          file: ml_backend/Dockerfile
-          build-args: |
-            FLASK_BACKEND_URL=${{ secrets.FLASK_ML_BACKEND_URL }}
-            FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
-            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
-            FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
-          push: true
-
       - name: Build and Push Backend Container
         uses: docker/build-push-action@v5
         with:
@@ -77,6 +62,21 @@ jobs:
           file: backend/Dockerfile
           build-args: |
             FLASK_BACKEND_URL=${{ secrets.FLASK_BACKEND_URL }}
+            FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
+            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
+            FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
+          push: true
+
+      - name: Build and Push ML Backend Container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}
+          file: ml_backend/Dockerfile
+          build-args: |
+            FLASK_BACKEND_URL=${{ secrets.FLASK_ML_BACKEND_URL }}
             FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
             FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
             FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
