@@ -65,6 +65,7 @@ def create_app():
             data["time_request"] = int(time.time())
             data["execution_time_ms"] = int(time.time() * 1000 - g.start_time * 1000)
             data["version"] = config.VERSION
+            data["name"] = config.NAME
             response.set_data(ujson.dumps(data))
         return response
 
