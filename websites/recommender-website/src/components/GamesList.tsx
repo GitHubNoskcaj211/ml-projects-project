@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { getDocs } from "firebase/firestore";
+import { getInteractionsCollection } from "../firebase";
 import { fetchGameInfo, GameInfo } from "./GetGameDetails";
-import { makeBackendURL } from "../util";
 import "./GamesList.css";
-import MUIDataTable from 'mui-datatables';
-import { MUIDataTableOptions } from 'mui-datatables';
-import { createTheme, ThemeProvider } from '@mui/material';
-
+import MUIDataTable from "mui-datatables";
+import { MUIDataTableOptions } from "mui-datatables";
+import { createTheme, ThemeProvider } from "@mui/material";
 
 interface GamesListProps {
   userID: string;
@@ -24,31 +24,21 @@ interface RowInfo {
 
 const GamesList: React.FC<GamesListProps> = ({ userID }) => {
   const [rowInfo, setRowInfo] = useState<RowInfo[] | null>(null);
-  
+
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
-      const resp = await fetch(
-        makeBackendURL("get_all_interactions_for_user"),
-        {
-          credentials: "include",
-          signal: controller.signal,
-        }
+      const querySnapshot = await getDocs(getInteractionsCollection());
+      const interactions = querySnapshot.docs.map(
+        (doc) => doc.data() as Interaction
       );
-      const data = await resp.json();
-      const interactions = data.interactions;
-      const interaction_game_ids: number[] = interactions
-        .map((interaction: Interaction) => interaction.game_id);
-      const promises = interaction_game_ids.map((id) => fetchGameInfo(id));
-      const gamesInfo = await Promise.all(promises);
-      
-      const rowInfo: RowInfo[] = gamesInfo.map((gameInfo: GameInfo) => {
-        const interaction = interactions.find((interaction: Interaction) => interaction.game_id === parseInt(gameInfo.id));
-        return {
-          gameInfo: gameInfo,
-          interaction: interaction
-        };
-      });
+      const rowPromises = interactions.map((interaction) =>
+        fetchGameInfo(interaction.game_id).then((gameInfo) => ({
+          gameInfo,
+          interaction,
+        }))
+      );
+      const rowInfo = await Promise.all(rowPromises);
 
       setRowInfo(rowInfo);
     })();
@@ -63,23 +53,23 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
 
   const formatUnixTimestamp = (unixTimestamp: number): string => {
     const date = new Date(unixTimestamp * 1000);
-    return date.toLocaleString('en-US', { timeZone: 'UTC' });
+    return date.toLocaleString("en-US", { timeZone: "UTC" });
   };
 
   // TODO Add useful filter options for numeric.
   // TODO Make the dropdown pull the screen from recommendation page.
   // TODO Fix visual bugs on mobile.
   const columns = [
-    { 
-      name: 'interaction.timestamp',
-      label: 'Time',
+    {
+      name: "interaction.timestamp",
+      label: "Time",
       options: {
         customBodyRender: (value: number) => formatUnixTimestamp(value),
-      }
+      },
     },
     {
-      name: 'gameInfo.name',
-      label: 'Game Name',
+      name: "gameInfo.name",
+      label: "Game Name",
       options: {
         filter: false,
         sort: false,
@@ -92,34 +82,42 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
               {value}
             </a>
           </u>
-        )
-      }
+        ),
+      },
     },
     {
-      name: 'interaction.user_liked', 
-      label: 'User Liked',
+      name: "interaction.user_liked",
+      label: "User Liked",
       options: {
         customBodyRender: (value: boolean) => (
           <span>{value ? "\u2714" : "\u274C"}</span>
-        )
-      }
+        ),
+      },
     },
-    { name: 'gameInfo.price', label: 'Price' },
-    { name: 'gameInfo.numReviews', label: 'Num Reviews' },
-    { name: 'gameInfo.avgReviewScore', label: 'Review Score' },
-    { name: 'gameInfo.description', label: 'Description', options: {filter: false, sort: false, display: false} },
-    { name: 'gameInfo.id', label: 'ID', options: {filter: false, sort: false, display: false} },
+    { name: "gameInfo.price", label: "Price" },
+    { name: "gameInfo.numReviews", label: "Num Reviews" },
+    { name: "gameInfo.avgReviewScore", label: "Review Score" },
+    {
+      name: "gameInfo.description",
+      label: "Description",
+      options: { filter: false, sort: false, display: false },
+    },
+    {
+      name: "gameInfo.id",
+      label: "ID",
+      options: { filter: false, sort: false, display: false },
+    },
   ];
 
   const theme = createTheme({
     palette: {
-      mode: 'dark',
+      mode: "dark",
     },
   });
 
   const options: MUIDataTableOptions = {
-    enableNestedDataAccess: '.',
-    selectableRows: 'none',
+    enableNestedDataAccess: ".",
+    selectableRows: "none",
     expandableRows: true,
     renderExpandableRow: (rowData: string[]) => {
       const colSpan = rowData.length + 1;
@@ -135,16 +133,15 @@ const GamesList: React.FC<GamesListProps> = ({ userID }) => {
 
   return (
     <ThemeProvider theme={theme}>
-      <div style={{ height: '100%', width: '100%' }}>
+      <div style={{ height: "100%", width: "100%" }}>
         <MUIDataTable
-          title='Interactions'
+          title="Interactions"
           data={rowInfo}
           columns={columns}
           options={options}
         />
       </div>
     </ThemeProvider>
-
   );
 };
 

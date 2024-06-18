@@ -11,6 +11,7 @@ import pandas as pd
 import shutil
 import traceback
 from urllib.parse import urlencode
+from firebase_admin import auth
 
 from dataset.scrape.get_data import CACHE, ENVIRONMENT, FILE_MANAGER, get_single_user
 
@@ -60,8 +61,9 @@ def auth_with_steam():
 @steam_login.route("/init_user", methods=["GET"])
 @login_required
 def init_user():
+    token = auth.create_custom_token(current_user.id).decode()
     if current_app.database_client.users_games_ref.document(current_user.id).get().exists:
-        return jsonify(id=current_user.id)
+        return jsonify(token=token)
     try:
         ENVIRONMENT.initialize_environment(
             current_app.config["STEAM_WEB_API_KEY"], current_user.id, None
@@ -101,7 +103,7 @@ def init_user():
     current_app.database_client.friends_ref.document(current_user.id).set(friends, merge=True)
     current_app.database_client.users_games_ref.document(current_user.id).set(user_games, merge=True)
 
-    return jsonify(id=current_user.id)
+    return jsonify(token=token)
 
 
 @steam_login.route("/logout", methods=["GET"])

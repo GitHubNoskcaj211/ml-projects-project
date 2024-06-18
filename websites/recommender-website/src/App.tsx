@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { signInWithCustomToken } from "firebase/auth";
+import { auth } from "./firebase";
 import GameRating from "./components/GameRating";
 import GamesList from "./components/GamesList";
 import Navbar from "./components/NavBar";
@@ -11,7 +13,8 @@ import { makeBackendURL } from "./util";
 
 const App: React.FC = () => {
   const [userID, setUserID] = useState<string | undefined | null>(undefined);
-  const [showPublicProfileWarning, setShowPublicProfileWarning] = useState(false);
+  const [showPublicProfileWarning, setShowPublicProfileWarning] =
+    useState(false);
   const [currentView, setCurrentView] = useState<
     "LandingPage" | "FindNewGames" | "Interactions" | "HomePage"
   >("LandingPage");
@@ -46,8 +49,8 @@ const App: React.FC = () => {
         return;
       }
       const data = await res.json();
-      console.log(data)
-      setUserID(data.id);
+      const cred = await signInWithCustomToken(auth, data.token);
+      setUserID(cred.user?.uid);
       setCurrentView("HomePage");
     })();
     return () => {
@@ -60,7 +63,7 @@ const App: React.FC = () => {
   };
 
   if (userID === undefined) {
-    return <Loading />
+    return <Loading />;
   }
 
   if (userID === null) {
@@ -75,17 +78,10 @@ const App: React.FC = () => {
 
   return (
     <div>
-      <Navbar setCurrentView={setCurrentView}/>
-      {currentView === "HomePage" && (
-        <HomePage  />
-      )}
-      {currentView === "FindNewGames" && (
-        <GameRating details={{ userID }} />
-      )}
-      {currentView === "Interactions" && (
-        <GamesList userID={userID} />
-      )}
-      
+      <Navbar setCurrentView={setCurrentView} />
+      {currentView === "HomePage" && <HomePage />}
+      {currentView === "FindNewGames" && <GameRating details={{ userID }} />}
+      {currentView === "Interactions" && <GamesList userID={userID} />}
     </div>
   );
 };
