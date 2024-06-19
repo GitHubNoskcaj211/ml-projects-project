@@ -20,6 +20,7 @@ type Config struct {
 	Version                      string
 	Name                         string
 	RootFolder                   string
+	Port                         string
 }
 
 type App struct {
@@ -41,6 +42,7 @@ func main() {
 		Version:                      getEnv("VERSION", ""),
 		Name:                         getEnv("NAME", ""),
 		RootFolder:                   getEnv("ROOT_FOLDER", ""),
+		Port:                         getEnv("PORT", "3000"),
 	}
 
 	app.Router = mux.NewRouter()
@@ -54,8 +56,8 @@ func main() {
 		handlers.AllowCredentials(),
 	)
 
-	log.Println("Starting server on :3000...")
-	log.Fatal(http.ListenAndServe(":3000", cors(app.Router)))
+	log.Printf("Starting server on :%s...\n", app.Config.Port)
+	log.Fatal(http.ListenAndServe(":"+app.Config.Port, cors(app.Router)))
 }
 
 func versionHandler(response_writer http.ResponseWriter, request *http.Request) {
