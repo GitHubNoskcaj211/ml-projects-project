@@ -10,20 +10,27 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"sync"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
+	"firebase.google.com/go/auth"
 	"google.golang.org/api/option"
 )
 
 var (
-	gameDataBytes       []byte
-	gameDataBytesOnce   sync.Once
-	firestoreClient     *firestore.Client
-	firestoreClientOnce sync.Once
+	gameDataBytes     []byte
+	gameDataBytesOnce sync.Once
+
+	_firebaseApp         *firebase.App
+	_firebaseAppOnce     sync.Once
+	_authClient          *auth.Client
+	_authClientOnce      sync.Once
+	_firestoreClient     *firestore.Client
+	_firestoreClientOnce sync.Once
 )
 
 func getEnv(key, fallback string) string {
@@ -33,35 +40,76 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func requireLogin() {
-	return
+type authHandlerFunc func(http.ResponseWriter, *http.Request, int64)
+
+func requireLogin(handler authHandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(response_writer http.ResponseWriter, request *http.Request) {
+		auth := request.Header.Get("Authorization")
+		if !strings.HasPrefix(auth, "Bearer ") {
+			http.Error(response_writer, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		token := strings.TrimPrefix(auth, "Bearer ")
+
+		authClient := getAuthClient()
+		verifiedToken, err := authClient.VerifyIDToken(context.Background(), token)
+		if err != nil {
+			fmt.Println("Error verifying token: ", err)
+			http.Error(response_writer, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		fmt.Println("Verified token: ", verifiedToken)
+		userID, err := strconv.ParseInt(verifiedToken.UID, 10, 64)
+		if err != nil {
+			http.Error(response_writer, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		handler(response_writer, request, userID)
+	})
 }
 
-func initFirestoreClient() {
-	firestoreClientOnce.Do(func() {
+func getFirebaseApp() *firebase.App {
+	_firebaseAppOnce.Do(func() {
 		ctx := context.Background()
+		var err error
 		if app.Config.GoogleApplicationCredentials == "" {
 			conf := &firebase.Config{ProjectID: "steam-game-recommender-415605"}
-			app, err := firebase.NewApp(ctx, conf)
+			_firebaseApp, err = firebase.NewApp(ctx, conf)
 			if err != nil {
 				log.Fatalln(err)
 			}
-			firestoreClient, err = app.Firestore(ctx)
-			if err != nil {
-				log.Fatalln(err)
-			}
+
 		} else {
 			sa := option.WithCredentialsFile(app.Config.GoogleApplicationCredentials)
-			app, err := firebase.NewApp(ctx, nil, sa)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			firestoreClient, err = app.Firestore(ctx)
+			_firebaseApp, err = firebase.NewApp(ctx, nil, sa)
 			if err != nil {
 				log.Fatalln(err)
 			}
 		}
 	})
+	return _firebaseApp
+}
+
+func getAuthClient() *auth.Client {
+	_authClientOnce.Do(func() {
+		var err error
+		_authClient, err = getFirebaseApp().Auth(context.Background())
+		if err != nil {
+			log.Fatalln(err)
+		}
+	})
+	return _authClient
+}
+
+func getFirestoreClient() *firestore.Client {
+	_firestoreClientOnce.Do(func() {
+		var err error
+		_firestoreClient, err = getFirebaseApp().Firestore(context.Background())
+		if err != nil {
+			log.Fatalln(err)
+		}
+	})
+	return _firestoreClient
 }
 
 // TODO convert all log.Fatal to http.Error & make sure that it doesn't keep processing request

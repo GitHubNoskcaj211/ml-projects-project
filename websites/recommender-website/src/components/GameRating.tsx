@@ -7,7 +7,7 @@ import {
   RecommendationsResponse,
   RecResponse,
 } from "./GetRecs";
-import { makeBackendURL } from "../util";
+import { backendAuthFetch } from "../util";
 
 interface Game {
   userID: string;
@@ -187,7 +187,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     const newIndex = currentIndex + 1;
     setSwipeDirection(userLiked ? 'right' : 'left');
     setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
-    await fetch(makeBackendURL("add_interaction"), {
+    await backendAuthFetch("add_interaction", {
       credentials: "include",
       method: "POST",
       headers: {

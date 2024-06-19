@@ -1,23 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { signInWithCustomToken } from "firebase/auth";
+import { onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
 import { auth } from "./firebase";
 import GameRating from "./components/GameRating";
 import GamesList from "./components/GamesList";
-import Navbar from "./components/NavBar";
+import { Navbar, NavbarView } from "./components/NavBar";
 import SignIn from "./components/SignIn";
 import Loading from "./components/Loading";
 import HomePage from "./components/HomePage";
 import "./App.css";
 
-import { makeBackendURL } from "./util";
+import { backendAuthFetch } from "./util";
 
 const App: React.FC = () => {
-  const [userID, setUserID] = useState<string | undefined | null>(undefined);
+  const [userID, setUserID] = useState<string | null>(null);
+  const [userInited, setUserInited] = useState(false);
   const [showPublicProfileWarning, setShowPublicProfileWarning] =
     useState(false);
-  const [currentView, setCurrentView] = useState<
-    "LandingPage" | "FindNewGames" | "Interactions" | "HomePage"
-  >("LandingPage");
+  const [currentView, setCurrentView] = useState<NavbarView>(
+    NavbarView.LandingPage
+  );
 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -33,9 +34,26 @@ const App: React.FC = () => {
   }, [showPublicProfileWarning]);
 
   useEffect(() => {
+    const cleanup = onAuthStateChanged(auth, (user) => {
+      setUserID(user?.uid ?? null);
+    });
+
+    (async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get("token");
+      if (token === null) return;
+
+      urlParams.delete("token");
+      await signInWithCustomToken(auth, token);
+    })();
+    return cleanup;
+  }, []);
+
+  useEffect(() => {
+    if (userID === null) return;
     const controller = new AbortController();
     (async () => {
-      const res = await fetch(makeBackendURL("init_user"), {
+      const res = await backendAuthFetch("init_user", {
         credentials: "include",
         signal: controller.signal,
       });
@@ -48,23 +66,18 @@ const App: React.FC = () => {
         setShowPublicProfileWarning(true);
         return;
       }
-      const data = await res.json();
-      const cred = await signInWithCustomToken(auth, data.token);
-      setUserID(cred.user?.uid);
-      setCurrentView("HomePage");
+      setUserInited(true);
+      setCurrentView(NavbarView.HomePage);
     })();
+
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [userID]);
 
   const closePopup = () => {
     setShowPublicProfileWarning(false);
   };
-
-  if (userID === undefined) {
-    return <Loading />;
-  }
 
   if (userID === null) {
     return (
@@ -75,13 +88,18 @@ const App: React.FC = () => {
     );
   }
 
+  if (!userInited) {
+    return <Loading />;
+  }
 
   return (
     <div>
       <Navbar setCurrentView={setCurrentView} />
-      {currentView === "HomePage" && <HomePage />}
-      {currentView === "FindNewGames" && <GameRating details={{ userID }} />}
-      {currentView === "Interactions" && <GamesList userID={userID} />}
+      {currentView === NavbarView.HomePage && <HomePage />}
+      {currentView === NavbarView.FindNewGames && (
+        <GameRating details={{ userID }} />
+      )}
+      {currentView === NavbarView.Interactions && <GamesList userID={userID} />}
     </div>
   );
 };

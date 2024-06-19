@@ -72,11 +72,20 @@ func verifyLoginHandler(response_writer http.ResponseWriter, request *http.Reque
 		writeErrorJSONResponse(response_writer, "Invalid claimed_id", http.StatusBadRequest)
 		return
 	}
-	user_id, err := strconv.Atoi(strings.TrimPrefix(id_url, "https://steamcommunity.com/openid/id/"))
-	if err != nil {
-		writeErrorJSONResponse(response_writer, "Invalid id", http.StatusBadRequest)
+	userID := strings.TrimPrefix(id_url, "https://steamcommunity.com/openid/id/")
+	if _, err := strconv.ParseInt(userID, 10, 64); err != nil {
+		writeErrorJSONResponse(response_writer, "Invalid user id", http.StatusBadRequest)
 		return
 	}
+
+	authClient := getAuthClient()
+	token, err := authClient.CustomToken(context.Background(), userID)
+	if err != nil {
+		writeErrorJSONResponse(response_writer, "Failed to create custom token", http.StatusInternalServerError)
+		return
+	}
+	url := fmt.Sprintf("%s?token=%s", app.Config.FrontendURL, token)
+	http.Redirect(response_writer, request, url, http.StatusFound)
 }
 
 func makeAndUnmarshalRequest(response_writer http.ResponseWriter, request string) map[string]interface{} {
@@ -159,37 +168,34 @@ func getFriendsDocumentData(response_writer http.ResponseWriter, user_id int64) 
 	return friends_document_data
 }
 
-func initUserHandler(response_writer http.ResponseWriter, request *http.Request) {
-	requireLogin()
-	initFirestoreClient()
-
+func initUserHandler(response_writer http.ResponseWriter, request *http.Request, userID int64) {
 	// NOTE: games in firestore is deprecated (to ease requirements of init_user).
 	// Instead, any new games should be scraped during the sync process.
 
-	user_id := int64(101) // TODO fix after login
-	_, err := firestoreClient.Collection("users_games").Doc(strconv.FormatInt(user_id, 10)).Get(context.Background())
+	firestoreClient := getFirestoreClient()
+	_, err := firestoreClient.Collection("users_games").Doc(strconv.FormatInt(userID, 10)).Get(context.Background())
 	if err == nil {
 		responseData := map[string]interface{}{
-			"id": user_id,
+			"id": userID,
 		}
 		writeJSONResponse(response_writer, appendRequestMetaData(responseData, request))
 		return
 	}
 
-	users_games_document_data := getUsersGamesDocumentData(response_writer, user_id)
+	users_games_document_data := getUsersGamesDocumentData(response_writer, userID)
 	if users_games_document_data == nil {
 		return
 	}
 
-	friends_document_data := getFriendsDocumentData(response_writer, user_id)
+	friends_document_data := getFriendsDocumentData(response_writer, userID)
 	if friends_document_data == nil {
 		return
 	}
 
-	firestoreClient.Collection("users_games").Doc(strconv.FormatInt(user_id, 10)).Set(context.Background(), users_games_document_data)
-	firestoreClient.Collection("friends").Doc(strconv.FormatInt(user_id, 10)).Set(context.Background(), friends_document_data)
+	firestoreClient.Collection("users_games").Doc(strconv.FormatInt(userID, 10)).Set(context.Background(), users_games_document_data)
+	firestoreClient.Collection("friends").Doc(strconv.FormatInt(userID, 10)).Set(context.Background(), friends_document_data)
 	responseData := map[string]interface{}{
-		"id": user_id,
+		"id": userID,
 	}
 	writeJSONResponse(response_writer, appendRequestMetaData(responseData, request))
 }

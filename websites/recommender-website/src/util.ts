@@ -1,3 +1,16 @@
+import { auth } from "./firebase";
+
+export async function backendAuthFetch(path: string, init?: RequestInit | undefined) {
+  const options = init || {};
+  options.headers = options.headers || {};
+  const token = await auth.currentUser!.getIdToken();
+  const headers = new Headers(options.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  options.headers = headers;
+
+  return await fetch(makeBackendURL(path), options);
+}
+
 export function makeBackendURL(path: string) {
   const url = (import.meta.env.DEV) ? `/api/${path}` : new URL(path, import.meta.env.VITE_BACKEND_URL);
   return url.toString();

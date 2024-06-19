@@ -8,9 +8,7 @@ import (
 	"time"
 )
 
-func addInteractionHandler(response_writer http.ResponseWriter, request *http.Request) {
-	requireLogin()
-
+func addInteractionHandler(response_writer http.ResponseWriter, request *http.Request, userID int64) {
 	var url_values map[string]interface{}
 	decoder := json.NewDecoder(request.Body)
 	err := decoder.Decode(&url_values)
@@ -39,8 +37,8 @@ func addInteractionHandler(response_writer http.ResponseWriter, request *http.Re
 		}
 	}
 
-	initFirestoreClient()
-	params["user_id"] = int64(101) // TODO fix after login
+	firestoreClient := getFirestoreClient()
+	params["user_id"] = userID
 	params["timestamp"] = time.Now().Unix()
 	_, err = firestoreClient.Collection("interactions").Doc("data").Collection(strconv.FormatInt(params["user_id"].(int64), 10)).Doc(strconv.FormatInt(params["game_id"].(int64), 10)).Set(context.Background(), params)
 	if err != nil {
