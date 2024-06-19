@@ -71,6 +71,18 @@ jobs:
             ROOT_FOLDER="./"
           push: true
 
+      - name: 'Create release name'
+        run: |-
+          echo "RELEASE_NAME=${{ env.APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
+
+      - name: 'Deploy Backend Cloud Release'
+        uses: 'google-github-actions/deploy-cloudrun@v2'
+        with:
+          service: '${{ env.APP }}'
+          region: '${{ env.REGION }}'
+          tag: '${{ env.RELEASE_NAME }}'
+          image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
+
       - name: Build and Push ML Backend Container
         uses: docker/build-push-action@v5
         with:
@@ -86,21 +98,9 @@ jobs:
             FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
           push: true
 
-      - name: 'Create release name'
-        run: |-
-          echo "RELEASE_NAME=${{ env.APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
-
       - name: 'Create ml release name'
         run: |-
           echo "ML_RELEASE_NAME=${{ env.ML_APP }}-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> ${GITHUB_ENV}
-
-      - name: 'Deploy Backend Cloud Release'
-        uses: 'google-github-actions/deploy-cloudrun@v2'
-        with:
-          service: '${{ env.APP }}'
-          region: '${{ env.REGION }}'
-          tag: '${{ env.RELEASE_NAME }}'
-          image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
 
       - name: 'Deploy ML Backend Cloud Release'
         uses: 'google-github-actions/deploy-cloudrun@v2'
