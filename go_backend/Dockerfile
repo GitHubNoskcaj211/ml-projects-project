@@ -28,7 +28,7 @@ COPY dataset/data_files/games.json ./dataset/data_files/
 
 RUN go mod download
 
-RUN go build -o backend .
+RUN go build -a -installsuffix cgo -o backend .
 
 FROM alpine:latest
 
