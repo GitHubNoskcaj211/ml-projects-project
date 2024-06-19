@@ -28,7 +28,8 @@ func getGameInformationHandler(response_writer http.ResponseWriter, request *htt
 
 	var gamesResponse map[string]interface{}
 	if err := json.Unmarshal(gameBytes, &gamesResponse); err != nil {
-		log.Fatal("Error unmarshaling game data:", err)
+		writeErrorJSONResponse(response_writer, http.StatusInternalServerError, "Error unmarshaling game data")
+		return
 	}
 
 	gamesResponse["success"] = true

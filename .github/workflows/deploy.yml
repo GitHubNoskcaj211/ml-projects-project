@@ -66,9 +66,9 @@ jobs:
             FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
             FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
             GOOGLE_APPLICATION_CREDENTIALS=""
-            VERSION="0.0"
-            NAME="go_backend"
-            ROOT_FOLDER="./"
+            VERSION=0.0
+            NAME=go_backend
+            ROOT_FOLDER=./
             PORT=3000
           push: true
 
@@ -110,10 +110,6 @@ jobs:
           region: '${{ env.REGION }}'
           tag: '${{ env.ML_RELEASE_NAME }}'
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}'
-
-      - name: 'Report Cloud Deploy release'
-        run: |-
-          echo "Release url ${{ steps.release.outputs.url }} "
 
   BuildFrontEnd:
     runs-on: ubuntu-latest
