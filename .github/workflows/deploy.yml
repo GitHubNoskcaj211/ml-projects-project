@@ -59,12 +59,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}
-          file: backend/Dockerfile
+          file: go_backend/Dockerfile
           build-args: |
             FLASK_BACKEND_URL=${{ secrets.FLASK_BACKEND_URL }}
             FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
             FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
             FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
+            GOOGLE_APPLICATION_CREDENTIALS=""
+            VERSION="0.0"
+            NAME="go_backend"
+            ROOT_FOLDER="./"
           push: true
 
       - name: Build and Push ML Backend Container
