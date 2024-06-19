@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -73,7 +73,7 @@ func initGameData() {
 		}
 		defer gamesJsonFile.Close()
 
-		gameDataBytes, err = ioutil.ReadAll(gamesJsonFile)
+		gameDataBytes, err = io.ReadAll(gamesJsonFile)
 		if err != nil {
 			log.Fatal("Error reading JSON file:", err)
 		}

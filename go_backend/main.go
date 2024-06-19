@@ -15,6 +15,7 @@ import (
 type Config struct {
 	Debug                        string
 	SecretKey                    string
+	SteamWebAPIKey               string
 	FrontendURL                  string
 	GoogleApplicationCredentials string
 	Version                      string
@@ -37,6 +38,7 @@ func main() {
 	app.Config = Config{
 		Debug:                        getEnv("DEBUG", "production"),
 		SecretKey:                    getEnv("SECRET_KEY", ""),
+		SteamWebAPIKey:               getEnv("STEAM_WEB_API_KEY", ""),
 		FrontendURL:                  getEnv("FRONTEND_URL", ""),
 		GoogleApplicationCredentials: getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
 		Version:                      getEnv("VERSION", ""),
