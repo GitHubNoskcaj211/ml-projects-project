@@ -50,7 +50,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (userID === null) return;
+    if (!userID) return;
     const controller = new AbortController();
     (async () => {
       const res = await backendAuthFetch("init_user", {
