@@ -69,6 +69,7 @@ jobs:
             VERSION="0.0"
             NAME="go_backend"
             ROOT_FOLDER="./"
+            PORT=3000
           push: true
 
       - name: 'Create release name'
