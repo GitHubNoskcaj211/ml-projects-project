@@ -120,7 +120,7 @@ func writeJSONResponse(response_writer http.ResponseWriter, response interface{}
 	}
 }
 
-func writeErrorJSONResponse(response_writer http.ResponseWriter, statusCode int, message string) {
+func writeErrorJSONResponse(response_writer http.ResponseWriter, message string, statusCode int) {
 	responseData := make(map[string]interface{})
 	responseData["error"] = message
 	response_writer.WriteHeader(statusCode)
@@ -142,7 +142,7 @@ func getValueFromURLValues(url_values interface{}, key string) interface{} {
 func validateParameterString(key string, response_writer http.ResponseWriter, url_values interface{}) interface{} {
 	value := getValueFromURLValues(url_values, key)
 	if value == "" {
-		writeErrorJSONResponse(response_writer, http.StatusBadRequest, "Missing "+key+" parameter.")
+		writeErrorJSONResponse(response_writer, "Missing "+key+" parameter.", http.StatusBadRequest)
 		return nil
 	}
 	return value
@@ -155,7 +155,7 @@ func validateParameterInt(key string, response_writer http.ResponseWriter, url_v
 	}
 	value_int, err := strconv.ParseInt(value_str.(string), 10, 64)
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusBadRequest, "Parameter "+key+" was not an integer.")
+		writeErrorJSONResponse(response_writer, "Parameter "+key+" was not an integer.", http.StatusBadRequest)
 		return nil
 	}
 	return value_int
@@ -168,7 +168,7 @@ func validateParameterFloat(key string, response_writer http.ResponseWriter, url
 	}
 	value_float, err := strconv.ParseFloat(value_str.(string), 64)
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusBadRequest, "Parameter "+key+" was not a float.")
+		writeErrorJSONResponse(response_writer, "Parameter "+key+" was not a float.", http.StatusBadRequest)
 		return nil
 	}
 	return value_float
@@ -181,7 +181,7 @@ func validateParameterBool(key string, response_writer http.ResponseWriter, url_
 	}
 	value_bool, err := strconv.ParseBool(value_str.(string))
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusBadRequest, "Parameter "+key+" was not a boolean.")
+		writeErrorJSONResponse(response_writer, "Parameter "+key+" was not a boolean.", http.StatusBadRequest)
 		return nil
 	}
 	return value_bool

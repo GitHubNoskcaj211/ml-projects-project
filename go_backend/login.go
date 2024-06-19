@@ -6,25 +6,95 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 )
+
+const OPENID_NS = "http://specs.openid.net/auth/2.0"
+const OPENID_URL = "https://steamcommunity.com/openid/login"
+
+func getVerifyLoginURL() string {
+	return app.Config.BackendURL + "/verify_login"
+}
+
+func loginHandler(response_writer http.ResponseWriter, request *http.Request) {
+	params := url.Values{}
+	params.Add("openid.ns", OPENID_NS)
+	params.Add("openid.mode", "checkid_setup")
+	params.Add("openid.claimed_id", "http://specs.openid.net/auth/2.0/identifier_select")
+	params.Add("openid.identity", "http://specs.openid.net/auth/2.0/identifier_select")
+	params.Add("openid.return_to", getVerifyLoginURL())
+	params.Add("openid.realm", app.Config.BackendURL)
+
+	url, err := url.Parse(OPENID_URL)
+	if err != nil {
+		writeErrorJSONResponse(response_writer, "Failed to construct auth url: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	url.RawQuery = params.Encode()
+	http.Redirect(response_writer, request, url.String(), http.StatusFound)
+}
+
+func verifyLoginHandler(response_writer http.ResponseWriter, request *http.Request) {
+	reqParams := request.URL.Query()
+
+	if reqParams.Get("openid.ns") != OPENID_NS ||
+		reqParams.Get("openid.mode") != "id_res" ||
+		reqParams.Get("openid.op_endpoint") != OPENID_URL ||
+		reqParams.Get("openid.return_to") != getVerifyLoginURL() {
+		writeErrorJSONResponse(response_writer, "Invalid verify params", http.StatusBadRequest)
+		return
+	}
+
+	params := reqParams
+	params.Set("openid.mode", "check_authentication")
+	resp, err := http.PostForm(OPENID_URL, params)
+	if err != nil {
+		writeErrorJSONResponse(response_writer, "Failed to verify login: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		writeErrorJSONResponse(response_writer, "Failed to read verify response body: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := strings.Split(string(body), "\n")
+	if len(response) != 3 || response[0] != "ns:"+OPENID_NS || response[1] != "is_valid:true" || response[2] != "" {
+		writeErrorJSONResponse(response_writer, "Invalid verify response", http.StatusBadRequest)
+		return
+	}
+
+	id_url := reqParams.Get("openid.claimed_id")
+	if !strings.HasPrefix(id_url, "https://steamcommunity.com/openid/id/") {
+		writeErrorJSONResponse(response_writer, "Invalid claimed_id", http.StatusBadRequest)
+		return
+	}
+	user_id, err := strconv.Atoi(strings.TrimPrefix(id_url, "https://steamcommunity.com/openid/id/"))
+	if err != nil {
+		writeErrorJSONResponse(response_writer, "Invalid id", http.StatusBadRequest)
+		return
+	}
+}
 
 func makeAndUnmarshalRequest(response_writer http.ResponseWriter, request string) map[string]interface{} {
 	resp, err := http.Get(request)
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusInternalServerError, "Failed to fetch owned games.")
+		writeErrorJSONResponse(response_writer, "Failed to fetch owned games.", http.StatusInternalServerError)
 		return nil
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusInternalServerError, "Failed to read response body.")
+		writeErrorJSONResponse(response_writer, "Failed to read response body.", http.StatusInternalServerError)
 		return nil
 	}
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusInternalServerError, "Failed to parse JSON response.")
+		writeErrorJSONResponse(response_writer, "Failed to parse JSON response.", http.StatusInternalServerError)
 		return nil
 	}
 	return result
@@ -77,7 +147,7 @@ func getFriendsDocumentData(response_writer http.ResponseWriter, user_id int64) 
 					friendsSlice[ii]["user1"] = user_id
 					value_int, err := strconv.ParseInt(friendMap["steamid"].(string), 10, 64)
 					if err != nil {
-						writeErrorJSONResponse(response_writer, http.StatusBadRequest, "Friend steamid was not an integer")
+						writeErrorJSONResponse(response_writer, "Friend steamid was not an integer", http.StatusBadRequest)
 						return nil
 					}
 					friendsSlice[ii]["user2"] = value_int

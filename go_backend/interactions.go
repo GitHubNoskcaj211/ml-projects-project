@@ -15,7 +15,7 @@ func addInteractionHandler(response_writer http.ResponseWriter, request *http.Re
 	decoder := json.NewDecoder(request.Body)
 	err := decoder.Decode(&url_values)
 	if err != nil {
-		writeErrorJSONResponse(response_writer, http.StatusBadRequest, "Invalid request body.")
+		writeErrorJSONResponse(response_writer, "Invalid request body.", http.StatusBadRequest)
 		return
 	}
 

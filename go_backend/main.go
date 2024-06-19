@@ -17,6 +17,7 @@ type Config struct {
 	SecretKey                    string
 	SteamWebAPIKey               string
 	FrontendURL                  string
+	BackendURL                   string
 	GoogleApplicationCredentials string
 	Version                      string
 	Name                         string
@@ -40,6 +41,7 @@ func main() {
 		SecretKey:                    getEnv("SECRET_KEY", ""),
 		SteamWebAPIKey:               getEnv("STEAM_WEB_API_KEY", ""),
 		FrontendURL:                  getEnv("FRONTEND_URL", ""),
+		BackendURL:                   getEnv("BACKEND_URL", ""),
 		GoogleApplicationCredentials: getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
 		Version:                      getEnv("VERSION", ""),
 		Name:                         getEnv("NAME", ""),
@@ -79,9 +81,14 @@ func methodNotAllowedHandler(response_writer http.ResponseWriter, request *http.
 
 func registerRoutes(router *mux.Router) {
 	router.HandleFunc("/version", versionHandler).Methods("GET")
-	router.HandleFunc("/get_game_information", getGameInformationHandler).Methods("GET")
-	router.HandleFunc("/add_interaction", addInteractionHandler).Methods("POST")
-	router.HandleFunc("/init_user", initUserHandler).Methods("GET")
 	router.HandleFunc("/error404", notFoundHandler).Methods("GET")
 	router.HandleFunc("/error405", methodNotAllowedHandler).Methods("POST")
+
+	router.HandleFunc("/get_game_information", getGameInformationHandler).Methods("GET")
+
+	router.HandleFunc("/add_interaction", addInteractionHandler).Methods("POST")
+
+	router.HandleFunc("/init_user", initUserHandler).Methods("GET")
+	router.HandleFunc("/login", loginHandler).Methods("GET")
+	router.HandleFunc("/verify_login", verifyLoginHandler).Methods("GET")
 }
