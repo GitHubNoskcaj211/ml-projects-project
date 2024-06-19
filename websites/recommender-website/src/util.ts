@@ -2,7 +2,10 @@ import { auth } from "./firebase";
 
 export async function backendAuthFetch(path: string, init?: RequestInit | undefined) {
   const options = init || {};
+  options.mode = "cors";
+  options.credentials = "include",
   options.headers = options.headers || {};
+  
   const token = await auth.currentUser!.getIdToken();
   const headers = new Headers(options.headers);
   headers.set("Authorization", `Bearer ${token}`);

@@ -188,7 +188,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     setSwipeDirection(userLiked ? 'right' : 'left');
     setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
     await backendAuthFetch("add_interaction", {
-      credentials: "include",
       method: "POST",
       headers: {
         "Content-Type": "application/json",

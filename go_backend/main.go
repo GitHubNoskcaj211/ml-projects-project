@@ -3,6 +3,7 @@ package main
 // Note: To run use `go run *.go` in go_backend folder.
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -55,6 +56,7 @@ func main() {
 	registerRoutes(app.Router)
 
 	frontendURL := strings.TrimRight(app.Config.FrontendURL, "/")
+	fmt.Println("Frontend URL: ", frontendURL)
 	cors := handlers.CORS(
 		handlers.AllowedOrigins([]string{frontendURL}),
 		handlers.AllowCredentials(),
@@ -88,7 +90,7 @@ func registerRoutes(router *mux.Router) {
 
 	router.HandleFunc("/add_interaction", requireLogin(addInteractionHandler)).Methods("POST")
 
-	router.HandleFunc("/init_user", requireLogin(initUserHandler)).Methods("GET")
+	router.HandleFunc("/init_user", requireLogin(initUserHandler)).Methods("POST")
 	router.HandleFunc("/login", loginHandler).Methods("GET")
 	router.HandleFunc("/verify_login", verifyLoginHandler).Methods("GET")
 }

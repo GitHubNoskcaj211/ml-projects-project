@@ -194,8 +194,4 @@ func initUserHandler(response_writer http.ResponseWriter, request *http.Request,
 
 	firestoreClient.Collection("users_games").Doc(strconv.FormatInt(userID, 10)).Set(context.Background(), users_games_document_data)
 	firestoreClient.Collection("friends").Doc(strconv.FormatInt(userID, 10)).Set(context.Background(), friends_document_data)
-	responseData := map[string]interface{}{
-		"id": userID,
-	}
-	writeJSONResponse(response_writer, appendRequestMetaData(responseData, request))
 }

@@ -54,11 +54,9 @@ func requireLogin(handler authHandlerFunc) http.HandlerFunc {
 		authClient := getAuthClient()
 		verifiedToken, err := authClient.VerifyIDToken(context.Background(), token)
 		if err != nil {
-			fmt.Println("Error verifying token: ", err)
 			http.Error(response_writer, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		fmt.Println("Verified token: ", verifiedToken)
 		userID, err := strconv.ParseInt(verifiedToken.UID, 10, 64)
 		if err != nil {
 			http.Error(response_writer, "Unauthorized", http.StatusUnauthorized)

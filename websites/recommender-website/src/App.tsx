@@ -12,7 +12,7 @@ import "./App.css";
 import { backendAuthFetch } from "./util";
 
 const App: React.FC = () => {
-  const [userID, setUserID] = useState<string | null>(null);
+  const [userID, setUserID] = useState<string | undefined | null>(undefined);
   const [userInited, setUserInited] = useState(false);
   const [showPublicProfileWarning, setShowPublicProfileWarning] =
     useState(false);
@@ -54,7 +54,7 @@ const App: React.FC = () => {
     const controller = new AbortController();
     (async () => {
       const res = await backendAuthFetch("init_user", {
-        credentials: "include",
+        method: "POST",
         signal: controller.signal,
       });
       if (res.status === 401) {
@@ -64,6 +64,9 @@ const App: React.FC = () => {
       } else if (res.status === 500) {
         setUserID(null);
         setShowPublicProfileWarning(true);
+        return;
+      } else if (res.status !== 200) {
+        setUserID(null);
         return;
       }
       setUserInited(true);
@@ -79,6 +82,10 @@ const App: React.FC = () => {
     setShowPublicProfileWarning(false);
   };
 
+  if (userID === undefined || !userInited) {
+    return <Loading />;
+  }
+
   if (userID === null) {
     return (
       <SignIn
@@ -86,10 +93,6 @@ const App: React.FC = () => {
         setShowPublicProfileWarning={setShowPublicProfileWarning}
       />
     );
-  }
-
-  if (!userInited) {
-    return <Loading />;
   }
 
   return (
