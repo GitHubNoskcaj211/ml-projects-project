@@ -3,14 +3,14 @@ package main
 // Note: To run use `go run *.go` in go_backend folder.
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
-	"github.com/rs/cors"
 )
 
 type Config struct {
@@ -25,7 +25,6 @@ type Config struct {
 }
 
 type App struct {
-	Router *mux.Router
 	Config Config
 }
 
@@ -46,47 +45,37 @@ func main() {
 		Port:                         getEnv("PORT", "3000"),
 	}
 
-	app.Router = mux.NewRouter()
-	app.Router.Use(beforeRequest)
-
-	registerRoutes(app.Router)
+	r := chi.NewRouter()
+	r.Use(beforeRequest)
+	r.Use(middleware.Logger)
 
 	frontendURL := strings.TrimRight(app.Config.FrontendURL, "/")
-	fmt.Println("Frontend URL: ", frontendURL)
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{frontendURL},
-		AllowCredentials: true,
-	})
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{frontendURL},
+		AllowedHeaders: []string{"Authorization"},
+	}))
+
+	registerRoutes(r)
 
 	log.Printf("Starting server on :%s...\n", app.Config.Port)
-	log.Fatal(http.ListenAndServe(":"+app.Config.Port, c.Handler(app.Router)))
+	log.Fatal(http.ListenAndServe(":"+app.Config.Port, r))
 }
 
-func versionHandler(response_writer http.ResponseWriter, request *http.Request) {
+func versionHandler(w http.ResponseWriter, r *http.Request) {
 	responseData := map[string]interface{}{
 		"success": true,
 	}
-	writeJSONResponse(response_writer, appendRequestMetaData(responseData, request))
+	writeJSONResponse(w, appendRequestMetaData(responseData, r))
 }
 
-func notFoundHandler(response_writer http.ResponseWriter, request *http.Request) {
-	http.Error(response_writer, "Resource not found", http.StatusNotFound)
-}
+func registerRoutes(r *chi.Mux) {
+	r.Get("/version", versionHandler)
 
-func methodNotAllowedHandler(response_writer http.ResponseWriter, request *http.Request) {
-	http.Error(response_writer, "Method not allowed", http.StatusMethodNotAllowed)
-}
+	r.Get("/get_game_information", getGameInformationHandler)
 
-func registerRoutes(router *mux.Router) {
-	router.HandleFunc("/version", versionHandler).Methods("GET")
-	router.HandleFunc("/error404", notFoundHandler).Methods("GET")
-	router.HandleFunc("/error405", methodNotAllowedHandler).Methods("POST")
+	r.Post("/add_interaction", requireLogin(addInteractionHandler))
 
-	router.HandleFunc("/get_game_information", getGameInformationHandler).Methods("GET")
-
-	router.HandleFunc("/add_interaction", requireLogin(addInteractionHandler)).Methods("POST", "OPTIONS")
-
-	router.HandleFunc("/init_user", requireLogin(initUserHandler)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/login", loginHandler).Methods("GET")
-	router.HandleFunc("/verify_login", verifyLoginHandler).Methods("GET")
+	r.Post("/init_user", requireLogin(initUserHandler))
+	r.Get("/login", loginHandler)
+	r.Get("/verify_login", verifyLoginHandler)
 }
