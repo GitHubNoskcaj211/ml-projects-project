@@ -61,10 +61,9 @@ jobs:
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}
           file: go_backend/Dockerfile
           build-args: |
-            FLASK_BACKEND_URL=${{ secrets.FLASK_BACKEND_URL }}
-            FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
-            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
-            FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
+            BACKEND_URL=${{ secrets.BACKEND_URL }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            STEAM_WEB_API_KEY=${{ secrets.STEAM_WEB_API_KEY }}
             GOOGLE_APPLICATION_CREDENTIALS=""
             VERSION=0.0
             NAME=go_backend

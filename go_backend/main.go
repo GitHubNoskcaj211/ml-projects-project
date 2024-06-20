@@ -14,8 +14,6 @@ import (
 )
 
 type Config struct {
-	Debug                        string
-	SecretKey                    string
 	SteamWebAPIKey               string
 	FrontendURL                  string
 	BackendURL                   string
@@ -38,8 +36,6 @@ func main() {
 
 	app = App{}
 	app.Config = Config{
-		Debug:                        getEnv("DEBUG", "production"),
-		SecretKey:                    getEnv("SECRET_KEY", ""),
 		SteamWebAPIKey:               getEnv("STEAM_WEB_API_KEY", ""),
 		FrontendURL:                  getEnv("FRONTEND_URL", ""),
 		BackendURL:                   getEnv("BACKEND_URL", ""),
