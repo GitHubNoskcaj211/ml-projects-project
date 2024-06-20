@@ -20,9 +20,9 @@ ENV PORT=${PORT}
 
 WORKDIR /app
 
-COPY go_backend/. .
-
 COPY dataset/data_files/games.json ./dataset/data_files/
+
+COPY go_backend/. .
 
 RUN go mod download
 

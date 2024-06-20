@@ -3,6 +3,7 @@ package main
 // Note: To run use `go run *.go` in go_backend folder.
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -50,6 +51,7 @@ func main() {
 	r.Use(middleware.Logger)
 
 	frontendURL := strings.TrimRight(app.Config.FrontendURL, "/")
+	fmt.Println("Frontend URL: ", frontendURL)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{frontendURL},
 		AllowedHeaders: []string{"Authorization"},

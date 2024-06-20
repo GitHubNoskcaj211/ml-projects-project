@@ -27,13 +27,10 @@ export interface RecommendationsResponse {
 }
 
 export async function fetchGameRecommendations(
-  num_games: number,
+  num_games: number
 ): Promise<RecommendationsResponse> {
   const resp = await fetch(
-    makeMLBackendURL(`get_N_recommendations_for_user?N=${num_games}`),
-    {
-      credentials: "include",
-    }
+    makeMLBackendURL(`get_N_recommendations_for_user?N=${num_games}`)
   );
   return resp.json();
 }
