@@ -2,6 +2,8 @@
 import React from "react";
 import { makeBackendURL } from "../util";
 import './NavBar.css';
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
 
 export enum NavbarView {
     LandingPage,
@@ -32,7 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentView }) => {
                 </button>
             </div>
             <div>
-                <button className="text-sm md:text-lg justify-right" onClick={() => window.location.replace(makeBackendURL("logout"))}>
+                <button className="text-sm md:text-lg justify-right" onClick={() => signOut(auth)}>
                     Logout
                 </button>
             </div>

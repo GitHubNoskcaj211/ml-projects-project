@@ -82,7 +82,7 @@ const App: React.FC = () => {
     setShowPublicProfileWarning(false);
   };
 
-  if (userID === undefined || !userInited) {
+  if (userID === undefined) {
     return <Loading />;
   }
 
@@ -93,6 +93,10 @@ const App: React.FC = () => {
         setShowPublicProfileWarning={setShowPublicProfileWarning}
       />
     );
+  }
+
+  if (!userInited) {
+    return <Loading />;
   }
 
   return (
