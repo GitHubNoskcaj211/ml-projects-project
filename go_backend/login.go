@@ -15,7 +15,9 @@ const OPENID_NS = "http://specs.openid.net/auth/2.0"
 const OPENID_URL = "https://steamcommunity.com/openid/login"
 
 func getVerifyLoginURL() string {
-	return app.Config.BackendURL + "/verify_login"
+	u := app.Config.BackendURL
+	u.Path = "/verify_login"
+	return u.String()
 }
 
 func loginHandler(response_writer http.ResponseWriter, request *http.Request) {
@@ -25,7 +27,7 @@ func loginHandler(response_writer http.ResponseWriter, request *http.Request) {
 	params.Add("openid.claimed_id", "http://specs.openid.net/auth/2.0/identifier_select")
 	params.Add("openid.identity", "http://specs.openid.net/auth/2.0/identifier_select")
 	params.Add("openid.return_to", getVerifyLoginURL())
-	params.Add("openid.realm", app.Config.BackendURL)
+	params.Add("openid.realm", app.Config.BackendURL.String())
 
 	url, err := url.Parse(OPENID_URL)
 	if err != nil {

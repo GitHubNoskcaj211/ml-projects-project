@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
+	"net/url"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -16,8 +16,8 @@ import (
 
 type Config struct {
 	SteamWebAPIKey               string
-	FrontendURL                  string
-	BackendURL                   string
+	FrontendURL                  *url.URL
+	BackendURL                   *url.URL
 	GoogleApplicationCredentials string
 	Version                      string
 	Name                         string
@@ -35,10 +35,18 @@ func main() {
 	godotenv.Load()
 
 	app = App{}
+	frontendURL, err := url.Parse(getEnv("FRONTEND_URL", ""))
+	if err != nil {
+		log.Fatal("Failed to parse FRONTEND_URL: ", err)
+	}
+	backendURL, err := url.Parse(getEnv("BACKEND_URL", ""))
+	if err != nil {
+		log.Fatal("Failed to parse BACKEND_URL: ", err)
+	}
 	app.Config = Config{
 		SteamWebAPIKey:               getEnv("STEAM_WEB_API_KEY", ""),
-		FrontendURL:                  getEnv("FRONTEND_URL", ""),
-		BackendURL:                   getEnv("BACKEND_URL", ""),
+		FrontendURL:                  frontendURL,
+		BackendURL:                   backendURL,
 		GoogleApplicationCredentials: getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
 		Version:                      getEnv("VERSION", ""),
 		Name:                         getEnv("NAME", ""),
@@ -50,10 +58,9 @@ func main() {
 	r.Use(beforeRequest)
 	r.Use(middleware.Logger)
 
-	frontendURL := strings.TrimRight(app.Config.FrontendURL, "/")
-	fmt.Println("Frontend URL: ", frontendURL)
+	fmt.Println("Frontend URL: ", frontendURL.String())
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{frontendURL},
+		AllowedOrigins: []string{frontendURL.String()},
 		AllowedHeaders: []string{"Authorization"},
 	}))
 
