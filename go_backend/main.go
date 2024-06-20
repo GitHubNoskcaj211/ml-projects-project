@@ -84,9 +84,9 @@ func registerRoutes(router *mux.Router) {
 
 	router.HandleFunc("/get_game_information", getGameInformationHandler).Methods("GET")
 
-	router.HandleFunc("/add_interaction", requireLogin(addInteractionHandler)).Methods("POST")
+	router.HandleFunc("/add_interaction", requireLogin(addInteractionHandler)).Methods("POST", "OPTIONS")
 
-	router.HandleFunc("/init_user", requireLogin(initUserHandler)).Methods("POST")
+	router.HandleFunc("/init_user", requireLogin(initUserHandler)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/login", loginHandler).Methods("GET")
 	router.HandleFunc("/verify_login", verifyLoginHandler).Methods("GET")
 }
