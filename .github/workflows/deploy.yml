@@ -92,10 +92,10 @@ jobs:
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}
           file: ml_backend/Dockerfile
           build-args: |
-            FLASK_BACKEND_URL=${{ secrets.FLASK_ML_BACKEND_URL }}
-            FLASK_FRONTEND_URL=${{ secrets.FLASK_FRONTEND_URL }}
-            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
-            FLASK_STEAM_WEB_API_KEY=${{ secrets.FLASK_STEAM_WEB_API_KEY }}
+            BACKEND_URL=${{ secrets.ML_BACKEND_URL }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            STEAM_WEB_API_KEY=${{ secrets.STEAM_WEB_API_KEY }}
           push: true
 
       - name: 'Create ml release name'
@@ -119,8 +119,8 @@ jobs:
           node-version: 20
       - name: Build
         env:
-          VITE_BACKEND_URL: ${{ secrets.FLASK_BACKEND_URL }}
-          VITE_ML_BACKEND_URL: ${{ secrets.FLASK_ML_BACKEND_URL }}
+          VITE_BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          VITE_ML_BACKEND_URL: ${{ secrets.ML_BACKEND_URL }}
         run: |
           npm i
           npm run build
