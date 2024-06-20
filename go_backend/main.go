@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 )
 
 type Config struct {
@@ -53,13 +53,13 @@ func main() {
 
 	frontendURL := strings.TrimRight(app.Config.FrontendURL, "/")
 	fmt.Println("Frontend URL: ", frontendURL)
-	cors := handlers.CORS(
-		handlers.AllowedOrigins([]string{frontendURL}),
-		handlers.AllowCredentials(),
-	)
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{frontendURL},
+		AllowCredentials: true,
+	})
 
 	log.Printf("Starting server on :%s...\n", app.Config.Port)
-	log.Fatal(http.ListenAndServe(":"+app.Config.Port, cors(app.Router)))
+	log.Fatal(http.ListenAndServe(":"+app.Config.Port, c.Handler(app.Router)))
 }
 
 func versionHandler(response_writer http.ResponseWriter, request *http.Request) {
