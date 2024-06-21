@@ -64,7 +64,6 @@ jobs:
             BACKEND_URL=${{ secrets.BACKEND_URL }}
             FRONTEND_URL=${{ secrets.FRONTEND_URL }}
             STEAM_WEB_API_KEY=${{ secrets.STEAM_WEB_API_KEY }}
-            GOOGLE_APPLICATION_CREDENTIALS=""
             VERSION=0.0
             NAME=go_backend
             ROOT_FOLDER=./
