@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, g, jsonify
-from auth import login_required
 from flask_pydantic import validate
 from pydantic import BaseModel
+from auth import login_required
 from models.common_neighbors_model import CommonNeighbors
 from models.popularity_model import GamePopularityModel
 from models.random_model import RandomModel
