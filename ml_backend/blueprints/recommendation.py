@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, g, jsonify
-from ml_backend.blueprints.auth import login_required
+from auth import login_required
 from flask_pydantic import validate
 from pydantic import BaseModel
 from models.common_neighbors_model import CommonNeighbors
