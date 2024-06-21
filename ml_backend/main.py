@@ -20,7 +20,6 @@ import ujson
 from utils.firestore import DatabaseClient
 
 from blueprints.errors import errors
-from blueprints.steam_login import steam_login, login_manager
 from blueprints.recommendation import recommendation, model_wrappers
 
 from dotenv import load_dotenv
@@ -31,7 +30,6 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
     app.register_blueprint(errors)
-    app.register_blueprint(steam_login)
     app.register_blueprint(recommendation)
 
     @app.errorhandler(404)
@@ -76,16 +74,11 @@ app = create_app()
 app.secret_key = bytes.fromhex(app.config["SECRET_KEY"])
 app.default_data_loader = None
 app.model_wrappers = model_wrappers
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config["SESSION_COOKIE_SECURE"] = True
 
 frontend_url_parsed = urlparse(app.config["FRONTEND_URL"])
 frontend_url_parsed = frontend_url_parsed._replace(path="", params="", query="", fragment="")
 origin = urlunparse(frontend_url_parsed)
-cors = CORS(app, origins=[origin], supports_credentials=True)
-app.config["REMEMBER_COOKIE_DOMAIN"] = frontend_url_parsed
-
-login_manager.init_app(app)
+cors = CORS(app, origins=[origin])
 
 app.database_client = DatabaseClient()
 

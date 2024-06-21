@@ -1,4 +1,4 @@
-import { makeMLBackendURL } from "../util";
+import { backendAuthFetch } from "../util";
 
 export interface RecResponse {
   avgReviewScore: number;
@@ -29,8 +29,8 @@ export interface RecommendationsResponse {
 export async function fetchGameRecommendations(
   num_games: number
 ): Promise<RecommendationsResponse> {
-  const resp = await fetch(
-    makeMLBackendURL(`get_N_recommendations_for_user?N=${num_games}`)
+  const resp = await backendAuthFetch(
+    `get_N_recommendations_for_user?N=${num_games}`
   );
   return resp.json();
 }

@@ -15,10 +15,7 @@ export interface GameInfo {
 export async function fetchGameInfo(gameID: number): Promise<GameInfo> {
   try {
     const response = await fetch(
-      makeBackendURL(`get_game_information?game_id=${gameID}`),
-      {
-        credentials: "include",
-      }
+      makeBackendURL(`get_game_information?game_id=${gameID}`)
     );
     return await response.json();
   } catch (error) {

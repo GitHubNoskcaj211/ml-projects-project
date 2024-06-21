@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, g, jsonify
-from flask_login import current_user, login_required
+from ml_backend.blueprints.auth import login_required
 from flask_pydantic import validate
 from pydantic import BaseModel
 from models.common_neighbors_model import CommonNeighbors
@@ -109,12 +109,11 @@ def get_recommendations(query: GetRecommendationFilterInput):
     model_wrapper = load_and_get_random_model_wrapper(current_app)
     model = model_wrapper.model
     print(g.execution_id, "Getting recommendations", model.name(), model_wrapper.model_save_file_name)
-    user_id = int(current_user.id)
-    if not data_loader.user_exists(user_id):
-        return jsonify({"error": f"User with user_id {user_id} not found"}), 404
-    model.fine_tune(user_id)
+    if not data_loader.user_exists(g.user_id):
+        return jsonify({"error": f"User with user_id {g.user_id} not found"}), 404
+    model.fine_tune(g.user_id)
     recommendations = model.score_and_predict_n_games_for_user(
-        user_id, query.N, should_sort=True
+        g.user_id, query.N, should_sort=True
     )
     recommendations = [
         {**data_loader.get_game_information(game_id), "recommendation_score": float(score)}
@@ -122,8 +121,8 @@ def get_recommendations(query: GetRecommendationFilterInput):
     ]
 
     # NOTE: This method assumes that the model trained on only all local data that is in the docker container & fine tuned on only all external data in the database.
-    users_games_df = data_loader.get_users_games_df_for_user(user_id, preprocess=False)
-    interactions_df = data_loader.get_interactions_df_for_user(user_id, preprocess=False)
+    users_games_df = data_loader.get_users_games_df_for_user(g.user_id, preprocess=False)
+    interactions_df = data_loader.get_interactions_df_for_user(g.user_id, preprocess=False)
     output = {
         "recommendations": recommendations,
         "model_name": model.name(),
