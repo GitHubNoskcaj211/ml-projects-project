@@ -15,14 +15,13 @@ import (
 )
 
 type Config struct {
-	SteamWebAPIKey               string
-	FrontendURL                  *url.URL
-	BackendURL                   *url.URL
-	GoogleApplicationCredentials string
-	Version                      string
-	Name                         string
-	RootFolder                   string
-	Port                         string
+	SteamWebAPIKey string
+	FrontendURL    *url.URL
+	BackendURL     *url.URL
+	Version        string
+	Name           string
+	RootFolder     string
+	Port           string
 }
 
 type App struct {
@@ -44,14 +43,13 @@ func main() {
 		log.Fatal("Failed to parse BACKEND_URL: ", err)
 	}
 	app.Config = Config{
-		SteamWebAPIKey:               getEnv("STEAM_WEB_API_KEY", ""),
-		FrontendURL:                  frontendURL,
-		BackendURL:                   backendURL,
-		GoogleApplicationCredentials: getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
-		Version:                      getEnv("VERSION", ""),
-		Name:                         getEnv("NAME", ""),
-		RootFolder:                   getEnv("ROOT_FOLDER", ""),
-		Port:                         getEnv("PORT", "3000"),
+		SteamWebAPIKey: getEnv("STEAM_WEB_API_KEY", ""),
+		FrontendURL:    frontendURL,
+		BackendURL:     backendURL,
+		Version:        getEnv("VERSION", ""),
+		Name:           getEnv("NAME", ""),
+		RootFolder:     getEnv("ROOT_FOLDER", ""),
+		Port:           getEnv("PORT", "3000"),
 	}
 
 	r := chi.NewRouter()

@@ -18,7 +18,6 @@ import (
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/auth"
-	"google.golang.org/api/option"
 )
 
 var (
@@ -70,19 +69,10 @@ func getFirebaseApp() *firebase.App {
 	_firebaseAppOnce.Do(func() {
 		ctx := context.Background()
 		var err error
-		if app.Config.GoogleApplicationCredentials == "" {
-			conf := &firebase.Config{ProjectID: "steam-game-recommender-415605"}
-			_firebaseApp, err = firebase.NewApp(ctx, conf)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-		} else {
-			sa := option.WithCredentialsFile(app.Config.GoogleApplicationCredentials)
-			_firebaseApp, err = firebase.NewApp(ctx, nil, sa)
-			if err != nil {
-				log.Fatalln(err)
-			}
+		conf := &firebase.Config{ProjectID: "steam-game-recommender-415605"}
+		_firebaseApp, err = firebase.NewApp(ctx, conf)
+		if err != nil {
+			log.Fatalln(err)
 		}
 	})
 	return _firebaseApp
