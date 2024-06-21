@@ -82,6 +82,55 @@ jobs:
           tag: '${{ env.RELEASE_NAME }}'
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
 
+    BuildAndDeployMLBackend:
+    env:
+      PROJECT_ID: steam-game-recommender-415605
+      REGION: us-central1
+      APP: backend
+      ML_APP: ml-backend
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+
+      - name: Set HF Token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global url."https://noskcaj211:${HF_TOKEN}@huggingface.co/".insteadOf "https://huggingface.co/"
+
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+        with:
+          submodules: true
+
+      - name: 'Google auth'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: ${{ secrets.SERVICE_ACCOUNT_CREDENTIALS }}
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          project_id: '${{ env.PROJECT_ID }}'
+
+      - name: Clone LFS Submodules
+        run: |
+          git -C dataset/data_files lfs pull origin 4ca677daf973bb180fe063ac89c2ff8248cdc283
+          git -C models/published_recommendation_models lfs pull origin e66d08f3f9aa8df2b68a77aa7b79cee954d12c38
+
+      - name: 'Docker auth'
+        run: |-
+          gcloud auth configure-docker gcr.io
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and Push ML Backend Container
         uses: docker/build-push-action@v5
         with:
