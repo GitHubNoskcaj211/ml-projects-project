@@ -83,6 +83,7 @@ func verifyLoginHandler(response_writer http.ResponseWriter, request *http.Reque
 	authClient := getAuthClient()
 	token, err := authClient.CustomToken(context.Background(), userID)
 	if err != nil {
+		fmt.Println("Failed to create custom token: ", err)
 		writeErrorJSONResponse(response_writer, "Failed to create custom token", http.StatusInternalServerError)
 		return
 	}
