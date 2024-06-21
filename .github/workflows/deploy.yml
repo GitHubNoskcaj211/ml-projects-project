@@ -82,7 +82,7 @@ jobs:
           tag: '${{ env.RELEASE_NAME }}'
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}'
 
-    BuildAndDeployMLBackend:
+  BuildAndDeployMLBackend:
     env:
       PROJECT_ID: steam-game-recommender-415605
       REGION: us-central1
