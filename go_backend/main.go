@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -56,9 +57,10 @@ func main() {
 	r.Use(beforeRequest)
 	r.Use(middleware.Logger)
 
-	fmt.Println("Frontend URL: ", frontendURL.String())
+	frontendString := strings.TrimSuffix(frontendURL.String(), "/")
+	fmt.Println("Frontend URL: ", frontendString)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{frontendURL.String()},
+		AllowedOrigins: []string{frontendString},
 		AllowedHeaders: []string{"Authorization"},
 	}))
 
