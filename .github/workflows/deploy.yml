@@ -43,7 +43,6 @@ jobs:
       - name: Clone LFS Submodules
         run: |
           git -C dataset/data_files lfs pull origin 4ca677daf973bb180fe063ac89c2ff8248cdc283
-          git -C models/published_recommendation_models lfs pull origin e66d08f3f9aa8df2b68a77aa7b79cee954d12c38
 
       - name: 'Docker auth'
         run: |-
