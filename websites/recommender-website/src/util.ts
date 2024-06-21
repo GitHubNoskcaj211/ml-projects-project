@@ -1,6 +1,6 @@
 import { auth } from "./firebase";
 
-export async function backendAuthFetch(path: string, init?: RequestInit | undefined) {
+async function authFetch(url: string, init?: RequestInit | undefined) {
   const options = init || {};
   options.mode = "cors";
   options.headers = options.headers || {};
@@ -10,7 +10,15 @@ export async function backendAuthFetch(path: string, init?: RequestInit | undefi
   headers.set("Authorization", `Bearer ${token}`);
   options.headers = headers;
 
-  return await fetch(makeBackendURL(path), options);
+  return await fetch(url, options);
+}
+
+export async function backendAuthFetch(url: string, init?: RequestInit | undefined) {
+  return await authFetch(makeBackendURL(url), init);
+}
+
+export async function mlBackendAuthFetch(url: string, init?: RequestInit | undefined) {
+  return await authFetch(makeMLBackendURL(url), init);
 }
 
 export function makeBackendURL(path: string) {

@@ -1,4 +1,4 @@
-import { backendAuthFetch } from "../util";
+import { mlBackendAuthFetch } from "../util";
 
 export interface RecResponse {
   avgReviewScore: number;
@@ -29,7 +29,7 @@ export interface RecommendationsResponse {
 export async function fetchGameRecommendations(
   num_games: number
 ): Promise<RecommendationsResponse> {
-  const resp = await backendAuthFetch(
+  const resp = await mlBackendAuthFetch(
     `get_N_recommendations_for_user?N=${num_games}`
   );
   return resp.json();
