@@ -56,8 +56,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.APP }}/${{ env.APP }}:${{ github.sha }}
           file: go_backend/Dockerfile
           build-args: |
@@ -86,8 +86,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=mlBackend
+          cache-to: type=gha,mode=max,scope=mlBackend
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}
           file: ml_backend/Dockerfile
           build-args: |
