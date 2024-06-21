@@ -44,6 +44,7 @@ const App: React.FC = () => {
       if (token === null) return;
 
       urlParams.delete("token");
+      window.history.replaceState(null, "", window.location.pathname);
       await signInWithCustomToken(auth, token);
     })();
     return cleanup;
