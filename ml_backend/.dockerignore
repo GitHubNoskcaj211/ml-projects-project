@@ -6,5 +6,6 @@ README.md
 __pycache__
 .pytest_cache
 .gitattributes
+.git
 log.txt
 text_embeddings

@@ -5,6 +5,7 @@ README.md
 *.pyd
 __pycache__
 .pytest_cache
+.git
 .gitattributes
 log.txt
 text_embeddings
