@@ -9,3 +9,4 @@ __pycache__
 .gitattributes
 log.txt
 text_embeddings
+evaluation
