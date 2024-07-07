@@ -102,11 +102,6 @@ model_wrappers = {
         ),
 }
 
-
-class RefreshRecommendationsQueueFilterInput(BaseModel, extra="forbid"):
-    N: int
-    model_save_file_name: str
-
 def acquire_lock(lock_key):
     lock_ref = current_app.database_client.locks_ref.document(lock_key)
     @firestore.transactional
@@ -131,13 +126,17 @@ def release_lock(lock_key):
     lock_ref = current_app.database_client.locks_ref.document(lock_key)
     lock_ref.delete()
 
+class RefreshRecommendationsQueueFilterInput(BaseModel, extra="forbid"):
+    N: int
+    model_save_file_name: str
+    user_id: int
+
 @recommendation.route("/refresh_recommendation_queue", methods=["GET"])
-@login_required
 @validate()
 def refresh_recommendations_queue(query: RefreshRecommendationsQueueFilterInput):
     if query.model_save_file_name not in model_wrappers.keys():
         return jsonify({"error": f"Model with safe file name {query.model_save_file_name} not found"}), 404
-    lock_key = f"refreshing:{g.user_id}:{query.model_save_file_name}"
+    lock_key = f"refreshing:{query.user_id}:{query.model_save_file_name}"
     if not acquire_lock(lock_key):
         return jsonify({"error": "Another process is currently refreshing the recommendation queue for this user and model. Please try again later."}), 409
 
@@ -146,16 +145,16 @@ def refresh_recommendations_queue(query: RefreshRecommendationsQueueFilterInput)
         model_wrapper = load_and_get_model_wrapper(model_wrappers[query.model_save_file_name])
         model = model_wrapper.model
         print(g.execution_id, "Getting recommendations", model.name(), model_wrapper.model_save_file_name)
-        if not data_loader.user_exists(g.user_id):
-            return jsonify({"error": f"User with user_id {g.user_id} not found"}), 404
-        model.fine_tune(g.user_id)
+        if not data_loader.user_exists(query.user_id):
+            return jsonify({"error": f"User with user_id {query.user_id} not found"}), 404
+        model.fine_tune(query.user_id)
         recommendations = model.score_and_predict_n_games_for_user(
-            g.user_id, query.N, should_sort=True
+            query.user_id, query.N, should_sort=True
         )
         
         # NOTE: This method assumes that the model trained on only all local data that is in the docker container & fine tuned on only all external data in the database.
-        users_games_df = data_loader.get_users_games_df_for_user(g.user_id, preprocess=False)
-        interactions_df = data_loader.get_interactions_df_for_user(g.user_id, preprocess=False)
+        users_games_df = data_loader.get_users_games_df_for_user(query.user_id, preprocess=False)
+        interactions_df = data_loader.get_interactions_df_for_user(query.user_id, preprocess=False)
 
         metadata_document_data = {
             'model_name': model.name(),
@@ -169,8 +168,8 @@ def refresh_recommendations_queue(query: RefreshRecommendationsQueueFilterInput)
             'recommendations': [{'game_id': game_id, 'recommendation_score': score}for game_id, score in recommendations]
         }
 
-        current_app.database_client.recommendation_queue_ref.document(str(g.user_id)).collection(query.model_save_file_name).document('recommendation_metadata').set(metadata_document_data)
-        current_app.database_client.recommendation_queue_ref.document(str(g.user_id)).collection(query.model_save_file_name).document('recommendation_queue').set(recommendation_queue_document_data)
+        current_app.database_client.recommendation_queue_ref.document(str(query.user_id)).collection(query.model_save_file_name).document('recommendation_metadata').set(metadata_document_data)
+        current_app.database_client.recommendation_queue_ref.document(str(query.user_id)).collection(query.model_save_file_name).document('recommendation_queue').set(recommendation_queue_document_data)
 
         print(g.execution_id, "Returning success.")
         return jsonify({"success": 1})

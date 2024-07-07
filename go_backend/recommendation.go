@@ -219,7 +219,7 @@ func checkRefreshAllRecommendationQueues(response_writer http.ResponseWriter, re
 			return
 		}
 		if result.(bool) {
-			makeAsyncRequest(app.Config.MLBackendURL.String() + "refresh_recommendation_queue?N=" + strconv.FormatInt(NUM_RECOMMENDATIONS_IN_QUEUE, 10) + "&model_save_file_name=" + model_save_path)
+			makeAsyncRequest(app.Config.MLBackendURL.String() + "refresh_recommendation_queue?N=" + strconv.FormatInt(NUM_RECOMMENDATIONS_IN_QUEUE, 10) + "&model_save_file_name=" + model_save_path + "&user_id=" + strconv.FormatInt(userID, 10))
 		}
 	}
 
