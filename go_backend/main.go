@@ -88,7 +88,8 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func mlVersionHandler(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(app.Config.MLBackendURL.Host + "version")
+	versionURL := app.Config.MLBackendURL.ResolveReference(&url.URL{Path: "/version"})
+	resp, err := http.Get(versionURL.String())
 	if err != nil {
 		writeJSONResponse(w, err.Error())
 		return

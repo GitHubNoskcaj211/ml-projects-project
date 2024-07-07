@@ -217,7 +217,6 @@ func validateParameterInt(key string, response_writer http.ResponseWriter, url_v
 	if value_str == nil {
 		return nil
 	}
-	log.Printf(value_str.(string))
 	value_int, err := strconv.ParseInt(value_str.(string), 10, 64)
 	if err != nil {
 		if send_error {
