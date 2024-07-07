@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 )
 
@@ -34,8 +34,6 @@ type App struct {
 }
 
 var app App
-
-var redis_client *redis.Client
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -89,8 +87,24 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, appendRequestMetaData(responseData, r))
 }
 
+func mlVersionHandler(w http.ResponseWriter, r *http.Request) {
+	resp, err := http.Get(app.Config.MLBackendURL.Host + "version")
+	if err != nil {
+		writeJSONResponse(w, err.Error())
+		return
+	}
+	body_bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		writeErrorJSONResponse(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	body_string := string(body_bytes)
+	writeJSONResponse(w, body_string)
+}
+
 func registerRoutes(r *chi.Mux) {
 	r.Get("/version", versionHandler)
+	r.Get("/ml_version", mlVersionHandler)
 
 	r.Get("/get_game_information", getGameInformationHandler)
 
