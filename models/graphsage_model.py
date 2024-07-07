@@ -38,12 +38,13 @@ class GNNEncoder(torch.nn.Module):
         self.conv1 = GraphConv((-1, -1), hidden_channels)
         self.conv2 = GraphConv((-1, -1), hidden_channels)
         self.conv3 = GraphConv((-1, -1), out_channels)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, edge_index, edge_weight):
         x = self.conv1(x, edge_index, edge_weight=edge_weight).relu()
         x = self.conv2(x, edge_index, edge_weight=edge_weight).relu()
-        x = self.conv3(x, edge_index, edge_weight=edge_weight)# Add sigmoid?
-        # TODO Add dropout
+        x = self.conv3(x, edge_index, edge_weight=edge_weight)
+        x = self.dropout(x)
 
         return x
 
@@ -130,6 +131,10 @@ class CustomNeighborLoader():
         if train_edge_percent is not None:
             train_edge_index = self.data['user', 'plays', 'game'].edge_index[:, list(train_edge_ids[('user', 'plays', 'game')])]
             train_edge_label = self.data['user', 'plays', 'game'].edge_label[list(train_edge_ids[('user', 'plays', 'game')])]
+            # TODO set train_edge_label to 0 if there is no path of length 3 between the two nodes OR mask training so we dont train on those examples
+            # print(train_edge_index)
+            # print(train_edge_label)
+
         return data, starting_nodes_map, train_edge_index, train_edge_label
     
     def get_batch(self, starting_nodes_map=None):
@@ -166,7 +171,6 @@ class MLPEdgeDecoder(torch.nn.Module):
 
         z = self.lin1(z).relu()
         z = self.lin2(z)
-        # TODO Add dropout
         return z.view(-1)
 
 
@@ -177,7 +181,6 @@ class DotProductEdgeDecoder(torch.nn.Module):
     def forward(self, z_dict, edge_label_index):
         row, col = edge_label_index
         z = torch.sum(z_dict['user'][row] * z_dict['game'][col], axis=1)
-        # TODO Add dropout
         return z
 
 
@@ -208,6 +211,7 @@ class HeterogeneousGraphSAGE(torch.nn.Module):
         self.seed = seed
 
     def forward(self, x_dict, edge_index_dict, edge_weight_dict, edge_score_index):
+        # TODO Does this concatenate multiple times on successive calls?
         x_dict['game'] = torch.cat((x_dict['game'], self.embedding_game.weight), axis=1)
         z_dict = self.encoder(x_dict, edge_index_dict, edge_weight_dict)
         return self.decoder(z_dict, edge_score_index)
@@ -330,7 +334,6 @@ class GraphSAGE(BaseGameRecommendationModel):
         self.known_game_embeddings_df = get_numeric_dataframe_columns(self.data_loader.games_df, columns_to_remove=['id'])
         self.known_game_embeddings_df = self.known_game_embeddings_df.apply(normalize_column, axis=0)
         known_game_embeddings_tensor = torch.tensor(self.known_game_embeddings_df.values, dtype=torch.float32)
-        # game_tensor = torch.cat((known_game_embeddings_tensor, torch.eye(known_game_embeddings_tensor.shape[0])), dim=1)
         game_tensor = known_game_embeddings_tensor
         self.data['game'].x = game_tensor
 

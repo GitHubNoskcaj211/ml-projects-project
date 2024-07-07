@@ -199,6 +199,7 @@ class DataLoader():
             else:
                 pass
                 # TODO
+                # NOTE: When adding local interactions we might have to change how the shouldRefreshRecommendationQueue logic determines if the queue needs to be reset.
                 # query = f"SELECT * FROM users_games WHERE user_id = {user_id}"
                 # df = pd.concat([df, self.run_local_database_query(query)])
         

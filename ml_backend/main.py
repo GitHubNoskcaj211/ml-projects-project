@@ -71,15 +71,8 @@ def create_app():
 
 
 app = create_app()
-app.secret_key = bytes.fromhex(app.config["SECRET_KEY"])
 app.default_data_loader = None
 app.model_wrappers = model_wrappers
-
-frontend_url_parsed = urlparse(app.config["FRONTEND_URL"])
-frontend_url_parsed = frontend_url_parsed._replace(path="", params="", query="", fragment="")
-origin = urlunparse(frontend_url_parsed)
-print("Frontend URL: ", origin)
-cors = CORS(app, origins=[origin])
 
 app.database_client = DatabaseClient()
 

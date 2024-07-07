@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from dataset.data_loader import DataLoader
 from models.base_model import BaseGameRecommendationModel
-import random
 
 
 @dataclass
@@ -18,14 +17,12 @@ def load_and_get_data_loader(app):
     return app.default_data_loader
 
 
-def load_and_get_random_model_wrapper(app):
-    random.seed(None)
-    selected_model_wrapper = random.choice(app.model_wrappers)
-    if selected_model_wrapper.model is None:
-        selected_model_wrapper.model = selected_model_wrapper.definition()
-        selected_model_wrapper.model.load(
-            selected_model_wrapper.model_save_file_name, load_published_model=True
+def load_and_get_model_wrapper(model_wrapper):
+    if model_wrapper.model is None:
+        model_wrapper.model = model_wrapper.definition()
+        model_wrapper.model.load(
+            model_wrapper.model_save_file_name, load_published_model=True
         )
-        model_data_loader = DataLoader.load_from_file(selected_model_wrapper.data_loader_save_file_name, use_published_models_path=True, load_live_data_loader=True)
-        selected_model_wrapper.model.set_data_loader(model_data_loader)
-    return selected_model_wrapper
+        model_data_loader = DataLoader.load_from_file(model_wrapper.data_loader_save_file_name, use_published_models_path=True, load_live_data_loader=True)
+        model_wrapper.model.set_data_loader(model_data_loader)
+    return model_wrapper

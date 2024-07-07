@@ -12,7 +12,10 @@ db = firestore.client()
 
 class DatabaseClient:
     def __init__(self):
+        self.db = db
         self.games_ref = db.collection("games")
         self.friends_ref = db.collection("friends")
         self.users_games_ref = db.collection("users_games")
         self.interactions_ref = db.collection("interactions")
+        self.recommendation_queue_ref = db.collection("recommendation_queue")
+        self.locks_ref = db.collection("locks")

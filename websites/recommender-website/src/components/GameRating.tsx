@@ -4,10 +4,9 @@ import RecCircle from "./RecCircle";
 import PopUpBox from "./PopUpBox";
 import {
   fetchGameRecommendations,
-  RecommendationsResponse,
   RecResponse,
 } from "./GetRecs";
-import { backendAuthFetch } from "../util";
+import { backendAuthFetch, delay } from "../util";
 
 interface Game {
   userID: string;
@@ -16,17 +15,12 @@ interface Game {
   timeSpent?: number;
 }
 
-interface Recommendation {
-  resp: RecommendationsResponse;
-  rec: RecResponse;
-}
-
 interface GameRatingProps {
   details: Game;
 }
 
 const REQ_BATCH_SIZE = 10;
-const BUFFER_SIZE = 40;
+const BUFFER_SIZE = 20;
 const MIN_HORIZONTAL_SWIPE_COLOR_CHANGE = window.innerWidth / 4;
 const HORIZONTAL_SWIPE_THRESHOLD = window.innerWidth / 2;
 const VERTICAL_SWIPE_THRESHOLD = 50;
@@ -39,9 +33,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [interactionAttempts, setInteractionAttempts] = useState(0);
-  const [expectedRecommendationsLength, setExpectedRecommendationsLength] =
-    useState(0);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recommendations, setRecommendations] = useState<RecResponse[]>([]);
   const [steamLinkClicked, setSteamLinkClicked] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0); // Percentage of swipe progress
@@ -54,23 +46,17 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     console.log("Effect for fetchGameRecommendations running", details.userID);
     while (true) {
       try {
-        const resp = await fetchGameRecommendations(
-          REQ_BATCH_SIZE + BUFFER_SIZE
-        );
-        setRecommendations((prev) => {
-          const prevRecommend = new Set(prev.map((rec) => rec.rec.id));
-          const addedRecs = resp.recommendations.filter(
-            (rec) => !prevRecommend.has(rec.id)
-          )
-          .slice(0, REQ_BATCH_SIZE)
-          .map((rec => ({
-            resp,
-            rec,
-          })));
-          return prev.concat(addedRecs);
-        });
+        const exclude_game_ids = recommendations.map((rec) => rec.game_id);
+        let resp;
+        do {
+          resp = await fetchGameRecommendations(REQ_BATCH_SIZE, exclude_game_ids);
+          if (resp.recommendations.length === 0) {
+            await delay(1000);
+          }
+        } while (resp.recommendations.length == 0);
+        setRecommendations((prev) => prev.concat(resp.recommendations));
         setLoading(false);
-        return;
+        return
       } catch (e) {
         console.error("Error fetching games or game info. Trying again:", e);
       }
@@ -183,7 +169,6 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
     console.assert(currentIndex < recommendations.length);
     const rec = recommendations[currentIndex];
-    // console.log(rec.resp.model_save_path);
     const newIndex = currentIndex + 1;
     setSwipeDirection(userLiked ? 'right' : 'left');
     setSwipeProgress(MAX_SWIPE_COLOR_ALPHA);
@@ -193,18 +178,22 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        rec_model_name: rec.resp.model_name,
-        rec_model_save_path: rec.resp.model_save_path,
-        num_game_interactions_local: rec.resp.num_game_interactions_local,
-        num_game_owned_local: rec.resp.num_game_owned_local,
+        rec_model_name: rec.model_name,
+        rec_model_save_path: rec.model_save_path,
+        num_game_interactions_local: rec.num_game_interactions_local.toString(),
+        num_game_owned_local: rec.num_game_owned_local.toString(),
         num_game_interactions_external:
-          rec.resp.num_game_interactions_external,
-        num_game_owned_external: rec.resp.num_game_owned_external,
-        game_id: rec.rec.id,
-        user_liked: userLiked,
+          rec.num_game_interactions_external.toString(),
+        num_game_owned_external: rec.num_game_owned_external.toString(),
+        game_id: rec.game_id.toString(),
+        user_liked: userLiked.toString(),
         time_spent: timeSpent,
-        steam_link_clicked: steamLinkClicked,
+        steam_link_clicked: steamLinkClicked.toString(),
       }),
+    });
+    // TODO have this run on updates to the # interactions documents.
+    backendAuthFetch("check_refresh_all_recommendation_queues", {
+      method: "POST",
     });
     if (newIndex >= recommendations.length) {
       setLoading(true);
@@ -225,18 +214,10 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   }, [swipeProgress]);
 
   useEffect(() => {
-    const expectedNumLeft = expectedRecommendationsLength - currentIndex;
-    if (expectedNumLeft >= BUFFER_SIZE) {
+    if (recommendations.length - currentIndex >= BUFFER_SIZE) {
       return;
     }
-    let numBatches = 0;
-    numBatches = Math.ceil((BUFFER_SIZE - expectedNumLeft) / REQ_BATCH_SIZE);
-    setExpectedRecommendationsLength(
-      (prev) => prev + numBatches * REQ_BATCH_SIZE
-    );
-    for (let i = 0; i < numBatches; i++) {
-      runGamesProcess();
-    }
+    runGamesProcess();
   }, [currentIndex]);
 
   useEffect(() => {
@@ -259,6 +240,9 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   };
 
   if (loading || interactionAttempts > 1) {
+    backendAuthFetch("check_refresh_all_recommendation_queues", { // TODO have this run on an init-ed user (update to users_games / friends).
+      method: "POST",
+    });
     return <div>Loading...</div>;
   }
 
@@ -275,33 +259,33 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         {/* Game Title */}
         <div className="title box">
           <a
-            href={`https://store.steampowered.com/app/${recommendations[currentIndex].rec.id}`}
+            href={`https://store.steampowered.com/app/${recommendations[currentIndex].id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleSteamLinkClicked}
           >
-            <h1>{recommendations[currentIndex].rec.name}</h1>
+            <h1>{recommendations[currentIndex].name}</h1>
           </a>
         </div>
         {/* Price */}
         <div className="price box">
-          <h2 className='font-bold text-2xl'>Price: ${recommendations[currentIndex].rec.price}</h2>
+          <h2 className='font-bold text-2xl'>Price: ${recommendations[currentIndex].price}</h2>
         </div>
         <div className="secondRow">
           {/* Image */}
           <div className="image box">
             <img
-              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].rec.id}/header.jpg`}
-              alt={recommendations[currentIndex].rec.name}
+              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].id}/header.jpg`}
+              alt={recommendations[currentIndex].name}
             />
           </div>
 
           {/* RecCircle */}
           <div className="rec box">
             <RecCircle
-              value={recommendations[currentIndex].rec.avgReviewScore || 0}
+              value={recommendations[currentIndex].avgReviewScore || 0}
               num_reviewers={
-                recommendations[currentIndex].rec.numReviews || 0
+                recommendations[currentIndex].numReviews || 0
               }
             />
           </div>
@@ -309,7 +293,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
         {/* Game Description */}
         <div className="game box">
-          <p>{recommendations[currentIndex].rec.description}</p>
+          <p>{recommendations[currentIndex].description}</p>
         </div>
 
         {/* Genres */}
@@ -317,7 +301,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           <h2>Genres</h2>
         </div>
         <div className="flex flex-wrap gap-2 justify-center text-gray-400">
-          {recommendations[currentIndex].rec.genres.map(
+          {recommendations[currentIndex].genres.map(
             (genre: string, index: number) => (
               <button key={index} disabled>
                 {genre}
@@ -331,7 +315,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           <h2>Tags</h2>
         </div>
         <div className="flex flex-wrap gap-2 justify-center text-gray-500 ">
-          {recommendations[currentIndex].rec.tags.map(
+          {recommendations[currentIndex].tags.map(
             (tag: string, index: number) => (
               <button key={index} disabled>
                 {tag}

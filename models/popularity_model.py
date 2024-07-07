@@ -18,7 +18,7 @@ class GamePopularityModel(BaseGameRecommendationModel):
         degrees = {row['game_id']: row['user_degree'] for index, row in user_degree_counts.iterrows()}
         degrees = {game: degrees[game] if game in degrees else 0 for game in game_nodes}
         score_fn = lambda game: degrees[game]
-        self.scores = [(game, score_fn(game)) for game in game_nodes]
+        self.scores = [(game, int(score_fn(game))) for game in game_nodes]
         self.scores = sorted(self.scores, key=lambda x: x[1], reverse=True)
         self.game_to_score_index = {game: ii for ii, (game, _) in enumerate(self.scores)}
 

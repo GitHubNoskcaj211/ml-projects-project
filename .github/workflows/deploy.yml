@@ -61,6 +61,7 @@ jobs:
           file: go_backend/Dockerfile
           build-args: |
             BACKEND_URL=${{ secrets.BACKEND_URL }}
+            ML_BACKEND_URL=${{ secrets.ML_BACKEND_URL }}
             FRONTEND_URL=${{ secrets.FRONTEND_URL }}
             STEAM_WEB_API_KEY=${{ secrets.STEAM_WEB_API_KEY }}
             VERSION=0.0
@@ -121,7 +122,7 @@ jobs:
       - name: Clone LFS Submodules
         run: |
           git -C dataset/data_files lfs pull origin 4ca677daf973bb180fe063ac89c2ff8248cdc283
-          git -C models/published_recommendation_models lfs pull origin e66d08f3f9aa8df2b68a77aa7b79cee954d12c38
+          git -C models/published_recommendation_models lfs pull origin 8fe0e5a899fae68442476f21e419745786821ba9
 
       - name: 'Docker auth'
         run: |-
@@ -139,10 +140,7 @@ jobs:
           tags: gcr.io/${{ env.PROJECT_ID }}/${{ env.ML_APP }}/${{ env.ML_APP }}:${{ github.sha }}
           file: ml_backend/Dockerfile
           build-args: |
-            BACKEND_URL=${{ secrets.ML_BACKEND_URL }}
-            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            STEAM_WEB_API_KEY=${{ secrets.STEAM_WEB_API_KEY }}
+            REDIS_URL=${{ secrets.REDIS_URL }}
           push: true
 
       - name: 'Create ml release name'
