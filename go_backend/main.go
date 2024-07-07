@@ -71,7 +71,7 @@ func main() {
 	fmt.Println("Frontend URL: ", frontendString)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{frontendString},
-		AllowedHeaders: []string{"Authorization"},
+		AllowedHeaders: []string{"Authorization", "Content-Type"},
 	}))
 
 	registerRoutes(r)
