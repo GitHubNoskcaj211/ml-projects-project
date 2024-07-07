@@ -10,6 +10,7 @@ import os
 sys.path.append("../dataset")
 sys.path.append("../utils")
 from utils.utils import gaussian_transformation, get_numeric_dataframe_columns
+import random
 
 if "K_SERVICE" not in os.environ:
     import datetime
@@ -93,22 +94,22 @@ class NCFModel(BaseGameRecommendationModel):
             self.user_nodes.append(user_id)
         if new_user_games_df.empty and new_interactions_df.empty:
             return
-        # N_users = 100
-        # random_users = random.sample(self.user_nodes, N_users)
-        # # NOTE: This next line is the slowest part.
-        # random_users_games_df = [self.data_loader.get_users_games_df_for_user(user, preprocess=True, get_external_database=False) for user in random_users]
-        # random_interactions_df = [self.data_loader.get_interactions_df_for_user(user, preprocess=True) for user in random_users]
-        user_indices = pd.concat([all_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), all_interactions_df['user_id'].apply(lambda id: self.user_to_index[id])])#, *[df['user_id'].apply(lambda id: self.user_to_index[id]) for df in random_users_games_df]])
+        N_users = 200
+        random_users = random.sample(self.user_nodes, N_users)
+        # NOTE: This next line is the slowest part.
+        random_users_games_df = [self.data_loader.get_users_games_df_for_user(user, preprocess=True, get_external_database=False) for user in random_users]
+        # random_interactions_df = [self.data_loader.get_interactions_df_for_user(user, preprocess=True, get_external_database=False) for user in random_users] # TODO Add when trained on local interactions
+        user_indices = pd.concat([all_user_games_df['user_id'].apply(lambda id: self.user_to_index[id]), all_interactions_df['user_id'].apply(lambda id: self.user_to_index[id]), *[df['user_id'].apply(lambda id: self.user_to_index[id]) for df in random_users_games_df]])
         user_indices = torch.tensor(user_indices.values)
-        game_indices = pd.concat([all_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), all_interactions_df['game_id'].apply(lambda id: self.game_to_index[id])])#, *[df['game_id'].apply(lambda id: self.game_to_index[id]) for df in random_users_games_df]])
+        game_indices = pd.concat([all_user_games_df['game_id'].apply(lambda id: self.game_to_index[id]), all_interactions_df['game_id'].apply(lambda id: self.game_to_index[id]), *[df['game_id'].apply(lambda id: self.game_to_index[id]) for df in random_users_games_df]])
         game_indices = torch.tensor(game_indices.values)
-        scores = pd.concat([all_user_games_df['score'], all_interactions_df['score']])#, *[df['score'] for df in random_users_games_df]])
+        scores = pd.concat([all_user_games_df['score'], all_interactions_df['score'], *[df['score'] for df in random_users_games_df]])
         scores_tensor = torch.tensor(scores.values)
         scores_tensor = scores_tensor.type(torch.FloatTensor)
         scores_tensor = torch.reshape(scores_tensor, (-1, 1))
         # TODO parameterize these later.
-        self.fine_tune_num_epochs = 100#50
-        self.fine_tune_weight_decay = 1e-6#1e-3
+        self.fine_tune_num_epochs = 100
+        self.fine_tune_weight_decay = 1e-6
         self.fine_tune_learning_rate = 1e-2
 
         writer = None
