@@ -5,6 +5,7 @@ import PopUpBox from "./PopUpBox";
 import {
   fetchGameRecommendations,
   RecResponse,
+  RecommendationsResponse,
 } from "./GetRecs";
 import { backendAuthFetch, delay } from "../util";
 
@@ -47,7 +48,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
     while (true) {
       try {
         const exclude_game_ids = recommendations.map((rec) => rec.game_id);
-        let resp;
+        let resp: RecommendationsResponse;
         do {
           resp = await fetchGameRecommendations(REQ_BATCH_SIZE, exclude_game_ids);
           if (resp.recommendations.length === 0) {
@@ -259,7 +260,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
         {/* Game Title */}
         <div className="title box">
           <a
-            href={`https://store.steampowered.com/app/${recommendations[currentIndex].id}`}
+            href={`https://store.steampowered.com/app/${recommendations[currentIndex].game_id}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleSteamLinkClicked}
@@ -275,7 +276,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
           {/* Image */}
           <div className="image box">
             <img
-              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].id}/header.jpg`}
+              src={`https://cdn.akamai.steamstatic.com/steam/apps/${recommendations[currentIndex].game_id}/header.jpg`}
               alt={recommendations[currentIndex].name}
             />
           </div>
