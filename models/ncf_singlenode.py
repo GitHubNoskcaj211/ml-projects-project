@@ -177,7 +177,7 @@ class NCF(nn.Module):
             self.embedding_gcf_user = nn.Embedding.from_pretrained(new_weight)
             new_weight = torch.cat([self.embedding_gcf_user_for_known_game.weight, torch.randn(1, self.num_known_game_embeddings)])
             self.embedding_gcf_user_for_known_game = nn.Embedding.from_pretrained(new_weight)
-        if self.mlp:    
+        if self.mlp:
             new_weight = torch.cat([self.embedding_mlp_user.weight, torch.randn(1, self.embedding_size)])
             self.embedding_mlp_user = nn.Embedding.from_pretrained(new_weight)
         self.num_users += 1
@@ -188,9 +188,9 @@ class NCF(nn.Module):
         for p in self.parameters():
             p.requires_grad_(True)
         if self.gcf or self.cf:
-            self.embedding_gcf_game.weight.requires_grad_(False)
+            self.embedding_gcf_known_game.weight.requires_grad_(False)
         if self.mlp:
-            self.embedding_mlp_game.weight.requires_grad_(False)
+            self.embedding_mlp_known_game.weight.requires_grad_(False)
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()), lr=learning_rate, weight_decay=0)
         # TODO Train on an equal number of positive and negative samples.
         train_loss = []
@@ -207,8 +207,8 @@ class NCF(nn.Module):
                 batched_users = user_indices[batch_indices]
                 batched_games = game_indices[batch_indices]
                 batched_labels = labels[batch_indices]
-                predictions = self.forward(batched_users, batched_games, fine_tune_training=True)
-                loss = self.loss_fn(predictions, batched_labels)
+                predictions = self.forward(user_indices, game_indices, fine_tune_training=True)
+                loss = self.loss_fn(predictions, labels)
                 optimizer.zero_grad()
                 loss.backward()
                 with torch.no_grad():
