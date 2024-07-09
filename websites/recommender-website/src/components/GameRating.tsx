@@ -21,7 +21,7 @@ interface GameRatingProps {
 }
 
 const REQ_BATCH_SIZE = 10;
-const BUFFER_SIZE = 20;
+const BUFFER_SIZE = 10;
 const MIN_HORIZONTAL_SWIPE_COLOR_CHANGE = window.innerWidth / 4;
 const HORIZONTAL_SWIPE_THRESHOLD = window.innerWidth / 2;
 const VERTICAL_SWIPE_THRESHOLD = 50;
