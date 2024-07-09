@@ -38,6 +38,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   const [steamLinkClicked, setSteamLinkClicked] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0); // Percentage of swipe progress
+  const [isFetchingGame, setIsFetchingGame] = useState(false);
 
   const handleSteamLinkClicked = () => {
     setSteamLinkClicked(true);
@@ -215,10 +216,16 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
   }, [swipeProgress]);
 
   useEffect(() => {
-    if (recommendations.length - currentIndex >= BUFFER_SIZE) {
-      return;
-    }
-    runGamesProcess();
+    const fetchData = async () => {
+      if (recommendations.length - currentIndex >= BUFFER_SIZE || isFetchingGame) {
+        return;
+      }
+      setIsFetchingGame(true);
+      await runGamesProcess();
+      setIsFetchingGame(false);
+    };
+
+    fetchData();
   }, [currentIndex]);
 
   useEffect(() => {
