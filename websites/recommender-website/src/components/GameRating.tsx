@@ -21,7 +21,7 @@ interface GameRatingProps {
 }
 
 const REQ_BATCH_SIZE = 10;
-const BUFFER_SIZE = 10;
+const BUFFER_SIZE = 0; // TODO: This is a hotfix. For some reason runGamesProcess runs without locking meaning we don't get games from the first request added to the buffer before the second batch is requested (meaning the user will be shown duplicates because the exclude game id tags are inaccurate).
 const MIN_HORIZONTAL_SWIPE_COLOR_CHANGE = window.innerWidth / 4;
 const HORIZONTAL_SWIPE_THRESHOLD = window.innerWidth / 2;
 const VERTICAL_SWIPE_THRESHOLD = 50;
@@ -217,7 +217,7 @@ const GameRating: React.FC<GameRatingProps> = ({ details }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (recommendations.length - currentIndex >= BUFFER_SIZE || isFetchingGame) {
+      if (recommendations.length - currentIndex > BUFFER_SIZE || isFetchingGame) {
         return;
       }
       setIsFetchingGame(true);
